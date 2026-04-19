@@ -8,8 +8,8 @@ this document only records the conventions this app commits to.
 ## Versions
 
 Accepted: `2.0N`, `2.0P`, `3.0` headers (AoK, TC, SWGB, HD). All share the
-same command loop. Definitive Edition `.sld` files are not supported by this
-tab &mdash; see the DE tab stub.
+same command loop. Definitive Edition `.sld` files are handled by the DE tab
+instead &mdash; see [SLD.md](SLD.md) for that format.
 
 ## Directions
 

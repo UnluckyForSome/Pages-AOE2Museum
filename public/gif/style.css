@@ -108,6 +108,47 @@
   border: 1px dashed var(--border);
 }
 
+/* ---- segmented toggle (SLD zoom x1/x2) ----------------------------- */
+
+.segmented {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.segmented__btn {
+  appearance: none;
+  border: 0;
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 6px 14px;
+  min-width: 44px;
+  border-radius: calc(var(--r-md) - 3px);
+  cursor: pointer;
+  transition:
+    background var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    opacity var(--dur) var(--ease);
+}
+.segmented__btn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--bg-panel-2);
+}
+.segmented__btn[aria-checked="true"]:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--gold-glow);
+}
+.segmented__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 /* ---- player color swatches ----------------------------------------- */
 
 .swatches {
@@ -211,16 +252,3 @@
 }
 .advanced__body.is-open { max-height: 2000px; }
 .advanced__card { margin-top: var(--s-2); }
-
-/* ---- definitive edition stub --------------------------------------- */
-
-.de-stub {
-  text-align: center;
-  line-height: 1.7;
-}
-.de-stub h2 {
-  font-size: 1.15rem;
-  margin-bottom: var(--s-2);
-}
-.de-stub p { margin: 0 0 var(--s-2); }
-.de-stub p:last-child { margin-bottom: 0; }

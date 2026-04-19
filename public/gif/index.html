@@ -29,8 +29,9 @@
       <div class="page-intro">
         <p>
           Pick a unit and an action, choose a facing and player color, then render an
-          animated GIF right in your browser. The original SLP graphics are decoded
-          client-side &mdash; nothing is uploaded.
+          animated GIF right in your browser. Both the classic <code>.slp</code>
+          (AoK / TC / HD) and the Definitive Edition <code>.sld</code> formats are
+          decoded client-side &mdash; nothing is uploaded.
         </p>
       </div>
 
@@ -119,10 +120,10 @@
                     <button type="button" class="swatch" data-player="2" role="radio" aria-checked="false" aria-label="Player 2 (red)"><img src="/gif/assets/2.png" alt="" /></button>
                     <button type="button" class="swatch" data-player="3" role="radio" aria-checked="false" aria-label="Player 3 (green)"><img src="/gif/assets/3.png" alt="" /></button>
                     <button type="button" class="swatch" data-player="4" role="radio" aria-checked="false" aria-label="Player 4 (yellow)"><img src="/gif/assets/4.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="5" role="radio" aria-checked="false" aria-label="Player 5 (orange)"><img src="/gif/assets/5.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="6" role="radio" aria-checked="false" aria-label="Player 6 (teal)"><img src="/gif/assets/6.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="7" role="radio" aria-checked="false" aria-label="Player 7 (purple)"><img src="/gif/assets/7.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="8" role="radio" aria-checked="false" aria-label="Player 8 (grey)"><img src="/gif/assets/8.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="5" role="radio" aria-checked="false" aria-label="Player 5 (cyan)"><img src="/gif/assets/5.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="6" role="radio" aria-checked="false" aria-label="Player 6 (magenta)"><img src="/gif/assets/6.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="7" role="radio" aria-checked="false" aria-label="Player 7 (tan)"><img src="/gif/assets/7.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="8" role="radio" aria-checked="false" aria-label="Player 8 (orange)"><img src="/gif/assets/8.png" alt="" /></button>
                   </div>
                 </div>
 
@@ -185,7 +186,7 @@
         </form>
       </section>
 
-      <!-- Definitive Edition stub tab -------------------------------------- -->
+      <!-- Definitive Edition (SLD) tab ------------------------------------- -->
       <section
         class="panel"
         id="panel-sld"
@@ -193,18 +194,132 @@
         aria-labelledby="tab-sld"
         hidden
       >
-        <div class="card card--narrow de-stub">
-          <h2>Definitive Edition is coming</h2>
-          <p>
-            Rendering <code>.sld</code> sprites (the format used by the 2019 remaster and
-            later) is considerably more involved than the classic <code>.slp</code>
-            format. Support for it will land here once the SLP tab is comfortable.
-          </p>
-          <p>
-            For now, please use the <strong>SLP</strong> tab &mdash; every unit, animation
-            and action from Age of Kings / The Conquerors / HD is available there.
-          </p>
-        </div>
+        <form id="form-sld" novalidate>
+          <div class="gen-grid">
+            <div class="card">
+              <div class="stack">
+                <div>
+                  <label class="field-label" for="sld-unit">Unit</label>
+                  <input
+                    id="sld-unit"
+                    name="unit"
+                    type="search"
+                    list="sld-unit-list"
+                    placeholder="Start typing&hellip;"
+                    autocomplete="off"
+                  />
+                  <datalist id="sld-unit-list"></datalist>
+                </div>
+
+                <div>
+                  <label class="field-label" for="sld-action">Action</label>
+                  <select id="sld-action" name="action" disabled>
+                    <option value="">Pick a unit first</option>
+                  </select>
+                </div>
+
+                <div>
+                  <span class="field-label">Zoom</span>
+                  <div class="segmented" id="sld-zoom" role="radiogroup" aria-label="Zoom">
+                    <button type="button" class="segmented__btn" data-zoom="x1" role="radio" aria-checked="false" disabled>x1</button>
+                    <button type="button" class="segmented__btn" data-zoom="x2" role="radio" aria-checked="true"  disabled>x2</button>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="field-label" for="sld-direction">Direction</label>
+                  <select id="sld-direction" name="direction">
+                    <option value="0"  selected>S (south)</option>
+                    <option value="1" >SSW</option>
+                    <option value="2" >SW</option>
+                    <option value="3" >WSW</option>
+                    <option value="4" >W (west)</option>
+                    <option value="5" >WNW</option>
+                    <option value="6" >NW</option>
+                    <option value="7" >NNW</option>
+                    <option value="8" >N (north)</option>
+                    <option value="9" >NNE</option>
+                    <option value="10">NE</option>
+                    <option value="11">ENE</option>
+                    <option value="12">E (east)</option>
+                    <option value="13">ESE</option>
+                    <option value="14">SE</option>
+                    <option value="15">SSE</option>
+                  </select>
+                </div>
+
+                <div>
+                  <span class="field-label">Player color</span>
+                  <div class="swatches" id="sld-swatches" role="radiogroup" aria-label="Player color">
+                    <button type="button" class="swatch" data-player="1" role="radio" aria-checked="true"  aria-label="Player 1 (blue)"><img src="/gif/assets/1.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="2" role="radio" aria-checked="false" aria-label="Player 2 (red)"><img src="/gif/assets/2.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="3" role="radio" aria-checked="false" aria-label="Player 3 (green)"><img src="/gif/assets/3.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="4" role="radio" aria-checked="false" aria-label="Player 4 (yellow)"><img src="/gif/assets/4.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="5" role="radio" aria-checked="false" aria-label="Player 5 (cyan)"><img src="/gif/assets/5.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="6" role="radio" aria-checked="false" aria-label="Player 6 (magenta)"><img src="/gif/assets/6.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="7" role="radio" aria-checked="false" aria-label="Player 7 (tan)"><img src="/gif/assets/7.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="8" role="radio" aria-checked="false" aria-label="Player 8 (orange)"><img src="/gif/assets/8.png" alt="" /></button>
+                  </div>
+                </div>
+
+                <button id="sld-submit" class="btn" type="submit" disabled>Generate GIF</button>
+              </div>
+            </div>
+
+            <div class="card card--viewer">
+              <div class="imgwrap" id="sld-imgwrap">
+                <img
+                  id="sld-img"
+                  src="/gif/assets/placeholder.png"
+                  alt="GIF preview. A rainbow placeholder is shown until you generate."
+                />
+              </div>
+              <p class="preview-caption" id="sld-preview-caption" aria-live="polite"></p>
+            </div>
+          </div>
+
+          <div class="advanced">
+            <button
+              type="button"
+              class="advanced__toggle"
+              id="sld-advanced-toggle"
+              aria-expanded="false"
+              aria-controls="sld-advanced-body"
+            >
+              <span class="advanced__label">Show advanced</span>
+              <span class="advanced__chevron" aria-hidden="true"></span>
+            </button>
+            <div class="advanced__body" id="sld-advanced-body">
+              <div class="card advanced__card">
+                <label class="field-label">Frame delay (ms)</label>
+                <div class="row">
+                  <input id="sld-delay" name="delay" type="range" min="20" max="500" step="10" value="100" />
+                  <input id="sld-delay_num" type="number" min="20" max="500" step="10" value="100" />
+                </div>
+
+                <label class="field-label">Scale (nearest-neighbor zoom)</label>
+                <div class="row">
+                  <input id="sld-scale" name="scale" type="range" min="1" max="4" value="1" />
+                  <input id="sld-scale_num" type="number" min="1" max="4" value="1" />
+                </div>
+
+                <label class="toggle">
+                  <input type="checkbox" id="sld-transparent" name="transparent" checked />
+                  Transparent background
+                </label>
+                <label class="toggle">
+                  <input type="checkbox" id="sld-draw_shadow" name="draw_shadow" checked />
+                  Draw ground shadow
+                </label>
+                <p class="hint">
+                  SLDs store 16 directions directly (no mirroring). Player tint is a
+                  luminance-weighted blend of the selected team color; full DE
+                  player-palette fidelity is not yet implemented.
+                </p>
+              </div>
+            </div>
+          </div>
+        </form>
       </section>
     </main>
 
