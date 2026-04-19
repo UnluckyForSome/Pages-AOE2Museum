@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "aoe2museum",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-19",
+  "observability": {
+    "enabled": true
+  }
+}

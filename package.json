@@ -1,0 +1,14 @@
+{
+  "name": "aoe2museum",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "wrangler check"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250419.0",
+    "typescript": "^5.8.3",
+    "wrangler": "^4.83.0"
+  }
+}
