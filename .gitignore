@@ -10,3 +10,5 @@ public/mcminimap/vendor/manifest.json
 
 # Downloaded by scripts/fetch-pylibs.mjs from PyPI at build time.
 vendor/pylibs/
+
+public/gif/oldexamples

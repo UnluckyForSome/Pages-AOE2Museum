@@ -1,0 +1,226 @@
+/* =============================================================================
+   GIF-generator specific styles. Shared theme (tokens, nav, buttons, cards,
+   tabs, statusbar, form controls, responsive) lives in /styles/museum.css,
+   and several widgets (gen-grid, imgwrap, advanced drawer, stack, field-label,
+   section, hint, toggle, row) are intentionally shared in shape with
+   /mcminimap/style.css; they are duplicated minimally here to avoid cross-app
+   coupling.
+   ========================================================================== */
+
+/* ---- generator grid (controls + preview) ---------------------------- */
+
+.gen-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s-3);
+}
+@media (min-width: 900px) {
+  .gen-grid { grid-template-columns: minmax(320px, 380px) minmax(0, 1fr); }
+}
+
+.card--viewer { padding: var(--s-2); }
+
+.stack { display: flex; flex-direction: column; gap: var(--s-3); }
+
+/* ---- square preview ------------------------------------------------- */
+
+.imgwrap {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.imgwrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  display: block;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.preview-caption {
+  margin: var(--s-2) 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  min-height: 1.1em;
+}
+
+/* ---- field labels + sections (shared shape with mcminimap) --------- */
+
+.field-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: var(--s-1) 0 0;
+}
+.hint code { color: var(--gold-glow); }
+
+/* ---- compass (8-direction radio group) ----------------------------- */
+
+.compass {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  max-width: 180px;
+}
+.compass__btn {
+  appearance: none;
+  border: 0;
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  padding: 8px 0;
+  border-radius: calc(var(--r-md) - 3px);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.compass__btn:hover { color: var(--text); background: var(--bg-panel-2); }
+.compass__btn[aria-checked="true"] {
+  background: var(--accent-soft);
+  color: var(--gold-glow);
+}
+.compass__center {
+  display: block;
+  height: 100%;
+  border-radius: calc(var(--r-md) - 3px);
+  background: var(--bg);
+  border: 1px dashed var(--border);
+}
+
+/* ---- player color swatches ----------------------------------------- */
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.swatch {
+  appearance: none;
+  border: 2px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  padding: 4px;
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.swatch img {
+  width: 100%;
+  height: auto;
+  display: block;
+  image-rendering: pixelated;
+}
+.swatch:hover { border-color: var(--gold-dim); }
+.swatch[aria-checked="true"] {
+  border-color: var(--gold);
+  transform: scale(1.04);
+}
+
+/* ---- toggle row (shared shape with mcminimap) --------------------- */
+
+.toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-top: var(--s-1);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 90px;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: var(--s-2);
+}
+.row input[type="number"] {
+  padding: 6px 8px;
+  font-size: 0.9rem;
+}
+
+/* ---- advanced drawer (shared shape with mcminimap) ----------------- */
+
+.advanced { margin-top: var(--s-4); }
+.advanced__toggle {
+  appearance: none;
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-panel);
+  color: var(--gold);
+  font: inherit;
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.advanced__toggle:hover {
+  background: var(--bg-panel-2);
+  border-color: var(--gold);
+}
+.advanced__chevron {
+  display: inline-block;
+  width: 0.55em;
+  height: 0.55em;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  margin-top: -0.2em;
+  transition: transform var(--dur) var(--ease);
+}
+.advanced__toggle[aria-expanded="true"] .advanced__chevron {
+  transform: rotate(225deg);
+  margin-top: 0.15em;
+}
+.advanced__body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 320ms var(--ease);
+}
+.advanced__body.is-open { max-height: 2000px; }
+.advanced__card { margin-top: var(--s-2); }
+
+/* ---- definitive edition stub --------------------------------------- */
+
+.de-stub {
+  text-align: center;
+  line-height: 1.7;
+}
+.de-stub h2 {
+  font-size: 1.15rem;
+  margin-bottom: var(--s-2);
+}
+.de-stub p { margin: 0 0 var(--s-2); }
+.de-stub p:last-child { margin-bottom: 0; }

@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Animated GIFs - AoE2 Museum</title>
+    <meta
+      name="description"
+      content="Render animated GIFs of Age of Empires II unit sprites straight from the original SLP graphics, entirely in your browser."
+    />
+    <link rel="stylesheet" href="/styles/museum.css" />
+    <link rel="stylesheet" href="/gif/style.css" />
+  </head>
+  <body>
+    <nav class="site-nav">
+      <a class="site-nav__logo" href="/">AoE2 Museum</a>
+      <div class="site-nav__links">
+        <a href="/">Home</a>
+        <a href="/mcminimap/">McMinimap</a>
+        <a href="/scenarios/">Scenarios</a>
+        <a href="/gif/" aria-current="page">GIFs</a>
+        <a href="/contact.html">Contact</a>
+      </div>
+    </nav>
+
+    <main>
+      <h1 class="page-title">AoE2 Unit GIFs</h1>
+
+      <div class="page-intro">
+        <p>
+          Pick a unit and an action, choose a facing and player color, then render an
+          animated GIF right in your browser. The original SLP graphics are decoded
+          client-side &mdash; nothing is uploaded.
+        </p>
+      </div>
+
+      <div class="tabs-bar">
+        <nav class="tabs" role="tablist" aria-label="GIF sources">
+          <button
+            class="tab"
+            role="tab"
+            id="tab-slp"
+            aria-selected="true"
+            aria-controls="panel-slp"
+            data-tab="slp"
+          >SLP (1999 / HD)</button>
+          <button
+            class="tab"
+            role="tab"
+            id="tab-sld"
+            aria-selected="false"
+            aria-controls="panel-sld"
+            data-tab="sld"
+          >Definitive Edition</button>
+        </nav>
+      </div>
+
+      <div
+        id="statusbar"
+        class="statusbar statusbar--idle"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <div class="statusbar__fill" aria-hidden="true"></div>
+        <span class="statusbar__text" id="status">Ready</span>
+      </div>
+
+      <!-- SLP tab ---------------------------------------------------------- -->
+      <section
+        class="panel"
+        id="panel-slp"
+        role="tabpanel"
+        aria-labelledby="tab-slp"
+      >
+        <form id="form" novalidate>
+          <div class="gen-grid">
+            <div class="card">
+              <div class="stack">
+                <div>
+                  <label class="field-label" for="unit-input">Unit</label>
+                  <input
+                    id="unit-input"
+                    name="unit"
+                    type="search"
+                    list="unit-list"
+                    placeholder="Start typing&hellip;"
+                    autocomplete="off"
+                  />
+                  <datalist id="unit-list"></datalist>
+                </div>
+
+                <div>
+                  <label class="field-label" for="action-select">Action</label>
+                  <select id="action-select" name="action" disabled>
+                    <option value="">Pick a unit first</option>
+                  </select>
+                </div>
+
+                <div>
+                  <span class="field-label">Direction</span>
+                  <div class="compass" role="radiogroup" aria-label="Facing">
+                    <button type="button" class="compass__btn" data-dir="NW" role="radio" aria-checked="false" aria-label="Northwest">&#x2196;</button>
+                    <button type="button" class="compass__btn" data-dir="N"  role="radio" aria-checked="false" aria-label="North">&#x2191;</button>
+                    <button type="button" class="compass__btn" data-dir="NE" role="radio" aria-checked="false" aria-label="Northeast">&#x2197;</button>
+                    <button type="button" class="compass__btn" data-dir="W"  role="radio" aria-checked="false" aria-label="West">&#x2190;</button>
+                    <span class="compass__center" aria-hidden="true"></span>
+                    <button type="button" class="compass__btn" data-dir="E"  role="radio" aria-checked="false" aria-label="East">&#x2192;</button>
+                    <button type="button" class="compass__btn" data-dir="SW" role="radio" aria-checked="false" aria-label="Southwest">&#x2199;</button>
+                    <button type="button" class="compass__btn" data-dir="S"  role="radio" aria-checked="true"  aria-label="South">&#x2193;</button>
+                    <button type="button" class="compass__btn" data-dir="SE" role="radio" aria-checked="false" aria-label="Southeast">&#x2198;</button>
+                  </div>
+                </div>
+
+                <div>
+                  <span class="field-label">Player color</span>
+                  <div class="swatches" role="radiogroup" aria-label="Player color">
+                    <button type="button" class="swatch" data-player="1" role="radio" aria-checked="true"  aria-label="Player 1 (blue)"><img src="/gif/assets/1.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="2" role="radio" aria-checked="false" aria-label="Player 2 (red)"><img src="/gif/assets/2.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="3" role="radio" aria-checked="false" aria-label="Player 3 (green)"><img src="/gif/assets/3.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="4" role="radio" aria-checked="false" aria-label="Player 4 (yellow)"><img src="/gif/assets/4.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="5" role="radio" aria-checked="false" aria-label="Player 5 (orange)"><img src="/gif/assets/5.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="6" role="radio" aria-checked="false" aria-label="Player 6 (teal)"><img src="/gif/assets/6.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="7" role="radio" aria-checked="false" aria-label="Player 7 (purple)"><img src="/gif/assets/7.png" alt="" /></button>
+                    <button type="button" class="swatch" data-player="8" role="radio" aria-checked="false" aria-label="Player 8 (grey)"><img src="/gif/assets/8.png" alt="" /></button>
+                  </div>
+                </div>
+
+                <button id="submit" class="btn" type="submit" disabled>Generate GIF</button>
+              </div>
+            </div>
+
+            <div class="card card--viewer">
+              <div class="imgwrap" id="imgwrap">
+                <img
+                  id="img"
+                  src="/gif/assets/placeholder.png"
+                  alt="GIF preview. A rainbow placeholder is shown until you generate."
+                />
+              </div>
+              <p class="preview-caption" id="preview-caption" aria-live="polite"></p>
+            </div>
+          </div>
+
+          <div class="advanced">
+            <button
+              type="button"
+              class="advanced__toggle"
+              id="advanced-toggle"
+              aria-expanded="false"
+              aria-controls="advanced-body"
+            >
+              <span class="advanced__label">Show advanced</span>
+              <span class="advanced__chevron" aria-hidden="true"></span>
+            </button>
+            <div class="advanced__body" id="advanced-body">
+              <div class="card advanced__card">
+                <label class="field-label">Frame delay (ms)</label>
+                <div class="row">
+                  <input id="delay" name="delay" type="range" min="20" max="500" step="10" value="100" />
+                  <input id="delay_num" type="number" min="20" max="500" step="10" value="100" />
+                </div>
+
+                <label class="field-label">Scale (nearest-neighbor zoom)</label>
+                <div class="row">
+                  <input id="scale" name="scale" type="range" min="1" max="4" value="1" />
+                  <input id="scale_num" type="number" min="1" max="4" value="1" />
+                </div>
+
+                <label class="toggle">
+                  <input type="checkbox" id="transparent" name="transparent" checked />
+                  Transparent background
+                </label>
+                <label class="toggle">
+                  <input type="checkbox" id="draw_outline" name="draw_outline" />
+                  Draw behind-building outline
+                </label>
+                <p class="hint">
+                  Each SLP stores 5 of 8 directions; the remaining 3 are mirrored. Military
+                  animations are usually 10 frames per direction.
+                </p>
+              </div>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <!-- Definitive Edition stub tab -------------------------------------- -->
+      <section
+        class="panel"
+        id="panel-sld"
+        role="tabpanel"
+        aria-labelledby="tab-sld"
+        hidden
+      >
+        <div class="card card--narrow de-stub">
+          <h2>Definitive Edition is coming</h2>
+          <p>
+            Rendering <code>.sld</code> sprites (the format used by the 2019 remaster and
+            later) is considerably more involved than the classic <code>.slp</code>
+            format. Support for it will land here once the SLP tab is comfortable.
+          </p>
+          <p>
+            For now, please use the <strong>SLP</strong> tab &mdash; every unit, animation
+            and action from Age of Kings / The Conquerors / HD is available there.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer>AoE2 Museum</footer>
+
+    <script type="module" src="/gif/app.js"></script>
+  </body>
+</html>

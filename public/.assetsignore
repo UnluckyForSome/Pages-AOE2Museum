@@ -1,0 +1,7 @@
+# Reference material shipped with the repo but not intended for production.
+# The /gif/ app keeps these alongside the generator for traceability, but the
+# files are multi-megabyte game dumps / legacy demos and would push the
+# deploy above Cloudflare's per-asset 25 MiB limit (and slow deploys).
+
+gif/oldexamples/
+gif/newexamples/
