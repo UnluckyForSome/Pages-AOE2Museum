@@ -1,4 +1,10 @@
-export interface Env {
+import type { ScenariosEnv } from "./scenarios/env";
+import { handleList } from "./scenarios/handlers/list";
+import { handleUpload } from "./scenarios/handlers/upload";
+import { handleDownload } from "./scenarios/handlers/download";
+import { handleSync } from "./scenarios/handlers/sync";
+
+export interface Env extends ScenariosEnv {
   ASSETS: Fetcher;
   MINIMAPS: R2Bucket;
   MINIMAP_INDEX: KVNamespace;
@@ -21,7 +27,10 @@ const SOURCE_NAME_MAX = 256;
 function json(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
     ...init,
-    headers: { "content-type": "application/json; charset=utf-8", ...(init.headers || {}) },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      ...(init.headers || {}),
+    },
   });
 }
 
@@ -55,7 +64,9 @@ function sanitizeSourceName(raw: string | null): string {
   return cleaned.length > SOURCE_NAME_MAX ? cleaned.slice(0, SOURCE_NAME_MAX) : cleaned;
 }
 
-async function handlePost(request: Request, env: Env): Promise<Response> {
+// ---------- gallery handlers ---------------------------------------------
+
+async function handleGalleryPost(request: Request, env: Env): Promise<Response> {
   const contentType = request.headers.get("content-type") || "";
   if (!contentType.toLowerCase().startsWith("image/png")) {
     return json({ error: "content-type must be image/png" }, { status: 415 });
@@ -98,20 +109,20 @@ async function handlePost(request: Request, env: Env): Promise<Response> {
   await writeIndex(env, next);
 
   if (evicted.length > 0) {
-    await Promise.all(evicted.map((e) => env.MINIMAPS.delete(r2Key(e.id)).catch(() => {})));
+    await Promise.all(
+      evicted.map((e) => env.MINIMAPS.delete(r2Key(e.id)).catch(() => {})),
+    );
   }
 
   return json({ id }, { status: 201 });
 }
 
-async function handleListIndex(env: Env): Promise<Response> {
+async function handleGalleryList(env: Env): Promise<Response> {
   const entries = await readIndex(env);
-  return json(entries, {
-    headers: { "cache-control": "no-store" },
-  });
+  return json(entries, { headers: { "cache-control": "no-store" } });
 }
 
-async function handleGetImage(id: string, env: Env): Promise<Response> {
+async function handleGalleryImage(id: string, env: Env): Promise<Response> {
   if (!ID_RE.test(id)) return new Response("not found", { status: 404 });
   const obj = await env.MINIMAPS.get(r2Key(id));
   if (!obj) return new Response("not found", { status: 404 });
@@ -123,8 +134,45 @@ async function handleGetImage(id: string, env: Env): Promise<Response> {
   return new Response(obj.body, { headers });
 }
 
+// ---------- scenarios routing --------------------------------------------
+
+const SCENARIOS_DOWNLOAD_RE = /^\/api\/scenarios\/download\/(\d+)$/;
+
+async function routeScenarios(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+  pathname: string,
+): Promise<Response | null> {
+  if (pathname === "/api/scenarios" && request.method === "GET") {
+    return handleList(env);
+  }
+
+  if (pathname === "/api/scenarios/upload" && request.method === "POST") {
+    return handleUpload(request, env);
+  }
+
+  const dl = pathname.match(SCENARIOS_DOWNLOAD_RE);
+  if (dl && request.method === "GET") {
+    return handleDownload(dl[1], env, ctx);
+  }
+
+  if (pathname === "/api/scenarios/sync" && request.method === "POST") {
+    const token = request.headers.get("Authorization");
+    if (!token || token !== `Bearer ${env.SYNC_SECRET}`) {
+      return json({ error: "Unauthorized" }, { status: 401 });
+    }
+    await handleSync(env);
+    return json({ ok: true });
+  }
+
+  return null;
+}
+
+// ---------- main fetch ---------------------------------------------------
+
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const { pathname } = url;
 
@@ -133,8 +181,8 @@ export default {
     }
 
     if (pathname === "/api/gallery") {
-      if (request.method === "POST") return handlePost(request, env);
-      if (request.method === "GET") return handleListIndex(env);
+      if (request.method === "POST") return handleGalleryPost(request, env);
+      if (request.method === "GET") return handleGalleryList(env);
       return new Response("method not allowed", {
         status: 405,
         headers: { allow: "GET, POST" },
@@ -148,9 +196,19 @@ export default {
           headers: { allow: "GET" },
         });
       }
-      return handleGetImage(pathname.slice("/api/gallery/".length), env);
+      return handleGalleryImage(pathname.slice("/api/gallery/".length), env);
+    }
+
+    if (pathname === "/api/scenarios" || pathname.startsWith("/api/scenarios/")) {
+      const res = await routeScenarios(request, env, ctx, pathname);
+      if (res) return res;
+      return new Response("not found", { status: 404 });
     }
 
     return env.ASSETS.fetch(request);
+  },
+
+  async scheduled(_event: ScheduledEvent, env: Env): Promise<void> {
+    await handleSync(env);
   },
 };

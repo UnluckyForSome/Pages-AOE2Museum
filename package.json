@@ -9,11 +9,15 @@
     "dev": "wrangler dev",
     "predeploy": "npm run build:mcminimap",
     "deploy": "wrangler deploy",
-    "check": "wrangler check"
+    "check": "wrangler check",
+    "db:migrate:scenarios": "wrangler d1 execute scenarios --file=src/scenarios/db/schema.sql --remote"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250419.0",
     "typescript": "^5.8.3",
     "wrangler": "^4.83.0"
+  },
+  "dependencies": {
+    "fflate": "^0.8.2"
   }
 }

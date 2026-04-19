@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contribute - AoE2 Scenario Archive</title>
+  <link rel="stylesheet" href="/scenarios/css/style.css">
+</head>
+<body>
+  <nav>
+    <a class="back-to-museum" href="/">&larr; Museum</a>
+    <span class="logo">AoE2 Scenarios</span>
+    <div class="nav-links">
+      <a href="/scenarios/">Archive</a>
+      <a href="/scenarios/contribute.html" class="active">Contribute</a>
+      <a href="/scenarios/contact.html">Contact</a>
+    </div>
+  </nav>
+
+  <main>
+    <h1 class="page-title">Contribute Scenarios</h1>
+
+    <div class="upload-intro" id="upload-intro">
+      <p>Contributions to this archive are most welcome &mdash; so many user creations have been lost to time!</p>
+      <p><code>.scn</code>, <code>.scx</code> and <code>.aoe2scenario</code> files are accepted. If you have multiple scenario files to upload, you can use a <code>.zip</code> or simply add them all at once.</p>
+      <button class="btn" id="start-upload-btn">Upload</button>
+    </div>
+
+    <div class="upload-panel hidden" id="upload-panel">
+      <form class="upload-form" id="upload-form">
+        <div class="drop-zone" id="drop-zone">
+          <p class="drop-zone-text">Drag files here</p>
+          <p class="drop-zone-hint">or</p>
+          <label class="btn btn-small" for="file-input">Browse files</label>
+          <input
+            type="file"
+            id="file-input"
+            name="file"
+            accept=".scn,.scx,.aoe2scenario,.zip"
+            multiple
+          >
+        </div>
+
+        <div class="file-list hidden" id="file-list">
+          <p class="file-list-title">Ready to upload:</p>
+          <ul id="file-list-items"></ul>
+        </div>
+
+        <div class="progress-wrapper hidden" id="progress-wrapper">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <p class="progress-text" id="progress-text">0%</p>
+        </div>
+
+        <div id="turnstile-container" class="turnstile-center"></div>
+
+        <button type="submit" class="btn" id="submit-btn">Upload</button>
+      </form>
+
+      <div class="upload-result hidden" id="upload-result">
+        <h2 class="result-title">Upload Result</h2>
+        <p id="result-summary"></p>
+        <div id="rejected-section" class="hidden">
+          <p class="rejected-heading">Rejected files:</p>
+          <div class="rejected-list-wrapper">
+            <ul id="rejected-list"></ul>
+          </div>
+        </div>
+        <p id="result-cta"></p>
+        <button class="btn" id="upload-another-btn">Upload more</button>
+      </div>
+    </div>
+  </main>
+
+  <footer>AoE2 Scenario Archive</footer>
+  <script src="/scenarios/js/upload.js"></script>
+</body>
+</html>

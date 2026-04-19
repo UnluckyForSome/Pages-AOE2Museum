@@ -3,17 +3,23 @@
 A Cloudflare Worker that hosts a small collection of Age of Empires II tools.
 Each "app" lives under its own path and runs client-side where possible.
 
-| Path                 | Description                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------- |
-| `/`                  | Museum landing page listing available apps.                                                 |
-| `/mcminimap/`        | Isometric minimap renderer. Runs [AOE2-McMinimap](https://github.com/UnluckyForSome/AOE2-McMinimap) in-browser via Pyodide &mdash; nothing is uploaded for rendering. |
-| `/api/gallery`       | `GET` returns the latest-20 index; `POST image/png` (with `X-Source-Name`) appends to the gallery. |
-| `/api/gallery/:id`   | Streams a stored gallery PNG from R2.                                                       |
-| `/health`            | JSON uptime check.                                                                          |
+| Path                            | Description                                                                                 |
+| ------------------------------- | ------------------------------------------------------------------------------------------- |
+| `/`                             | Museum landing page listing available apps.                                                 |
+| `/mcminimap/`                   | Isometric minimap renderer. Runs [AOE2-McMinimap](https://github.com/UnluckyForSome/AOE2-McMinimap) in-browser via Pyodide &mdash; nothing is uploaded for rendering. |
+| `/api/gallery`                  | `GET` returns the latest-20 index; `POST image/png` (with `X-Source-Name`) appends to the gallery. |
+| `/api/gallery/:id`              | Streams a stored gallery PNG from R2.                                                       |
+| `/scenarios/`                   | Community archive of AoE2 custom scenarios (list, filter, download, contribute).            |
+| `GET /api/scenarios`            | JSON list of every scenario in D1, newest first.                                            |
+| `POST /api/scenarios/upload`    | Multipart upload (Turnstile-gated). Accepts `.scn`/`.scx`/`.aoe2scenario`/`.zip`, dedupes by MD5. |
+| `GET /api/scenarios/download/:id` | Streams the scenario file from R2 and increments the download counter.                    |
+| `POST /api/scenarios/sync`      | Bearer-auth (`SYNC_SECRET`) or cron-triggered R2&harr;D1 reconcile.                          |
+| `/health`                       | JSON uptime check.                                                                          |
 
-Static assets are served by the Worker's `assets` binding. The only server
-state is the optional, **public** gallery of the 20 most recent minimaps
-(backed by R2 + KV) &mdash; see [Bindings](#bindings).
+Static assets are served by the Worker's `assets` binding.
+`/mcminimap/` has an optional, **public** gallery of the 20 most recent
+minimaps (R2 + KV). `/scenarios/` is a shared community archive backed by
+D1 + R2. See [Bindings](#bindings).
 
 ### Gallery caveat
 
@@ -24,26 +30,57 @@ are comfortable with them being visible to other visitors.
 
 ## Bindings
 
-`wrangler.jsonc` declares three bindings:
+`wrangler.jsonc` declares these bindings:
 
 | Binding         | Type           | Purpose                                   |
 | --------------- | -------------- | ----------------------------------------- |
 | `ASSETS`        | assets         | Serves `public/` (HTML, JS, vendor tar, &hellip;). |
-| `MINIMAPS`      | R2 bucket      | Stores gallery PNGs at `minimap/<id>.png`. |
-| `MINIMAP_INDEX` | KV namespace   | Single `index` key &mdash; JSON array, newest-first, capped at 20. |
+| `MINIMAPS`      | R2 bucket      | McMinimap gallery PNGs (`aoe2museum-minimaps`, key `minimap/<id>.png`). |
+| `MINIMAP_INDEX` | KV namespace   | McMinimap gallery &mdash; single `index` key, JSON array newest-first, capped at 20. |
+| `BUCKET`        | R2 bucket      | Scenarios archive object storage (`scenarios`; key = stored filename). |
+| `DB`            | D1 database    | Scenarios metadata (`scenarios`, uuid `94e77071-f016-4073-9c1a-c9012424b48d`). |
+
+A weekly cron (`0 3 * * 1`) re-runs the R2&harr;D1 reconcile for the
+Scenarios archive. Both resources are inherited from the previous standalone
+`scenarios` Worker &mdash; two Workers can bind to the same D1/R2 during a
+coexistence window without data migration.
+
+Secrets (set with `wrangler secret put <NAME>` against this Worker):
+
+| Name                | Purpose                                                                |
+| ------------------- | ---------------------------------------------------------------------- |
+| `TURNSTILE_SECRET`  | Server-side key for the Cloudflare Turnstile widget on the upload form. |
+| `SYNC_SECRET`       | Bearer token accepted by `POST /api/scenarios/sync` (the footer button). |
 
 One-time setup (already done for the production account; repeat per account):
 
 ```bash
+# McMinimap
 wrangler r2 bucket create aoe2museum-minimaps
 wrangler kv namespace create MINIMAP_INDEX
-# then paste the returned id into wrangler.jsonc under kv_namespaces[0].id
+# paste the returned id into wrangler.jsonc under kv_namespaces[0].id
+
+# Scenarios (only needed on a fresh account; production reuses existing)
+wrangler r2 bucket create scenarios
+wrangler d1 create scenarios
+# paste the returned uuid into wrangler.jsonc under d1_databases[0].database_id
+npm run db:migrate:scenarios   # WARNING: wipes the scenarios table
+
+# Scenarios secrets
+wrangler secret put TURNSTILE_SECRET
+wrangler secret put SYNC_SECRET
 ```
 
 ## Layout
 
 ```
-src/index.ts                        # Worker router
+src/
+  index.ts                          # Worker router + gallery handlers + scheduled()
+  scenarios/
+    env.ts                          # ScenariosEnv interface (DB, BUCKET, secrets)
+    handlers/                       # list, upload, download, sync (ex-Pages-Scenarios)
+    services/                       # turnstile, validation, verify-scenario
+    db/schema.sql                   # reference only; production D1 is already populated
 public/                             # served by the Cloudflare assets binding
   index.html                        # museum landing
   mcminimap/
@@ -54,6 +91,14 @@ public/                             # served by the Cloudflare assets binding
     assets/rainbow.png              # output placeholder shown before / on error
     vendor/aoe2mcminimap.tar        # generated from the submodule (gitignored)
     vendor/manifest.json            # { sourceSha, builtAt, files } (gitignored)
+  scenarios/                        # migrated from the old `scenarios` Worker
+    index.html                      # archive (table + filter + sort + pagination)
+    contribute.html                 # upload form (Turnstile-gated)
+    contact.html
+    css/style.css                   # medieval/AoE2-themed styling
+    js/scenarios.js                 # archive client
+    js/upload.js                    # upload client (XHR progress + Turnstile)
+    img/                            # aoc.png, aok.png, de.png, hd.png
 vendor/
   aoe2mcminimap/                    # git submodule -> UnluckyForSome/AOE2-McMinimap
   pylibs/                           # downloaded pure-Python deps with no PyPI wheel (gitignored)
@@ -176,3 +221,38 @@ No scenarios, replays, or source recordings ever leave the browser. The
 Gallery tab optionally `POST`s the rendered PNG (plus the source filename) to
 `/api/gallery`, which writes it to R2 and rewrites the KV index &mdash; the
 source file itself is never uploaded.
+
+## How `/scenarios` works (high level)
+
+Unlike `/mcminimap`, the Scenarios archive is a **shared, server-backed**
+app &mdash; uploaded scenario files live permanently in the `scenarios` R2
+bucket, with metadata in the `scenarios` D1 database.
+
+```
+Browser --> /scenarios/ --> GET /api/scenarios (list from D1)
+         \                --> click row --> GET /api/scenarios/download/:id (stream from R2)
+          --> /scenarios/contribute.html --> Turnstile -> POST /api/scenarios/upload
+                                              |
+                                              |-- validate ext + size (<=5 MB, <=100 MB zip)
+                                              |-- extract zips (fflate) in-Worker
+                                              |-- MD5 dedupe vs D1
+                                              |-- resolve filename collisions (-V1, -V2, ...)
+                                              |-- verifyScenario() header check
+                                              |-- write to R2 (BUCKET)
+                                              |-- INSERT into D1 (DB)
+```
+
+The weekly cron (`0 3 * * 1`) runs `handleSync()` which reconciles the R2
+bucket against the D1 table &mdash; detecting manual renames in R2,
+inserting orphaned objects, and deleting D1 rows whose R2 object disappeared.
+The same handler is reachable from the archive footer's `sync` link via
+bearer-auth.
+
+### Migration from the standalone `scenarios` Worker
+
+The Museum reuses the exact same D1 database
+(`94e77071-f016-4073-9c1a-c9012424b48d`) and R2 bucket (`scenarios`) that
+the old standalone Worker used &mdash; binding two Workers to one resource
+is supported and requires zero data migration. During the coexistence
+window both Workers will run the Monday cron; it is idempotent, so this
+is harmless. Delete the standalone `scenarios` Worker when ready.

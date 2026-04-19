@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AoE2 Scenario Archive</title>
+  <link rel="stylesheet" href="/scenarios/css/style.css">
+</head>
+<body>
+  <nav>
+    <a class="back-to-museum" href="/">&larr; Museum</a>
+    <span class="logo">AoE2 Scenarios</span>
+    <div class="nav-links">
+      <a href="/scenarios/" class="active">Archive</a>
+      <a href="/scenarios/contribute.html">Contribute</a>
+      <a href="/scenarios/contact.html">Contact</a>
+    </div>
+  </nav>
+
+  <main>
+    <h1 class="page-title">AoE2 Scenario Archive</h1>
+
+    <div class="archive-intro">
+      <p>
+        For decades, the Age of Empires II community has crafted thousands of unique custom scenarios.
+        Sadly, many of these have vanished&mdash;lost across old forums, broken links, and forgotten websites.
+      </p>
+      <p>
+        This project aims to be a community-driven effort to preserve as many creations as possible,
+        ensuring they remain accessible and playable for years to come. Have fun browsing and using this archive :-)
+      </p>
+      <p>
+        Got scenarios saved somewhere? <a href="/scenarios/contribute.html">Contribute</a> them.
+        Every upload helps safeguard a piece of the game's creative legacy!
+      </p>
+    </div>
+
+    <div class="archive-stats" id="archive-stats">
+      <span id="stats-text"></span>
+    </div>
+
+    <input
+      type="text"
+      id="filter"
+      class="filter-box"
+      placeholder="Filter by name..."
+    >
+
+    <table class="scenario-table">
+      <thead>
+        <tr>
+          <th data-sort="filename" class="sortable col-filename">Filename</th>
+          <th data-sort="filetype" class="sortable col-type">Type</th>
+          <th data-sort="size" class="sortable col-size">Size</th>
+          <th data-sort="uploaded_at" class="sortable col-uploaded desc active">Uploaded</th>
+          <th data-sort="downloads" class="sortable col-dls">D/Ls</th>
+        </tr>
+      </thead>
+      <tbody id="scenario-body">
+        <tr>
+          <td colspan="5" class="empty-state">Loading...</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="archive-table-pagination hidden" id="table-pagination" aria-live="polite">
+      <span class="table-pagination-text" id="table-pagination-text"></span>
+      <button type="button" class="btn btn-small" id="table-pagination-btn">Show all</button>
+    </div>
+  </main>
+
+  <footer>
+    AoE2 Scenario Archive
+    <br>
+    <a href="#" class="sync-link" id="sync-link">sync</a>
+    <div class="sync-prompt hidden" id="sync-prompt">
+      <input type="password" id="sync-secret" placeholder="Secret" class="sync-input">
+      <button class="sync-btn" id="sync-btn">Run</button>
+      <span class="sync-status" id="sync-status"></span>
+    </div>
+  </footer>
+  <script src="/scenarios/js/scenarios.js"></script>
+</body>
+</html>

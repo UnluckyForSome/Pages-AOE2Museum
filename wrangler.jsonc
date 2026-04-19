@@ -6,12 +6,16 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "404-page"
   },
   "r2_buckets": [
     {
       "binding": "MINIMAPS",
       "bucket_name": "aoe2museum-minimaps"
+    },
+    {
+      "binding": "BUCKET",
+      "bucket_name": "scenarios"
     }
   ],
   "kv_namespaces": [
@@ -20,6 +24,19 @@
       "id": "e5667d2705e64952a955970ea22aacbc"
     }
   ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "scenarios",
+      "database_id": "94e77071-f016-4073-9c1a-c9012424b48d"
+    }
+  ],
+  "triggers": {
+    // Weekly R2 <-> D1 reconcile for the Scenarios app. Matches the cron on
+    // the standalone `scenarios` worker; during the coexistence window both
+    // workers will fire this once per week. The sync is idempotent.
+    "crons": ["0 3 * * 1"]
+  },
   "observability": {
     "enabled": true
   }
