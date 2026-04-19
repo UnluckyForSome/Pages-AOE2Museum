@@ -58,6 +58,10 @@
     final_height: [64, 8192],
   };
 
+  const RAINBOW_URL = "/mcminimap/assets/rainbow.png";
+
+  // ---------- DOM references ----------------------------------------------
+
   const form = document.getElementById("form");
   const fileInput = document.getElementById("file");
   const dropzone = document.getElementById("dropzone");
@@ -65,54 +69,39 @@
   const fileMeta = document.getElementById("file-meta");
   const statusEl = document.getElementById("status");
   const imgEl = document.getElementById("img");
-  const phEl = document.getElementById("placeholder");
   const submitBtn = document.getElementById("submit");
-  const loadingOverlay = document.getElementById("loading-overlay");
-  const loadingOverlayMsg = document.getElementById("loading-overlay-msg");
+  const progressEl = document.getElementById("progress");
+  const progressFill = progressEl.querySelector(".progress__fill");
   const advancedToggle = document.getElementById("advanced-toggle");
-  const advancedCollapsible = document.getElementById("advanced-collapsible");
-  const advancedToggleLabel = advancedToggle.querySelector(".btn-advanced-toggle-label");
+  const advancedBody = document.getElementById("advanced-body");
+  const advancedLabel = advancedToggle.querySelector(".advanced__label");
   const presetButtons = Array.prototype.slice.call(document.querySelectorAll(".preset-btn"));
+  const tabs = Array.prototype.slice.call(document.querySelectorAll(".tab"));
+  const panelGenerate = document.getElementById("panel-generate");
+  const panelGallery = document.getElementById("panel-gallery");
+  const galleryGrid = document.getElementById("gallery-grid");
+  const galleryRefresh = document.getElementById("gallery-refresh");
+
+  // ---------- state -------------------------------------------------------
 
   let lastObjectUrl = null;
   let busy = false;
   let worker = null;
   let pendingId = 0;
   const pending = new Map();
+  let lastRenderedFingerprint = null;
+  let currentFingerprint = "";
+  let galleryLoaded = false;
+  let progressHideTimer = 0;
+  let bootDone = false;
 
-  // -------- status + file metadata ---------------------------------------
+  // ---------- utility -----------------------------------------------------
 
   function formatBytes(n) {
     if (!Number.isFinite(n) || n < 0) return "";
     if (n < 1024) return n + " B";
     if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
     return (n / (1024 * 1024)).toFixed(1) + " MB";
-  }
-
-  function setStatus(text, tone) {
-    statusEl.textContent = text || "";
-    statusEl.className = "status" + (tone ? " status--" + tone : "");
-  }
-
-  function setBusy(on, overlayMessage) {
-    busy = on;
-    submitBtn.disabled = on;
-    dropzone.classList.toggle("is-disabled", on);
-    dropzone.tabIndex = on ? -1 : 0;
-    browseBtn.disabled = on;
-    loadingOverlay.classList.toggle("is-active", on);
-    loadingOverlay.setAttribute("aria-hidden", on ? "false" : "true");
-    if (loadingOverlayMsg) {
-      loadingOverlayMsg.textContent = on
-        ? overlayMessage || "Generating minimap\u2026"
-        : "Generating minimap\u2026";
-    }
-  }
-
-  function setImageFromBlob(blob) {
-    if (lastObjectUrl) URL.revokeObjectURL(lastObjectUrl);
-    lastObjectUrl = URL.createObjectURL(blob);
-    imgEl.src = lastObjectUrl;
   }
 
   function fileExtension(name) {
@@ -125,29 +114,115 @@
     return SUPPORTED_EXTENSIONS.indexOf(fileExtension(file.name)) !== -1;
   }
 
-  function syncIdleStatusFromFile() {
-    if (busy) return;
-    const f = fileInput.files && fileInput.files[0];
-    if (!f) {
-      setStatus("Awaiting file", "idle");
-    } else if (!isSupported(f)) {
-      setStatus(
-        "Unsupported file: " + (fileExtension(f.name) || "no extension"),
-        "error",
-      );
-    } else {
-      setStatus("Ready to render", "ready");
+  // ---------- status + progress ------------------------------------------
+
+  function setStatus(text, tone) {
+    statusEl.textContent = text || "";
+    statusEl.className = "status" + (tone ? " status--" + tone : "");
+  }
+
+  function setProgress(pct, opts) {
+    const options = opts || {};
+    if (progressHideTimer) {
+      clearTimeout(progressHideTimer);
+      progressHideTimer = 0;
+    }
+    progressEl.classList.toggle("progress--error", !!options.error);
+    progressEl.classList.remove("progress--done");
+    const clamped = Math.max(0, Math.min(100, pct));
+    progressFill.style.setProperty("--p", clamped + "%");
+    progressFill.style.setProperty("width", clamped + "%");
+    if (clamped >= 100 && options.autoHide !== false) {
+      progressHideTimer = setTimeout(function () {
+        progressEl.classList.add("progress--done");
+        setTimeout(function () {
+          progressFill.style.setProperty("width", "0%");
+          progressEl.classList.remove("progress--done");
+        }, 400);
+      }, options.holdMs != null ? options.holdMs : 500);
     }
   }
 
-  function setFileMetaText() {
+  // ---------- render-button state ----------------------------------------
+
+  function buttonState() {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return "no-file";
+    if (!isSupported(file)) return "unsupported";
+    if (
+      lastRenderedFingerprint &&
+      lastRenderedFingerprint === currentFingerprint
+    ) {
+      return "rendered";
+    }
+    return lastRenderedFingerprint ? "dirty" : "ready";
+  }
+
+  function applyButtonState() {
+    if (busy) return;
+    const state = buttonState();
+    switch (state) {
+      case "no-file":
+      case "unsupported":
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Render minimap";
+        break;
+      case "ready":
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Render minimap";
+        break;
+      case "rendered":
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Rendered";
+        break;
+      case "dirty":
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Render again";
+        break;
+    }
+  }
+
+  function setBusy(on) {
+    busy = on;
+    if (on) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Rendering\u2026";
+    } else {
+      applyButtonState();
+    }
+    dropzone.classList.toggle("is-disabled", on);
+    dropzone.tabIndex = on ? -1 : 0;
+    browseBtn.disabled = on;
+  }
+
+  // ---------- file / dropzone --------------------------------------------
+
+  function setImageFromBlob(blob) {
+    if (lastObjectUrl) URL.revokeObjectURL(lastObjectUrl);
+    lastObjectUrl = URL.createObjectURL(blob);
+    imgEl.src = lastObjectUrl;
+  }
+
+  function resetImage() {
+    if (lastObjectUrl) {
+      URL.revokeObjectURL(lastObjectUrl);
+      lastObjectUrl = null;
+    }
+    imgEl.src = RAINBOW_URL;
+  }
+
+  function updateFileMeta() {
     const f = fileInput.files && fileInput.files[0];
     if (!f) {
       fileMeta.textContent = "No file selected";
+      fileMeta.classList.remove("is-set");
     } else {
       fileMeta.textContent = f.name + " \u00b7 " + formatBytes(f.size);
+      fileMeta.classList.add("is-set");
     }
-    syncIdleStatusFromFile();
+    // A new (different) file invalidates any prior render.
+    lastRenderedFingerprint = null;
+    refreshFingerprint();
   }
 
   function assignFile(file) {
@@ -155,14 +230,14 @@
     const dt = new DataTransfer();
     dt.items.add(file);
     fileInput.files = dt.files;
-    setFileMetaText();
+    updateFileMeta();
   }
 
   function openFilePicker() {
     fileInput.click();
   }
 
-  // -------- presets ------------------------------------------------------
+  // ---------- presets ----------------------------------------------------
 
   function setRangePair(rangeId, numId, value) {
     const r = document.getElementById(rangeId);
@@ -213,121 +288,10 @@
       const id = btn.getAttribute("data-preset");
       btn.setAttribute("aria-checked", id === preset ? "true" : "false");
     });
+    refreshFingerprint();
   }
 
-  // -------- bindings -----------------------------------------------------
-
-  function bindRange(rangeId, numberId) {
-    const r = document.getElementById(rangeId);
-    const n = document.getElementById(numberId);
-    r.addEventListener("input", function () {
-      n.value = r.value;
-    });
-    n.addEventListener("input", function () {
-      r.value = n.value;
-    });
-  }
-
-  NUM_SYNC.forEach(function (pair) {
-    bindRange(pair[0], pair[1]);
-  });
-
-  presetButtons.forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      applyPreset(btn.getAttribute("data-preset"));
-    });
-  });
-  applyPreset("ingame");
-
-  dropzone.addEventListener("click", function (e) {
-    if (busy) return;
-    if (e.target === browseBtn) return;
-    openFilePicker();
-  });
-  browseBtn.addEventListener("click", function (e) {
-    e.stopPropagation();
-    if (!busy) openFilePicker();
-  });
-  dropzone.addEventListener("keydown", function (e) {
-    if (busy) return;
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      openFilePicker();
-    }
-  });
-  ["dragenter", "dragover"].forEach(function (ev) {
-    dropzone.addEventListener(ev, function (e) {
-      if (busy) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "copy";
-      dropzone.classList.add("is-dragover");
-    });
-  });
-  dropzone.addEventListener("dragleave", function () {
-    dropzone.classList.remove("is-dragover");
-  });
-  dropzone.addEventListener("drop", function (e) {
-    if (busy) return;
-    e.preventDefault();
-    dropzone.classList.remove("is-dragover");
-    const f = e.dataTransfer.files && e.dataTransfer.files[0];
-    if (f) assignFile(f);
-  });
-
-  fileInput.addEventListener("change", setFileMetaText);
-  setFileMetaText();
-
-  advancedToggle.addEventListener("click", function () {
-    const open = !advancedCollapsible.classList.contains("is-open");
-    advancedCollapsible.classList.toggle("is-open", open);
-    advancedToggle.setAttribute("aria-expanded", open ? "true" : "false");
-    if (advancedToggleLabel) {
-      advancedToggleLabel.textContent = open ? "Hide advanced" : "Show advanced";
-    }
-  });
-
-  // -------- web worker RPC ----------------------------------------------
-
-  function ensureWorker() {
-    if (worker) return worker;
-    worker = new Worker("/mcminimap/worker.js");
-    worker.onmessage = function (ev) {
-      const msg = ev.data || {};
-      if (msg.type === "progress") {
-        setStatus(msg.message || "Working\u2026", "loading");
-        if (loadingOverlayMsg) loadingOverlayMsg.textContent = msg.message || "Working\u2026";
-        return;
-      }
-      if (msg.type === "result") {
-        const entry = pending.get(msg.id);
-        if (!entry) return;
-        pending.delete(msg.id);
-        if (msg.ok) entry.resolve(msg.png);
-        else entry.reject(new Error(msg.error || "Render failed."));
-      }
-    };
-    worker.onerror = function (e) {
-      pending.forEach(function (entry) {
-        entry.reject(new Error(e.message || "Worker error"));
-      });
-      pending.clear();
-    };
-    return worker;
-  }
-
-  function callRender(fileBytes, ext, settings) {
-    ensureWorker();
-    const id = ++pendingId;
-    return new Promise(function (resolve, reject) {
-      pending.set(id, { resolve: resolve, reject: reject });
-      worker.postMessage(
-        { type: "render", id: id, fileBytes: fileBytes, ext: ext, settings: settings },
-        [fileBytes],
-      );
-    });
-  }
-
-  // -------- form -> settings --------------------------------------------
+  // ---------- form -> settings -------------------------------------------
 
   function clampInt(v, min, max) {
     const n = Number(v);
@@ -388,7 +352,277 @@
     return settings;
   }
 
-  // -------- submit -------------------------------------------------------
+  function computeFingerprint() {
+    const file = fileInput.files && fileInput.files[0];
+    const fileKey = file
+      ? { name: file.name, size: file.size, lastModified: file.lastModified }
+      : null;
+    return JSON.stringify({ file: fileKey, settings: buildSettings() });
+  }
+
+  function refreshFingerprint() {
+    currentFingerprint = computeFingerprint();
+    applyButtonState();
+  }
+
+  // ---------- bindings ---------------------------------------------------
+
+  function bindRange(rangeId, numberId) {
+    const r = document.getElementById(rangeId);
+    const n = document.getElementById(numberId);
+    r.addEventListener("input", function () {
+      n.value = r.value;
+      refreshFingerprint();
+    });
+    n.addEventListener("input", function () {
+      r.value = n.value;
+      refreshFingerprint();
+    });
+  }
+
+  NUM_SYNC.forEach(function (pair) {
+    bindRange(pair[0], pair[1]);
+  });
+
+  // Any other input change (selects, checkboxes, bare number inputs) updates
+  // the fingerprint too.
+  form.addEventListener("input", refreshFingerprint);
+  form.addEventListener("change", refreshFingerprint);
+
+  presetButtons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      applyPreset(btn.getAttribute("data-preset"));
+    });
+  });
+  applyPreset("ingame");
+
+  dropzone.addEventListener("click", function (e) {
+    if (busy) return;
+    if (e.target === browseBtn) return;
+    openFilePicker();
+  });
+  browseBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (!busy) openFilePicker();
+  });
+  dropzone.addEventListener("keydown", function (e) {
+    if (busy) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openFilePicker();
+    }
+  });
+  ["dragenter", "dragover"].forEach(function (ev) {
+    dropzone.addEventListener(ev, function (e) {
+      if (busy) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      dropzone.classList.add("is-dragover");
+    });
+  });
+  dropzone.addEventListener("dragleave", function () {
+    dropzone.classList.remove("is-dragover");
+  });
+  dropzone.addEventListener("drop", function (e) {
+    if (busy) return;
+    e.preventDefault();
+    dropzone.classList.remove("is-dragover");
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) assignFile(f);
+  });
+
+  fileInput.addEventListener("change", updateFileMeta);
+  updateFileMeta();
+
+  advancedToggle.addEventListener("click", function () {
+    const open = !advancedBody.classList.contains("is-open");
+    advancedBody.classList.toggle("is-open", open);
+    advancedToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    if (advancedLabel) {
+      advancedLabel.textContent = open ? "Hide advanced" : "Show advanced";
+    }
+  });
+
+  // ---------- tabs -------------------------------------------------------
+
+  function selectTab(name) {
+    tabs.forEach(function (t) {
+      const active = t.getAttribute("data-tab") === name;
+      t.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    panelGenerate.hidden = name !== "generate";
+    panelGallery.hidden = name !== "gallery";
+    if (name === "gallery" && !galleryLoaded) {
+      loadGallery();
+    }
+  }
+
+  tabs.forEach(function (t) {
+    t.addEventListener("click", function () {
+      selectTab(t.getAttribute("data-tab"));
+    });
+  });
+
+  if (galleryRefresh) {
+    galleryRefresh.addEventListener("click", function () {
+      loadGallery();
+    });
+  }
+
+  // ---------- web worker RPC ---------------------------------------------
+
+  const BOOT_TOTAL_DEFAULT = 6;
+
+  function ensureWorker() {
+    if (worker) return worker;
+    worker = new Worker("/mcminimap/worker.js");
+    worker.onmessage = function (ev) {
+      const msg = ev.data || {};
+      if (msg.type === "progress") {
+        if (msg.phase === "boot" && !bootDone) {
+          const total = msg.total || BOOT_TOTAL_DEFAULT;
+          const step = Math.max(1, msg.step || 1);
+          const pct = Math.min(95, Math.round((step / total) * 95));
+          setProgress(pct, { autoHide: false });
+          setStatus(msg.message || "Loading\u2026", "loading");
+          if (step >= total) {
+            bootDone = true;
+            setProgress(100, { holdMs: 300 });
+            setStatus("Ready", "success");
+          }
+        } else if (msg.phase === "render") {
+          setStatus(msg.message || "Rendering\u2026", "loading");
+          if (typeof msg.pct === "number") setProgress(msg.pct, { autoHide: false });
+        } else if (msg.phase === "error") {
+          setProgress(100, { error: true, holdMs: 1500 });
+          setStatus(msg.message || "Error", "error");
+        } else {
+          setStatus(msg.message || "\u2026", "loading");
+        }
+        return;
+      }
+      if (msg.type === "result") {
+        const entry = pending.get(msg.id);
+        if (!entry) return;
+        pending.delete(msg.id);
+        if (msg.ok) entry.resolve(msg.png);
+        else entry.reject(new Error(msg.error || "Render failed."));
+      }
+    };
+    worker.onerror = function (e) {
+      pending.forEach(function (entry) {
+        entry.reject(new Error(e.message || "Worker error"));
+      });
+      pending.clear();
+      setProgress(100, { error: true, holdMs: 1200 });
+      setStatus(e.message || "Worker error", "error");
+    };
+    return worker;
+  }
+
+  function callRender(fileBytes, ext, settings) {
+    ensureWorker();
+    const id = ++pendingId;
+    return new Promise(function (resolve, reject) {
+      pending.set(id, { resolve: resolve, reject: reject });
+      worker.postMessage(
+        { type: "render", id: id, fileBytes: fileBytes, ext: ext, settings: settings },
+        [fileBytes],
+      );
+    });
+  }
+
+  // ---------- gallery ----------------------------------------------------
+
+  function formatShortDate(ms) {
+    if (!Number.isFinite(ms)) return "";
+    const d = new Date(ms);
+    const pad = function (n) { return String(n).padStart(2, "0"); };
+    return pad(d.getMonth() + 1) + "/" + pad(d.getDate()) + " " +
+      pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+
+  function renderGallery(entries) {
+    galleryGrid.textContent = "";
+    if (!entries || entries.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "No minimaps yet \u2014 render one and it will appear here.";
+      galleryGrid.appendChild(empty);
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    entries.forEach(function (entry) {
+      const fig = document.createElement("figure");
+      fig.className = "card-img";
+
+      const img = document.createElement("img");
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.alt = entry.sourceName + " minimap";
+      img.src = "/api/gallery/" + encodeURIComponent(entry.id);
+
+      const cap = document.createElement("figcaption");
+      const src = document.createElement("span");
+      src.className = "src";
+      src.textContent = entry.sourceName || "unknown";
+      src.title = entry.sourceName || "unknown";
+      const time = document.createElement("time");
+      time.dateTime = new Date(entry.createdAt).toISOString();
+      time.textContent = formatShortDate(entry.createdAt);
+      cap.appendChild(src);
+      cap.appendChild(time);
+
+      fig.appendChild(img);
+      fig.appendChild(cap);
+      frag.appendChild(fig);
+    });
+    galleryGrid.appendChild(frag);
+  }
+
+  async function loadGallery() {
+    galleryLoaded = true;
+    galleryGrid.textContent = "";
+    const loading = document.createElement("div");
+    loading.className = "empty";
+    loading.textContent = "Loading\u2026";
+    galleryGrid.appendChild(loading);
+    try {
+      const res = await fetch("/api/gallery", { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const entries = await res.json();
+      renderGallery(Array.isArray(entries) ? entries : []);
+    } catch (err) {
+      galleryGrid.textContent = "";
+      const box = document.createElement("div");
+      box.className = "error-state";
+      box.textContent =
+        "Could not load gallery: " + (err && err.message ? err.message : String(err));
+      galleryGrid.appendChild(box);
+    }
+  }
+
+  function uploadToGallery(blob, sourceName) {
+    // Fire-and-forget; never blocks the UI on a failure.
+    fetch("/api/gallery", {
+      method: "POST",
+      headers: {
+        "Content-Type": "image/png",
+        "X-Source-Name": encodeURIComponent(sourceName || "unknown"),
+      },
+      body: blob,
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        galleryLoaded = false;
+        if (!panelGallery.hidden) loadGallery();
+      })
+      .catch(function (err) {
+        console.warn("[gallery] upload failed:", err);
+      });
+  }
+
+  // ---------- submit -----------------------------------------------------
 
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
@@ -405,30 +639,40 @@
       return;
     }
 
-    setStatus("Preparing render\u2026", "loading");
-    setBusy(true, "Preparing render\u2026");
-    imgEl.style.display = "none";
-    phEl.style.display = "none";
+    const fingerprint = computeFingerprint();
+    setBusy(true);
+    setStatus("Preparing\u2026", "loading");
+    setProgress(10, { autoHide: false });
 
     try {
       const settings = buildSettings();
       const ext = fileExtension(file.name);
       const bytes = await file.arrayBuffer();
+      setProgress(30, { autoHide: false });
+      setStatus("Rendering\u2026", "loading");
       const png = await callRender(bytes, ext, settings);
+      setProgress(90, { autoHide: false });
       const blob = new Blob([png], { type: "image/png" });
       setImageFromBlob(blob);
-      imgEl.style.display = "block";
-      phEl.style.display = "none";
-      setStatus("Done \u2014 minimap is ready.", "success");
+      lastRenderedFingerprint = fingerprint;
+      refreshFingerprint();
+      setProgress(100, { holdMs: 400 });
+      setStatus("Done", "success");
+      uploadToGallery(blob, file.name);
     } catch (err) {
+      resetImage();
+      setProgress(100, { error: true, holdMs: 1500 });
       setStatus(err && err.message ? err.message : String(err), "error");
-      phEl.style.display = "block";
     } finally {
       setBusy(false);
     }
   });
 
-  // Kick the worker in the background so the first render is faster.
+  // ---------- startup ----------------------------------------------------
+
+  refreshFingerprint();
+  setProgress(2, { autoHide: false });
+  setStatus("Loading runtime\u2026", "loading");
   ensureWorker();
   worker.postMessage({ type: "warmup" });
 })();

@@ -8,6 +8,18 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   },
+  "r2_buckets": [
+    {
+      "binding": "MINIMAPS",
+      "bucket_name": "aoe2museum-minimaps"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "MINIMAP_INDEX",
+      "id": "e5667d2705e64952a955970ea22aacbc"
+    }
+  ],
   "observability": {
     "enabled": true
   }

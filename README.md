@@ -3,14 +3,42 @@
 A Cloudflare Worker that hosts a small collection of Age of Empires II tools.
 Each "app" lives under its own path and runs client-side where possible.
 
-| Path          | Description                                                                                 |
-| ------------- | ------------------------------------------------------------------------------------------- |
-| `/`           | Museum landing page listing available apps.                                                 |
-| `/mcminimap/` | Isometric minimap renderer. Runs [AOE2-McMinimap](https://github.com/UnluckyForSome/AOE2-McMinimap) in-browser via Pyodide &mdash; no upload to any server. |
-| `/health`     | JSON uptime check.                                                                          |
+| Path                 | Description                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| `/`                  | Museum landing page listing available apps.                                                 |
+| `/mcminimap/`        | Isometric minimap renderer. Runs [AOE2-McMinimap](https://github.com/UnluckyForSome/AOE2-McMinimap) in-browser via Pyodide &mdash; nothing is uploaded for rendering. |
+| `/api/gallery`       | `GET` returns the latest-20 index; `POST image/png` (with `X-Source-Name`) appends to the gallery. |
+| `/api/gallery/:id`   | Streams a stored gallery PNG from R2.                                                       |
+| `/health`            | JSON uptime check.                                                                          |
 
-Static assets are served by the Worker's `assets` binding; the Worker script
-itself (`src/index.ts`) is thin and mostly exists for future dynamic endpoints.
+Static assets are served by the Worker's `assets` binding. The only server
+state is the optional, **public** gallery of the 20 most recent minimaps
+(backed by R2 + KV) &mdash; see [Bindings](#bindings).
+
+### Gallery caveat
+
+The gallery is **global and public**: every visitor sees (and contributes to)
+the same 20-slot ring buffer. The UI fire-and-forgets a PNG upload after each
+successful render. Do not render private replays into the gallery unless you
+are comfortable with them being visible to other visitors.
+
+## Bindings
+
+`wrangler.jsonc` declares three bindings:
+
+| Binding         | Type           | Purpose                                   |
+| --------------- | -------------- | ----------------------------------------- |
+| `ASSETS`        | assets         | Serves `public/` (HTML, JS, vendor tar, &hellip;). |
+| `MINIMAPS`      | R2 bucket      | Stores gallery PNGs at `minimap/<id>.png`. |
+| `MINIMAP_INDEX` | KV namespace   | Single `index` key &mdash; JSON array, newest-first, capped at 20. |
+
+One-time setup (already done for the production account; repeat per account):
+
+```bash
+wrangler r2 bucket create aoe2museum-minimaps
+wrangler kv namespace create MINIMAP_INDEX
+# then paste the returned id into wrangler.jsonc under kv_namespaces[0].id
+```
 
 ## Layout
 
@@ -19,10 +47,11 @@ src/index.ts                        # Worker router
 public/                             # served by the Cloudflare assets binding
   index.html                        # museum landing
   mcminimap/
-    index.html                      # app UI
-    app.js                          # UI controller + worker RPC
+    index.html                      # app UI (Generate + Gallery tabs, top progress bar)
+    app.js                          # UI controller + worker RPC + gallery client
     worker.js                       # Pyodide host (DedicatedWorker)
     py/bootstrap.py                 # exposes render(bytes, ext, settings)
+    assets/rainbow.png              # output placeholder shown before / on error
     vendor/aoe2mcminimap.tar        # generated from the submodule (gitignored)
     vendor/manifest.json            # { sourceSha, builtAt, files } (gitignored)
 vendor/
@@ -143,4 +172,7 @@ Browser --> index.html --> app.js --> new Worker("/mcminimap/worker.js")
                             bootstrap.render(...) -> PNG bytes -> main thread
 ```
 
-No scenarios, replays, or PNGs ever leave the browser.
+No scenarios, replays, or source recordings ever leave the browser. The
+Gallery tab optionally `POST`s the rendered PNG (plus the source filename) to
+`/api/gallery`, which writes it to R2 and rewrites the KV index &mdash; the
+source file itself is never uploaded.

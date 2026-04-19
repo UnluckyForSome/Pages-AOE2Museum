@@ -11,8 +11,22 @@ const VENDOR_EXTRACT_DIR = "/home/pyodide/aoe2mcminimap";
 
 importScripts(PYODIDE_BASE + "pyodide.js");
 
-function progress(message) {
-  self.postMessage({ type: "progress", message: message });
+// Boot-phase steps reported to the UI; the main thread uses these to drive
+// the top progress bar deterministically. Keep in sync with the calls below.
+const BOOT_STEPS = 6; // runtime, Pillow+micropip, packages, tar, bootstrap, ready
+let bootStep = 0;
+
+function progress(message, opts) {
+  const options = opts || {};
+  const phase = options.phase || "boot";
+  if (phase === "boot") bootStep++;
+  const payload = { type: "progress", message: message, phase: phase };
+  if (phase === "boot") {
+    payload.step = bootStep;
+    payload.total = BOOT_STEPS;
+  }
+  if (typeof options.pct === "number") payload.pct = options.pct;
+  self.postMessage(payload);
 }
 
 let pyodideReady = null;
@@ -96,7 +110,7 @@ async function handleRender(id, fileBytes, ext, settings) {
   let settingsProxy = null;
   let pngProxy = null;
   try {
-    progress("Rendering\u2026");
+    progress("Rendering\u2026", { phase: "render", pct: 60 });
     bytesView = new Uint8Array(fileBytes);
     pyodide.globals.set("_bytes", bytesView);
     pyodide.globals.set("_ext", ext);
@@ -137,6 +151,7 @@ self.onmessage = function (ev) {
     ensurePyodide().catch(function (err) {
       progress(
         "Warmup failed: " + (err && err.message ? err.message : String(err)),
+        { phase: "error" },
       );
     });
     return;
