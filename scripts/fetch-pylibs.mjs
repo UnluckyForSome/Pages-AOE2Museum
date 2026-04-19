@@ -33,6 +33,16 @@ const PYLIBS = [
     // Path of the package directory *inside* the extracted sdist.
     subpath: "construct-2.8.16/construct",
   },
+  {
+    // aocref ships only sdists on PyPI, so micropip can't install it. The
+    // vendored legacy/mgz_legacy/reference.py calls
+    // `pkgutil.get_data('aocref', 'data/datasets/<id>.json')`, which requires
+    // the whole `aocref/data/**` tree to be on sys.path as a package.
+    name: "aocref",
+    version: "2.0.37",
+    url: "https://files.pythonhosted.org/packages/0a/89/d5984391ce282fbc33f0584917f26b924b9e4a522c37a6323a033cdc4d79/aocref-2.0.37.tar.gz",
+    subpath: "aocref-2.0.37/aocref",
+  },
 ];
 
 const pylibsRoot = join(repoRoot, "mcminimap/vendor/pylibs");

@@ -13,12 +13,27 @@ import tempfile
 
 _VENDOR_DIR = "/home/pyodide/aoe2mcminimap"
 # `pylibs/` holds pure-Python packages that micropip cannot install as wheels
-# (notably `construct==2.8.16`, which the vendored happyleaves mgz tree pins).
-# Placed before site-packages so our pinned version wins any version race.
+# (``construct==2.8.16`` and ``aocref``, both sdist-only on PyPI). Placed
+# before site-packages so our pinned versions win any version race.
 _PYLIBS_DIR = _VENDOR_DIR + "/pylibs"
 for _p in (_PYLIBS_DIR, _VENDOR_DIR):
     if _p not in sys.path:
         sys.path.insert(0, _p)
+
+# Fail loudly at boot if a vendored package is missing, so the worker
+# surfaces "aocref missing" instead of the unhelpful
+# "json object must be str, bytes or bytearray, not NoneType" that
+# ``json.loads(pkgutil.get_data(...))`` would raise mid-render.
+import importlib.util  # noqa: E402
+
+for _pkg in ("construct", "aocref"):
+    if importlib.util.find_spec(_pkg) is None:
+        raise ImportError(
+            f"vendored package {_pkg!r} not found on sys.path; "
+            f"check that mcminimap/vendor/pylibs/{_pkg} was bundled into "
+            "aoe2mcminimap.tar (scripts/fetch-pylibs.mjs + "
+            "scripts/build-mcminimap-bundle.mjs)."
+        )
 
 from McMinimap import MinimapSettings, to_png_bytes  # noqa: E402
 
