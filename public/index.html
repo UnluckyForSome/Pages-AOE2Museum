@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AOE2 Museum</title>
+    <meta name="description" content="A collection of Age of Empires II tools and experiments." />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+        --r-md: 12px;
+        --r-lg: 16px;
+        --s-1: 8px;
+        --s-2: 12px;
+        --s-3: 16px;
+        --s-4: 20px;
+        --s-5: 24px;
+        --border: rgba(127, 127, 127, 0.35);
+        --surface: rgba(127, 127, 127, 0.06);
+        --surface-2: rgba(127, 127, 127, 0.1);
+        --text-muted: rgba(127, 127, 127, 0.92);
+        --accent: #6366f1;
+        --accent-hover: #5558e8;
+        --accent-soft: rgba(99, 102, 241, 0.2);
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 20px rgba(0, 0, 0, 0.04);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 24px rgba(0, 0, 0, 0.25);
+          --surface: rgba(255, 255, 255, 0.05);
+          --surface-2: rgba(255, 255, 255, 0.08);
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: var(--font);
+        line-height: 1.5;
+        background: Canvas;
+        color: CanvasText;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: var(--s-5) var(--s-3);
+      }
+      @media (min-width: 640px) {
+        .wrap { padding: var(--s-5) var(--s-4); }
+      }
+      header.hero { margin-bottom: var(--s-5); }
+      h1 {
+        margin: 0 0 var(--s-2);
+        font-size: clamp(1.6rem, 3vw, 2.2rem);
+        letter-spacing: -0.02em;
+      }
+      header p { margin: 0; color: var(--text-muted); max-width: 60ch; }
+      .grid {
+        display: grid;
+        gap: var(--s-3);
+        grid-template-columns: 1fr;
+      }
+      @media (min-width: 640px) {
+        .grid { grid-template-columns: 1fr 1fr; }
+      }
+      @media (min-width: 960px) {
+        .grid { grid-template-columns: 1fr 1fr 1fr; }
+      }
+      .card {
+        display: flex;
+        flex-direction: column;
+        gap: var(--s-1);
+        padding: var(--s-4);
+        border: 1px solid var(--border);
+        border-radius: var(--r-lg);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+        text-decoration: none;
+        color: inherit;
+        transition: border-color 0.15s, transform 0.1s, background 0.15s;
+      }
+      .card:hover:not(.card--disabled) {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .card:active:not(.card--disabled) { transform: translateY(1px); }
+      .card--disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+      .card .title {
+        font-weight: 700;
+        font-size: 1.05rem;
+      }
+      .card .desc {
+        font-size: 0.9rem;
+        color: var(--text-muted);
+      }
+      .card .badge {
+        display: inline-block;
+        margin-top: var(--s-1);
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--surface-2);
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        width: fit-content;
+      }
+      .card .badge--live {
+        background: var(--accent-soft);
+        color: color-mix(in srgb, var(--accent) 55%, CanvasText);
+      }
+      footer {
+        margin-top: var(--s-5);
+        font-size: 0.8rem;
+        color: var(--text-muted);
+      }
+      a { color: var(--accent); }
+      a:hover { color: var(--accent-hover); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="hero">
+        <h1>AOE2 Museum</h1>
+        <p>
+          A small collection of Age of Empires II tools that run entirely in your browser. No
+          uploads to a server, no accounts, no tracking.
+        </p>
+      </header>
+
+      <section class="grid" aria-label="Apps">
+        <a class="card" href="/mcminimap/">
+          <span class="title">McMinimap</span>
+          <span class="desc">
+            Render isometric minimap PNGs from recorded games and scenarios. Runs the
+            <a href="https://github.com/UnluckyForSome/AOE2-McMinimap" rel="noopener">AOE2-McMinimap</a>
+            Python renderer in your browser via Pyodide.
+          </span>
+          <span class="badge badge--live">Live</span>
+        </a>
+
+        <div class="card card--disabled" aria-disabled="true">
+          <span class="title">More soon</span>
+          <span class="desc">Additional AoE2 tools will land here as the museum grows.</span>
+          <span class="badge">Planned</span>
+        </div>
+      </section>
+
+      <footer>
+        <p>
+          Source on GitHub &mdash; the museum is a plain Cloudflare Worker that serves static
+          assets; per-app Python runs client-side.
+        </p>
+      </footer>
+    </div>
+  </body>
+</html>

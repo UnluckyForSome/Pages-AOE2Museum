@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AOE2 McMinimap</title>
+    <meta
+      name="description"
+      content="Render Age of Empires II minimap PNGs entirely in your browser. No uploads: the AOE2-McMinimap Python renderer runs locally via Pyodide."
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+        --r-sm: 8px;
+        --r-md: 12px;
+        --r-lg: 16px;
+        --s-1: 8px;
+        --s-2: 12px;
+        --s-3: 16px;
+        --s-4: 20px;
+        --s-5: 24px;
+        --border: rgba(127, 127, 127, 0.35);
+        --border-strong: rgba(127, 127, 127, 0.5);
+        --surface: rgba(127, 127, 127, 0.06);
+        --surface-2: rgba(127, 127, 127, 0.1);
+        --text-muted: rgba(127, 127, 127, 0.92);
+        --accent: #6366f1;
+        --accent-hover: #5558e8;
+        --accent-soft: rgba(99, 102, 241, 0.2);
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 20px rgba(0, 0, 0, 0.04);
+        --focus: 0 0 0 3px rgba(99, 102, 241, 0.45);
+        --status-success: #16a34a;
+        --status-success-bg: color-mix(in srgb, #16a34a 14%, transparent);
+        --status-error: #dc2626;
+        --status-error-bg: color-mix(in srgb, #dc2626 14%, transparent);
+        --status-busy: var(--accent);
+        --status-busy-bg: var(--accent-soft);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 24px rgba(0, 0, 0, 0.25);
+          --surface: rgba(255, 255, 255, 0.05);
+          --surface-2: rgba(255, 255, 255, 0.08);
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: var(--font);
+        line-height: 1.45;
+        background: Canvas;
+        color: CanvasText;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: var(--s-5) var(--s-3);
+      }
+      @media (min-width: 640px) {
+        .wrap { padding: var(--s-5) var(--s-4); }
+      }
+      .hero { margin-bottom: var(--s-4); }
+      .hero h1 {
+        margin: 0 0 var(--s-1);
+        font-size: clamp(1.35rem, 2.5vw, 1.65rem);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .hero p { margin: 0; font-size: 0.95rem; color: var(--text-muted); max-width: 52ch; }
+      .hero .back {
+        display: inline-block;
+        margin-bottom: var(--s-2);
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        text-decoration: none;
+      }
+      .hero .back:hover { color: var(--accent); }
+      .main-row {
+        display: grid;
+        gap: var(--s-3);
+        align-items: stretch;
+      }
+      @media (min-width: 860px) {
+        .main-row {
+          grid-template-columns: minmax(280px, 400px) minmax(0, 1fr);
+        }
+        .panel-viewer { grid-column: 2; grid-row: 1; }
+        .panel-controls { grid-column: 1; grid-row: 1; }
+      }
+      .panel-viewer,
+      .panel-controls {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .panel-viewer .card-inner {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .panel-controls .card {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .controls-stack {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: var(--s-1);
+        min-height: 0;
+      }
+      .controls-stack .dropzone {
+        flex: 1;
+        min-height: 140px;
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: var(--r-lg);
+        padding: var(--s-3);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+      .panel-viewer .card-inner { padding: 0; }
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+      .dropzone {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--s-2);
+        min-height: 140px;
+        padding: var(--s-3);
+        border: 2px dashed var(--border-strong);
+        border-radius: var(--r-md);
+        background: color-mix(in srgb, Canvas 92%, var(--accent) 4%);
+        cursor: pointer;
+        text-align: center;
+        transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      }
+      .dropzone:hover { border-color: var(--accent); background: var(--accent-soft); }
+      .dropzone.is-dragover {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        box-shadow: var(--focus);
+      }
+      .dropzone:focus { outline: none; }
+      .dropzone:focus-visible { box-shadow: var(--focus); border-color: var(--accent); }
+      .dropzone.is-disabled {
+        pointer-events: none;
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+      .dropzone-title { font-weight: 600; font-size: 0.95rem; }
+      .dropzone-meta { font-size: 0.8rem; color: var(--text-muted); word-break: break-all; max-width: 100%; }
+      .linklike {
+        background: none;
+        border: none;
+        padding: 0;
+        margin: 0;
+        font: inherit;
+        color: var(--accent);
+        text-decoration: underline;
+        cursor: pointer;
+        width: auto;
+      }
+      .linklike:hover { color: var(--accent-hover); }
+      .linklike:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+      .field-label { display: block; font-size: 0.8rem; font-weight: 600; margin: var(--s-3) 0 var(--s-1); opacity: 0.9; }
+      .segmented {
+        display: flex;
+        width: 100%;
+        padding: 3px;
+        border-radius: var(--r-md);
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        gap: 2px;
+        margin-top: var(--s-3);
+      }
+      .segmented button {
+        flex: 1;
+        margin: 0;
+        padding: 8px 6px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        border: none;
+        border-radius: var(--r-sm);
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        transition: background 0.12s, color 0.12s;
+      }
+      @media (min-width: 400px) {
+        .segmented button { font-size: 0.82rem; padding: 9px 8px; }
+      }
+      .segmented button:hover { background: rgba(127, 127, 127, 0.12); }
+      .segmented button[aria-checked="true"] {
+        background: var(--accent-soft);
+        color: CanvasText;
+        box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.35);
+      }
+      .segmented button:focus { outline: none; }
+      .segmented button:focus-visible { box-shadow: var(--focus); }
+      .btn-primary {
+        width: 100%;
+        margin-top: var(--s-3);
+        padding: 12px 16px;
+        border-radius: var(--r-md);
+        border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: background 0.15s, transform 0.05s;
+      }
+      .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+      .btn-primary:active:not(:disabled) { transform: scale(0.99); }
+      .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+      .btn-primary:focus-visible { outline: none; box-shadow: var(--focus); }
+      .status {
+        flex: 0 0 auto;
+        margin: 0 0 var(--s-2);
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        min-height: 2.75rem;
+        padding: var(--s-2) var(--s-3);
+        border-radius: var(--r-md);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        transition: border-color 0.25s ease, background 0.25s ease, color 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+      }
+      .status.status--idle {
+        border-style: dashed;
+        opacity: 0.95;
+      }
+      .status.status--ready {
+        color: color-mix(in srgb, var(--accent) 35%, CanvasText);
+        background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface));
+        border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+      }
+      .status.status--loading {
+        color: color-mix(in srgb, var(--status-busy) 88%, CanvasText);
+        background: var(--status-busy-bg);
+        border-color: color-mix(in srgb, var(--status-busy) 35%, var(--border));
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-busy) 12%, transparent);
+        animation: status-pulse 1.4s ease-in-out infinite;
+      }
+      .status.status--success {
+        color: color-mix(in srgb, var(--status-success) 92%, CanvasText);
+        background: var(--status-success-bg);
+        border-color: color-mix(in srgb, var(--status-success) 40%, var(--border));
+        box-shadow: 0 0 20px color-mix(in srgb, var(--status-success) 18%, transparent);
+      }
+      .status.status--error {
+        color: color-mix(in srgb, var(--status-error) 92%, CanvasText);
+        background: var(--status-error-bg);
+        border-color: color-mix(in srgb, var(--status-error) 45%, var(--border));
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-error) 15%, transparent);
+      }
+      @keyframes status-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.82; }
+      }
+      .imgwrap {
+        position: relative;
+        flex: 0 0 auto;
+        width: 100%;
+        aspect-ratio: 1;
+        max-height: min(70vh, 92vw);
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: var(--s-2);
+        background: color-mix(in srgb, Canvas 96%, CanvasText);
+        overflow: hidden;
+      }
+      .imgwrap img {
+        max-width: 100%;
+        max-height: 100%;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        border-radius: var(--r-sm);
+        vertical-align: middle;
+      }
+      .placeholder {
+        font-size: 0.88rem;
+        color: var(--text-muted);
+        padding: var(--s-3);
+        text-align: center;
+        max-width: 100%;
+      }
+      .loading-overlay {
+        position: absolute;
+        inset: 0;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--s-3);
+        border-radius: var(--r-md);
+        background: color-mix(in srgb, Canvas 78%, transparent);
+        backdrop-filter: blur(6px);
+        z-index: 2;
+      }
+      .loading-overlay.is-active { display: flex; }
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 3px solid var(--border);
+        border-top-color: var(--accent);
+        animation: spin 0.75s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .loading-overlay span { font-size: 0.9rem; font-weight: 600; }
+      .advanced-shell {
+        margin-top: var(--s-4);
+        display: flex;
+        flex-direction: column;
+        gap: var(--s-2);
+      }
+      .btn-ghost {
+        width: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        margin: 0;
+        border-radius: var(--r-md);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        color: inherit;
+      }
+      .btn-ghost:hover { background: var(--surface-2); }
+      .btn-ghost:focus-visible { outline: none; box-shadow: var(--focus); }
+      .advanced-collapsible {
+        display: grid;
+        grid-template-rows: 0fr;
+        transition: grid-template-rows 0.42s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .advanced-collapsible.is-open {
+        grid-template-rows: 1fr;
+      }
+      .advanced-collapsible-inner {
+        min-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        transform: translateY(-6px);
+        transition: opacity 0.3s ease 0.05s, transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .advanced-collapsible.is-open .advanced-collapsible-inner {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .btn-advanced-toggle {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin: 0;
+        padding: 14px var(--s-4);
+        border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+        border-radius: var(--r-lg);
+        background: linear-gradient(
+          125deg,
+          color-mix(in srgb, var(--accent) 18%, Canvas) 0%,
+          color-mix(in srgb, var(--accent) 6%, var(--surface-2)) 48%,
+          color-mix(in srgb, var(--accent) 12%, Canvas) 100%
+        );
+        background-size: 200% 200%;
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        cursor: pointer;
+        color: inherit;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.12s ease, background-position 0.45s ease;
+      }
+      .btn-advanced-toggle:hover {
+        border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+        box-shadow: var(--shadow), 0 0 24px color-mix(in srgb, var(--accent) 15%, transparent);
+        background-position: 100% 50%;
+      }
+      .btn-advanced-toggle:active { transform: scale(0.992); }
+      .btn-advanced-toggle:focus { outline: none; }
+      .btn-advanced-toggle:focus-visible { box-shadow: var(--focus); }
+      .btn-advanced-toggle::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.12) 50%, transparent 60%);
+        transform: translateX(-120%);
+        transition: transform 0.65s ease;
+        pointer-events: none;
+      }
+      .btn-advanced-toggle:hover::after {
+        transform: translateX(120%);
+      }
+      .btn-advanced-toggle-chevron {
+        display: inline-block;
+        width: 0.55em;
+        height: 0.55em;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(45deg);
+        margin-top: -0.2em;
+        transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+        opacity: 0.85;
+      }
+      .btn-advanced-toggle[aria-expanded="true"] .btn-advanced-toggle-chevron {
+        transform: rotate(225deg);
+        margin-top: 0.15em;
+      }
+      #advanced-panel { margin-top: 0; }
+      .advanced-card { padding-top: var(--s-2); }
+      label.field-label-inline { font-weight: 500; }
+      input[type="range"] { width: 100%; }
+      input[type="number"], select {
+        width: 100%;
+        padding: 8px 10px;
+        border-radius: var(--r-sm);
+        border: 1px solid var(--border);
+        background: Canvas;
+        color: inherit;
+        font: inherit;
+      }
+      .row { display: grid; grid-template-columns: 1fr 100px; gap: 10px; align-items: center; }
+      @media (min-width: 480px) { .row { grid-template-columns: 1fr 120px; } }
+      .toggles { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-1); margin-top: var(--s-2); }
+      @media (max-width: 520px) { .toggles { grid-template-columns: 1fr; } }
+      .toggle { display: flex; gap: 8px; align-items: center; font-size: 0.85rem; }
+      .section {
+        margin-top: var(--s-3);
+        padding-top: var(--s-2);
+        border-top: 1px solid var(--border);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        opacity: 0.8;
+      }
+      .hint { font-size: 0.78rem; opacity: 0.85; margin-top: var(--s-1); }
+      a { color: inherit; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="hero">
+        <a class="back" href="/">&larr; Museum</a>
+        <h1>AOE2 McMinimap</h1>
+        <p>
+          Upload a scenario or recording, pick a preset, and render a minimap PNG. Rendering runs
+          entirely in your browser via Pyodide &mdash; nothing is uploaded.
+        </p>
+      </header>
+
+      <form id="form">
+        <input id="file" class="visually-hidden" name="file" type="file" required />
+
+        <div class="main-row">
+          <div class="panel-viewer">
+            <div class="card card-inner">
+              <div class="imgwrap" id="imgwrap">
+                <div id="loading-overlay" class="loading-overlay" aria-hidden="true">
+                  <div class="spinner" aria-hidden="true"></div>
+                  <span id="loading-overlay-msg">Generating minimap&hellip;</span>
+                </div>
+                <img id="img" alt="Minimap preview" style="display: none" />
+                <div id="placeholder" class="placeholder">Your minimap will appear here.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-controls">
+            <div class="card">
+              <div class="controls-stack">
+                <div
+                  id="status"
+                  class="status status--idle"
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  Awaiting file
+                </div>
+                <div
+                  id="dropzone"
+                  class="dropzone"
+                  role="button"
+                  tabindex="0"
+                  aria-label="Upload scenario or recording. Drop a file or press Enter to browse."
+                >
+                  <div class="dropzone-title">Drop file here or browse</div>
+                  <div id="file-meta" class="dropzone-meta">No file selected</div>
+                  <button type="button" class="linklike" id="browse-btn">Choose file&hellip;</button>
+                </div>
+                <p class="hint">Supported: .aoe2scenario, .scx/.scn, .mgz/.mgx/.mgl, .aoe2record</p>
+
+                <span id="preset-label" class="field-label">Preset</span>
+                <div class="segmented" role="radiogroup" aria-labelledby="preset-label">
+                  <button type="button" role="radio" class="preset-btn" data-preset="ingame" aria-checked="true">In-Game</button>
+                  <button type="button" role="radio" class="preset-btn" data-preset="tactical" aria-checked="false">Tactical</button>
+                  <button type="button" role="radio" class="preset-btn" data-preset="square" aria-checked="false">Square</button>
+                </div>
+
+                <button id="submit" class="btn-primary" type="submit">Render minimap</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="advanced-shell">
+          <button
+            type="button"
+            class="btn-advanced-toggle"
+            id="advanced-toggle"
+            aria-expanded="false"
+            aria-controls="advanced-panel"
+          >
+            <span class="btn-advanced-toggle-label">Show advanced</span>
+            <span class="btn-advanced-toggle-chevron" aria-hidden="true"></span>
+          </button>
+          <div class="advanced-collapsible" id="advanced-collapsible">
+            <div class="advanced-collapsible-inner">
+              <div id="advanced-panel" class="card advanced-card">
+                <label class="field-label" for="object_mode">Object mode</label>
+                <select name="object_mode" id="object_mode">
+                  <option value="square" selected>square</option>
+                  <option value="rotated">rotated</option>
+                </select>
+
+                <label class="field-label" for="town_center">Town center marker</label>
+                <select name="town_center" id="town_center">
+                  <option value="none">none</option>
+                  <option value="pixel" selected>pixel</option>
+                  <option value="emblem">emblem</option>
+                </select>
+                <p class="hint">
+                  Pixel/emblem markers need a recorded TC position; many <code>.aoe2scenario</code>
+                  files leave player start XY unset, so you may see no change there.
+                </p>
+
+                <label class="field-label">Angle</label>
+                <div class="row">
+                  <input id="angle" name="angle" type="range" min="0" max="360" value="45" />
+                  <input id="angle_num" type="number" min="0" max="360" value="45" />
+                </div>
+
+                <label class="field-label">Scale (multiplier)</label>
+                <div class="row">
+                  <input id="multiplier_integer" name="multiplier_integer" type="range" min="1" max="10" value="9" />
+                  <input id="multiplier_integer_num" type="number" min="1" max="10" value="9" />
+                </div>
+                <div class="hint">Maximum 10 to limit memory and output size.</div>
+
+                <label class="field-label">Orthographic ratio</label>
+                <div class="row">
+                  <input id="orthographic_ratio" name="orthographic_ratio" type="range" min="1" max="10" value="2" />
+                  <input id="orthographic_ratio_num" type="number" min="1" max="10" value="2" />
+                </div>
+
+                <label class="field-label">Border spacing</label>
+                <div class="row">
+                  <input id="border_spacing" name="border_spacing" type="range" min="0" max="64" value="4" />
+                  <input id="border_spacing_num" type="number" min="0" max="64" value="4" />
+                </div>
+
+                <div class="section">Layers</div>
+                <div class="toggles">
+                  <label class="toggle"><input type="checkbox" name="draw_cliffs" checked /> Draw cliffs</label>
+                  <label class="toggle"><input type="checkbox" name="draw_walls" checked /> Draw walls</label>
+                  <label class="toggle"><input type="checkbox" name="smooth_walls" checked /> Smooth walls</label>
+                  <label class="toggle"><input type="checkbox" name="draw_players" checked /> Draw players</label>
+                  <label class="toggle"><input type="checkbox" name="draw_gaia" checked /> Draw gaia</label>
+                  <label class="toggle"><input type="checkbox" name="draw_food" checked /> Draw food</label>
+                  <label class="toggle"><input type="checkbox" name="draw_gold" checked /> Draw gold</label>
+                  <label class="toggle"><input type="checkbox" name="draw_stone" checked /> Draw stone</label>
+                  <label class="toggle"><input type="checkbox" name="draw_relics" checked /> Draw relics</label>
+                </div>
+
+                <div class="section">Marker sizes (px)</div>
+                <label class="field-label">Cliff size</label>
+                <div class="row">
+                  <input id="cliff_size" name="cliff_size" type="range" min="0" max="32" value="1" />
+                  <input id="cliff_size_num" type="number" min="0" max="32" value="1" />
+                </div>
+                <label class="field-label">Player wall size</label>
+                <div class="row">
+                  <input id="player_wall_size" name="player_wall_size" type="range" min="0" max="32" value="1" />
+                  <input id="player_wall_size_num" type="number" min="0" max="32" value="1" />
+                </div>
+                <label class="field-label">Food size</label>
+                <div class="row">
+                  <input id="food_size" name="food_size" type="range" min="0" max="64" value="4" />
+                  <input id="food_size_num" type="number" min="0" max="64" value="4" />
+                </div>
+                <label class="field-label">Gold size</label>
+                <div class="row">
+                  <input id="gold_size" name="gold_size" type="range" min="0" max="64" value="4" />
+                  <input id="gold_size_num" type="number" min="0" max="64" value="4" />
+                </div>
+                <label class="field-label">Stone size</label>
+                <div class="row">
+                  <input id="stone_size" name="stone_size" type="range" min="0" max="64" value="4" />
+                  <input id="stone_size_num" type="number" min="0" max="64" value="4" />
+                </div>
+                <label class="field-label">Relic size</label>
+                <div class="row">
+                  <input id="relic_size" name="relic_size" type="range" min="0" max="64" value="4" />
+                  <input id="relic_size_num" type="number" min="0" max="64" value="4" />
+                </div>
+                <label class="field-label">Player object size</label>
+                <div class="row">
+                  <input id="player_object_size" name="player_object_size" type="range" min="0" max="64" value="4" />
+                  <input id="player_object_size_num" type="number" min="0" max="64" value="4" />
+                </div>
+                <label class="field-label">Town center size</label>
+                <div class="row">
+                  <input id="town_center_size" name="town_center_size" type="range" min="0" max="64" value="4" />
+                  <input id="town_center_size_num" type="number" min="0" max="64" value="4" />
+                </div>
+                <label class="field-label">Civ emblem halo (emblem mode)</label>
+                <div class="row">
+                  <input id="civ_emblem_halo" name="civ_emblem_halo" type="range" min="0" max="120" value="40" />
+                  <input id="civ_emblem_halo_num" type="number" min="0" max="120" value="40" />
+                </div>
+
+                <div class="section">Output size</div>
+                <p class="hint">
+                  By default the PNG uses the native canvas size from scale, angle, and
+                  orthographic ratio (no extra resize). Enable fixed size to stretch to exact
+                  pixels.
+                </p>
+                <label class="toggle"><input type="checkbox" name="resize_output" /> Fixed output size (WxH)</label>
+                <label class="field-label" for="final_width">Final width (when fixed)</label>
+                <input id="final_width" name="final_width" type="number" min="64" max="8192" value="1630" />
+                <label class="field-label" for="final_height">Final height (when fixed)</label>
+                <input id="final_height" name="final_height" type="number" min="64" max="8192" value="815" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <script src="/mcminimap/app.js" defer></script>
+  </body>
+</html>
