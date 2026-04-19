@@ -1,0 +1,329 @@
+/* =============================================================================
+   McMinimap-specific styles. Shared theme (tokens, nav, buttons, cards, tabs,
+   statusbar, form controls, responsive) lives in /styles/museum.css.
+   ========================================================================== */
+
+/* ---- generator grid (controls + preview) ---------------------------- */
+
+.gen-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s-3);
+}
+@media (min-width: 900px) {
+  .gen-grid { grid-template-columns: minmax(320px, 380px) minmax(0, 1fr); }
+}
+
+/* Card overrides for the viewer variant */
+.card--viewer { padding: var(--s-2); }
+
+.stack { display: flex; flex-direction: column; gap: var(--s-3); }
+
+/* ---- square preview ------------------------------------------------- */
+
+.imgwrap {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.imgwrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  transition: opacity var(--dur) var(--ease);
+}
+
+/* ---- dropzone ------------------------------------------------------- */
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-1);
+  min-height: 150px;
+  padding: var(--s-3);
+  text-align: center;
+  background: var(--bg);
+  border: 1.5px dashed var(--gold-dim);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.dropzone:hover,
+.dropzone:focus-visible {
+  background: var(--accent-softer);
+  border-color: var(--gold);
+}
+.dropzone.is-dragover {
+  background: var(--accent-soft);
+  border-color: var(--gold);
+  border-style: solid;
+}
+.dropzone.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.dz-title { font-weight: 600; font-size: 0.98rem; color: var(--text); }
+.dz-meta {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  min-height: 1.1em;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dz-meta.is-set { color: var(--text); }
+.dz-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.dz-browse { margin-top: 6px; }
+
+/* ---- field labels + sections ---------------------------------------- */
+
+.field-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.section {
+  margin-top: var(--s-3);
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+}
+
+.hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: var(--s-1) 0 0;
+}
+.hint code { color: var(--gold-glow); }
+
+/* ---- segmented (preset picker) ------------------------------------- */
+
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 3px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.seg-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 7px 10px;
+  border-radius: calc(var(--r-md) - 3px);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.seg-btn:hover { color: var(--text); }
+.seg-btn[aria-checked="true"] {
+  background: var(--accent-soft);
+  color: var(--gold-glow);
+}
+
+/* ---- toggles grid --------------------------------------------------- */
+
+.toggles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-1);
+  margin-top: var(--s-2);
+}
+@media (max-width: 520px) {
+  .toggles { grid-template-columns: 1fr; }
+}
+.toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+/* ---- slider + number row ------------------------------------------ */
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 90px;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: var(--s-2);
+}
+
+/* slightly tighter number inputs inside .row */
+.row input[type="number"] {
+  padding: 6px 8px;
+  font-size: 0.9rem;
+}
+
+/* ---- advanced drawer ----------------------------------------------- */
+
+.advanced { margin-top: var(--s-4); }
+
+.advanced__toggle {
+  appearance: none;
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--bg-panel);
+  color: var(--gold);
+  font: inherit;
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.advanced__toggle:hover {
+  background: var(--bg-panel-2);
+  border-color: var(--gold);
+}
+.advanced__chevron {
+  display: inline-block;
+  width: 0.55em;
+  height: 0.55em;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  margin-top: -0.2em;
+  transition: transform var(--dur) var(--ease);
+}
+.advanced__toggle[aria-expanded="true"] .advanced__chevron {
+  transform: rotate(225deg);
+  margin-top: 0.15em;
+}
+.advanced__body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 320ms var(--ease);
+}
+.advanced__body.is-open { max-height: 3000px; }
+.advanced__card { margin-top: var(--s-2); }
+
+/* ---- linklike (e.g. refresh gallery) ------------------------------ */
+
+.linklike {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--gold);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+}
+.linklike:hover { color: var(--gold-glow); text-decoration: underline; }
+
+/* ---- gallery grid -------------------------------------------------- */
+
+.gallery-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--s-3);
+  gap: var(--s-3);
+}
+.gallery-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.gallery-head p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.gallery-grid {
+  display: grid;
+  gap: var(--s-3);
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.empty, .error-state {
+  padding: var(--s-5);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-lg);
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 0.9rem;
+  grid-column: 1 / -1;
+}
+.error-state {
+  color: var(--status-error);
+  border-color: color-mix(in srgb, var(--status-error) 40%, var(--border));
+}
+
+figure.card-img {
+  margin: 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--gold-dim);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+figure.card-img:hover {
+  border-color: var(--gold);
+  transform: translateY(-1px);
+}
+figure.card-img img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  background: var(--bg);
+  display: block;
+}
+figure.card-img figcaption {
+  padding: 6px 10px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+figure.card-img .src {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+figure.card-img time {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

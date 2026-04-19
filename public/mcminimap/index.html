@@ -3,587 +3,55 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>AOE2 McMinimap</title>
+    <title>McMinimap - AoE2 Museum</title>
     <meta
       name="description"
       content="Render Age of Empires II minimap PNGs entirely in your browser. No uploads for rendering: the AOE2-McMinimap Python renderer runs locally via Pyodide."
     />
-    <style>
-      :root {
-        color-scheme: light dark;
-        --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-        --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-
-        --r-sm: 8px;
-        --r-md: 12px;
-        --r-lg: 16px;
-        --r-pill: 999px;
-
-        --s-1: 8px;
-        --s-2: 12px;
-        --s-3: 16px;
-        --s-4: 20px;
-        --s-5: 24px;
-
-        --border: rgba(127, 127, 127, 0.35);
-        --border-strong: rgba(127, 127, 127, 0.5);
-        --surface: rgba(127, 127, 127, 0.06);
-        --surface-2: rgba(127, 127, 127, 0.1);
-        --surface-3: rgba(127, 127, 127, 0.15);
-        --text-muted: rgba(127, 127, 127, 0.92);
-
-        --accent: #6366f1;
-        --accent-hover: #5558e8;
-        --accent-soft: rgba(99, 102, 241, 0.2);
-        --accent-softer: rgba(99, 102, 241, 0.1);
-
-        --status-success: #16a34a;
-        --status-success-bg: color-mix(in srgb, #16a34a 14%, transparent);
-        --status-error: #dc2626;
-        --status-error-bg: color-mix(in srgb, #dc2626 14%, transparent);
-
-        --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 20px rgba(0, 0, 0, 0.04);
-        --focus: 0 0 0 3px rgba(99, 102, 241, 0.45);
-
-        --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-        --dur: 180ms;
-      }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 24px rgba(0, 0, 0, 0.25);
-          --surface: rgba(255, 255, 255, 0.05);
-          --surface-2: rgba(255, 255, 255, 0.08);
-          --surface-3: rgba(255, 255, 255, 0.12);
-        }
-      }
-
-      * { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; }
-      body {
-        font-family: var(--font);
-        line-height: 1.5;
-        background: Canvas;
-        color: CanvasText;
-      }
-
-      a { color: var(--accent); text-decoration: none; }
-      a:hover { color: var(--accent-hover); }
-
-      code, kbd { font-family: var(--mono); font-size: 0.9em; }
-
-      .visually-hidden {
-        position: absolute; width: 1px; height: 1px;
-        padding: 0; margin: -1px; overflow: hidden;
-        clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
-      }
-
-      :focus { outline: none; }
-      :focus-visible {
-        outline: 2px solid var(--accent);
-        outline-offset: 2px;
-        border-radius: var(--r-sm);
-      }
-
-      .wrap {
-        max-width: 1080px;
-        margin: 0 auto;
-        padding: var(--s-5) var(--s-3);
-      }
-      @media (min-width: 640px) {
-        .wrap { padding: var(--s-5) var(--s-4); }
-      }
-
-      /* ---------- hero ---------- */
-
-      header.hero { margin-bottom: var(--s-4); }
-      .back {
-        display: inline-block;
-        font-size: 0.85rem;
-        color: var(--text-muted);
-        margin-bottom: var(--s-2);
-      }
-      .back:hover { color: var(--accent); }
-      h1 {
-        margin: 0 0 var(--s-1);
-        font-size: clamp(1.5rem, 3vw, 2.1rem);
-        letter-spacing: -0.02em;
-      }
-      header.hero p {
-        margin: 0;
-        color: var(--text-muted);
-        max-width: 70ch;
-        font-size: 0.92rem;
-      }
-
-      /* ---------- tabs ---------- */
-
-      .tabs {
-        display: inline-flex;
-        padding: 3px;
-        gap: 2px;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--r-pill);
-        margin-bottom: var(--s-2);
-      }
-      .tab {
-        appearance: none;
-        border: 0;
-        background: transparent;
-        color: var(--text-muted);
-        font: inherit;
-        font-size: 0.88rem;
-        font-weight: 500;
-        padding: 6px 16px;
-        border-radius: var(--r-pill);
-        cursor: pointer;
-        transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
-      }
-      .tab:hover { color: CanvasText; }
-      .tab[aria-selected="true"] {
-        background: var(--accent-soft);
-        color: color-mix(in srgb, var(--accent) 60%, CanvasText);
-      }
-
-      /* ---------- status bubble / progress bar ---------- */
-
-      .statusbar {
-        position: relative;
-        overflow: hidden;
-        width: 100%;
-        padding: 10px var(--s-3);
-        margin-bottom: var(--s-4);
-        border: 1px solid var(--border);
-        border-radius: var(--r-md);
-        background: var(--surface);
-        box-shadow: var(--shadow);
-        font-size: 0.88rem;
-        color: var(--text-muted);
-      }
-      .statusbar__fill {
-        position: absolute;
-        inset: 0 auto 0 0;
-        width: var(--p, 0%);
-        background: var(--accent-soft);
-        transition: width var(--dur) var(--ease),
-                    background-color var(--dur) var(--ease),
-                    opacity var(--dur) var(--ease);
-        pointer-events: none;
-      }
-      .statusbar__text {
-        position: relative;
-        display: block;
-        font-variant-numeric: tabular-nums;
-      }
-      .statusbar--loading { color: color-mix(in srgb, var(--accent) 55%, CanvasText); }
-      .statusbar--success {
-        color: var(--status-success);
-        border-color: color-mix(in srgb, var(--status-success) 40%, var(--border));
-      }
-      .statusbar--success .statusbar__fill { background: var(--status-success-bg); }
-      .statusbar--error {
-        color: var(--status-error);
-        border-color: color-mix(in srgb, var(--status-error) 40%, var(--border));
-      }
-      .statusbar--error .statusbar__fill { background: var(--status-error-bg); }
-      .statusbar--idle .statusbar__fill { opacity: 0; }
-
-      /* ---------- panels ---------- */
-
-      .panel[hidden] { display: none; }
-      .panel { animation: fadein var(--dur) var(--ease); }
-      @keyframes fadein {
-        from { opacity: 0; transform: translateY(4px); }
-        to { opacity: 1; transform: none; }
-      }
-
-      .gen-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: var(--s-3);
-      }
-      @media (min-width: 900px) {
-        .gen-grid { grid-template-columns: minmax(320px, 380px) minmax(0, 1fr); }
-      }
-
-      .card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--r-lg);
-        padding: var(--s-4);
-        box-shadow: var(--shadow);
-      }
-      .card--viewer { padding: var(--s-2); }
-
-      /* ---------- preview (square) ---------- */
-
-      .imgwrap {
-        position: relative;
-        aspect-ratio: 1 / 1;
-        width: 100%;
-        border-radius: var(--r-md);
-        overflow: hidden;
-        background: var(--surface-2);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .imgwrap img {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        display: block;
-        transition: opacity var(--dur) var(--ease);
-      }
-
-      /* ---------- controls ---------- */
-
-      .stack { display: flex; flex-direction: column; gap: var(--s-3); }
-
-      .dropzone {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: var(--s-1);
-        min-height: 150px;
-        padding: var(--s-3);
-        text-align: center;
-        background: var(--surface-2);
-        border: 1.5px dashed var(--border-strong);
-        border-radius: var(--r-md);
-        cursor: pointer;
-        transition: background var(--dur) var(--ease),
-                    border-color var(--dur) var(--ease);
-      }
-      .dropzone:hover,
-      .dropzone:focus-visible {
-        background: var(--accent-softer);
-        border-color: var(--accent);
-      }
-      .dropzone.is-dragover {
-        background: var(--accent-soft);
-        border-color: var(--accent);
-        border-style: solid;
-      }
-      .dropzone.is-disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
-      }
-      .dz-title { font-weight: 600; font-size: 0.98rem; }
-      .dz-meta {
-        font-size: 0.82rem;
-        color: var(--text-muted);
-        min-height: 1.1em;
-        max-width: 100%;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .dz-meta.is-set { color: CanvasText; }
-      .dz-hint {
-        font-size: 0.7rem;
-        color: var(--text-muted);
-        font-family: var(--mono);
-      }
-      .dz-browse { margin-top: 6px; }
-
-      .field-label {
-        display: block;
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--text-muted);
-        margin-bottom: 6px;
-      }
-
-      .segmented {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 4px;
-        padding: 3px;
-        background: var(--surface-2);
-        border: 1px solid var(--border);
-        border-radius: var(--r-md);
-      }
-      .seg-btn {
-        appearance: none;
-        border: 0;
-        background: transparent;
-        color: var(--text-muted);
-        font: inherit;
-        font-size: 0.85rem;
-        padding: 7px 10px;
-        border-radius: calc(var(--r-md) - 3px);
-        cursor: pointer;
-        transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
-      }
-      .seg-btn:hover { color: CanvasText; }
-      .seg-btn[aria-checked="true"] {
-        background: var(--surface-3);
-        color: CanvasText;
-      }
-
-      .btn {
-        appearance: none;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 10px 16px;
-        border-radius: var(--r-md);
-        font: inherit;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background var(--dur) var(--ease),
-                    color var(--dur) var(--ease),
-                    border-color var(--dur) var(--ease),
-                    transform var(--dur) var(--ease);
-      }
-      .btn:active:not(:disabled) { transform: translateY(1px); }
-
-      .btn--primary {
-        background: var(--accent);
-        color: #fff;
-        border: 1px solid var(--accent);
-      }
-      .btn--primary:hover:not(:disabled) {
-        background: var(--accent-hover);
-        border-color: var(--accent-hover);
-      }
-      .btn--primary:disabled {
-        background: var(--surface-3);
-        color: var(--text-muted);
-        border-color: var(--border);
-        cursor: not-allowed;
-      }
-      .btn--ghost {
-        background: transparent;
-        color: CanvasText;
-        border: 1px solid var(--border);
-      }
-      .btn--ghost:hover { background: var(--surface-2); border-color: var(--border-strong); }
-      .btn--ghost:disabled { opacity: 0.5; cursor: not-allowed; }
-
-      .linklike {
-        appearance: none;
-        background: transparent;
-        border: 0;
-        color: var(--accent);
-        font: inherit;
-        font-size: 0.85rem;
-        cursor: pointer;
-        padding: 0;
-      }
-      .linklike:hover { color: var(--accent-hover); text-decoration: underline; }
-
-      /* ---------- advanced ---------- */
-
-      .advanced { margin-top: var(--s-4); }
-      .advanced__toggle {
-        appearance: none;
-        width: 100%;
-        padding: 10px 14px;
-        background: var(--surface);
-        color: CanvasText;
-        font: inherit;
-        font-size: 0.88rem;
-        font-weight: 600;
-        letter-spacing: 0.02em;
-        border: 1px solid var(--border);
-        border-radius: var(--r-md);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
-      }
-      .advanced__toggle:hover { background: var(--surface-2); border-color: var(--border-strong); }
-      .advanced__chevron {
-        display: inline-block;
-        width: 0.55em;
-        height: 0.55em;
-        border-right: 2px solid currentColor;
-        border-bottom: 2px solid currentColor;
-        transform: rotate(45deg);
-        margin-top: -0.2em;
-        transition: transform var(--dur) var(--ease);
-      }
-      .advanced__toggle[aria-expanded="true"] .advanced__chevron {
-        transform: rotate(225deg);
-        margin-top: 0.15em;
-      }
-      .advanced__body {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 320ms var(--ease);
-      }
-      .advanced__body.is-open { max-height: 3000px; }
-      .advanced__card { margin-top: var(--s-2); }
-
-      .row {
-        display: grid;
-        grid-template-columns: 1fr 90px;
-        gap: 10px;
-        align-items: center;
-      }
-      input[type="range"] { width: 100%; accent-color: var(--accent); }
-      input[type="number"], select {
-        width: 100%;
-        padding: 8px 10px;
-        border-radius: var(--r-sm);
-        border: 1px solid var(--border);
-        background: Canvas;
-        color: CanvasText;
-        font: inherit;
-        transition: border-color var(--dur) var(--ease);
-      }
-      input[type="number"]:focus-visible, select:focus-visible {
-        border-color: var(--accent);
-      }
-      .section {
-        margin-top: var(--s-3);
-        padding-top: var(--s-2);
-        border-top: 1px solid var(--border);
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        color: var(--text-muted);
-      }
-      .toggles {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: var(--s-1);
-        margin-top: var(--s-2);
-      }
-      @media (max-width: 520px) { .toggles { grid-template-columns: 1fr; } }
-      .toggle {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        font-size: 0.85rem;
-        color: var(--text-muted);
-        cursor: pointer;
-      }
-      .toggle input { accent-color: var(--accent); }
-      .hint {
-        font-size: 0.78rem;
-        color: var(--text-muted);
-        margin: var(--s-1) 0 0;
-      }
-
-      /* ---------- gallery ---------- */
-
-      .gallery-head {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        margin-bottom: var(--s-3);
-        gap: var(--s-3);
-      }
-      .gallery-head h2 {
-        margin: 0;
-        font-size: 1.05rem;
-        font-weight: 600;
-      }
-      .gallery-head p {
-        margin: 0;
-        color: var(--text-muted);
-        font-size: 0.85rem;
-      }
-
-      .grid {
-        display: grid;
-        gap: var(--s-3);
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      }
-      .empty, .error-state {
-        padding: var(--s-5);
-        border: 1px dashed var(--border);
-        border-radius: var(--r-lg);
-        color: var(--text-muted);
-        text-align: center;
-        font-size: 0.9rem;
-      }
-      .error-state {
-        color: var(--status-error);
-        border-color: color-mix(in srgb, var(--status-error) 30%, var(--border));
-      }
-
-      figure.card-img {
-        margin: 0;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--r-md);
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        transition: border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
-      }
-      figure.card-img:hover {
-        border-color: var(--border-strong);
-        transform: translateY(-1px);
-      }
-      figure.card-img img {
-        width: 100%;
-        aspect-ratio: 1 / 1;
-        object-fit: contain;
-        background: var(--surface-2);
-        display: block;
-      }
-      figure.card-img figcaption {
-        padding: 6px 10px 8px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        font-size: 0.68rem;
-        color: var(--text-muted);
-      }
-      figure.card-img .src {
-        min-width: 0;
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-      }
-      figure.card-img time {
-        white-space: nowrap;
-        font-variant-numeric: tabular-nums;
-      }
-    </style>
+    <link rel="stylesheet" href="/styles/museum.css" />
+    <link rel="stylesheet" href="/mcminimap/style.css" />
   </head>
   <body>
-    <div class="wrap">
-      <header class="hero">
-        <a class="back" href="/">&larr; Museum</a>
-        <h1>AOE2 McMinimap</h1>
+    <nav class="site-nav">
+      <a class="site-nav__logo" href="/">AoE2 Museum</a>
+      <div class="site-nav__links">
+        <a href="/">Home</a>
+        <a href="/mcminimap/" aria-current="page">McMinimap</a>
+        <a href="/scenarios/">Scenarios</a>
+        <a href="/contact.html">Contact</a>
+      </div>
+    </nav>
+
+    <main>
+      <h1 class="page-title">AoE2 McMinimap</h1>
+
+      <div class="page-intro">
         <p>
           Upload a scenario or recording, pick a preset, and render a minimap PNG. Rendering
           runs entirely in your browser via Pyodide &mdash; nothing is uploaded for rendering.
         </p>
-      </header>
+      </div>
 
-      <nav class="tabs" role="tablist" aria-label="McMinimap views">
-        <button
-          class="tab"
-          role="tab"
-          id="tab-generate"
-          aria-selected="true"
-          aria-controls="panel-generate"
-          data-tab="generate"
-        >Generate</button>
-        <button
-          class="tab"
-          role="tab"
-          id="tab-gallery"
-          aria-selected="false"
-          aria-controls="panel-gallery"
-          data-tab="gallery"
-        >Gallery</button>
-      </nav>
+      <div class="tabs-bar">
+        <nav class="tabs" role="tablist" aria-label="McMinimap views">
+          <button
+            class="tab"
+            role="tab"
+            id="tab-generate"
+            aria-selected="true"
+            aria-controls="panel-generate"
+            data-tab="generate"
+          >Generate</button>
+          <button
+            class="tab"
+            role="tab"
+            id="tab-gallery"
+            aria-selected="false"
+            aria-controls="panel-gallery"
+            data-tab="gallery"
+          >Gallery</button>
+        </nav>
+      </div>
 
       <div
         id="statusbar"
@@ -596,6 +64,7 @@
         <span class="statusbar__text" id="status">Starting&hellip;</span>
       </div>
 
+      <!-- Generate tab -------------------------------------------------- -->
       <section
         class="panel"
         id="panel-generate"
@@ -622,7 +91,7 @@
                   </div>
                   <button
                     type="button"
-                    class="btn btn--ghost dz-browse"
+                    class="btn btn--small btn--ghost dz-browse"
                     id="browse-btn"
                   >Browse&hellip;</button>
                 </div>
@@ -636,7 +105,7 @@
                   </div>
                 </div>
 
-                <button id="submit" class="btn btn--primary" type="submit">Render minimap</button>
+                <button id="submit" class="btn" type="submit">Render minimap</button>
               </div>
             </div>
 
@@ -783,6 +252,7 @@
         </form>
       </section>
 
+      <!-- Gallery tab --------------------------------------------------- -->
       <section
         class="panel"
         id="panel-gallery"
@@ -797,9 +267,11 @@
           </div>
           <button type="button" id="gallery-refresh" class="linklike">Refresh</button>
         </div>
-        <div id="gallery-grid" class="grid" aria-live="polite"></div>
+        <div id="gallery-grid" class="gallery-grid" aria-live="polite"></div>
       </section>
-    </div>
+    </main>
+
+    <footer>AoE2 Museum</footer>
 
     <script src="/mcminimap/app.js" defer></script>
   </body>

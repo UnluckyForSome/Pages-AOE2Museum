@@ -6,10 +6,11 @@ Each "app" lives under its own path and runs client-side where possible.
 | Path                            | Description                                                                                 |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
 | `/`                             | Museum landing page listing available apps.                                                 |
-| `/mcminimap/`                   | Isometric minimap renderer. Runs [AOE2-McMinimap](https://github.com/UnluckyForSome/AOE2-McMinimap) in-browser via Pyodide &mdash; nothing is uploaded for rendering. |
+| `/contact.html`                 | Contact page.                                                                               |
+| `/mcminimap/`                   | Isometric minimap renderer (Generate + Gallery tabs). Runs [AOE2-McMinimap](https://github.com/UnluckyForSome/AOE2-McMinimap) in-browser via Pyodide &mdash; nothing is uploaded for rendering. |
 | `/api/gallery`                  | `GET` returns the latest-20 index; `POST image/png` (with `X-Source-Name`) appends to the gallery. |
 | `/api/gallery/:id`              | Streams a stored gallery PNG from R2.                                                       |
-| `/scenarios/`                   | Community archive of AoE2 custom scenarios (list, filter, download, contribute).            |
+| `/scenarios/`                   | Community archive of AoE2 custom scenarios (Archive + Contribute tabs on one page; `#contribute` deep-links the upload tab). |
 | `GET /api/scenarios`            | JSON list of every scenario in D1, newest first.                                            |
 | `POST /api/scenarios/upload`    | Multipart upload (Turnstile-gated). Accepts `.scn`/`.scx`/`.aoe2scenario`/`.zip`, dedupes by MD5. |
 | `GET /api/scenarios/download/:id` | Streams the scenario file from R2 and increments the download counter.                    |
@@ -20,6 +21,13 @@ Static assets are served by the Worker's `assets` binding.
 `/mcminimap/` has an optional, **public** gallery of the 20 most recent
 minimaps (R2 + KV). `/scenarios/` is a shared community archive backed by
 D1 + R2. See [Bindings](#bindings).
+
+All pages share a single navy+gold theme defined in
+`public/styles/museum.css` (tokens, site nav, buttons, cards, tabs, status
+bubble, form controls, responsive). Per-app stylesheets
+(`public/mcminimap/style.css`, `public/scenarios/css/style.css`) only add
+genuinely unique widgets. The same `.tabs`/`.tab` pill component and
+`.statusbar` progress bubble are reused across apps.
 
 ### Gallery caveat
 
@@ -82,9 +90,12 @@ src/
     services/                       # turnstile, validation, verify-scenario
     db/schema.sql                   # reference only; production D1 is already populated
 public/                             # served by the Cloudflare assets binding
-  index.html                        # museum landing
+  index.html                        # museum landing (navy+gold, shared nav)
+  contact.html                      # shared contact page
+  styles/museum.css                 # shared theme (tokens, nav, tabs, statusbar, buttons, cards)
   mcminimap/
-    index.html                      # app UI (Generate + Gallery tabs, top progress bar)
+    index.html                      # Generate + Gallery tabs, status/progress bubble
+    style.css                       # minimap-only styles (dropzone, preview, gallery grid, &hellip;)
     app.js                          # UI controller + worker RPC + gallery client
     worker.js                       # Pyodide host (DedicatedWorker)
     py/bootstrap.py                 # exposes render(bytes, ext, settings)
@@ -92,12 +103,11 @@ public/                             # served by the Cloudflare assets binding
     vendor/aoe2mcminimap.tar        # generated from the submodule (gitignored)
     vendor/manifest.json            # { sourceSha, builtAt, files } (gitignored)
   scenarios/                        # migrated from the old `scenarios` Worker
-    index.html                      # archive (table + filter + sort + pagination)
-    contribute.html                 # upload form (Turnstile-gated)
-    contact.html
-    css/style.css                   # medieval/AoE2-themed styling
+    index.html                      # single page, Archive + Contribute tabs
+    css/style.css                   # scenario-only styles (table, file list, sync footer, &hellip;)
+    js/tabs.js                      # hash-synced tab controller
     js/scenarios.js                 # archive client
-    js/upload.js                    # upload client (XHR progress + Turnstile)
+    js/upload.js                    # upload client (XHR progress + lazy Turnstile)
     img/                            # aoc.png, aok.png, de.png, hd.png
 vendor/
   aoe2mcminimap/                    # git submodule -> UnluckyForSome/AOE2-McMinimap
@@ -229,9 +239,9 @@ app &mdash; uploaded scenario files live permanently in the `scenarios` R2
 bucket, with metadata in the `scenarios` D1 database.
 
 ```
-Browser --> /scenarios/ --> GET /api/scenarios (list from D1)
-         \                --> click row --> GET /api/scenarios/download/:id (stream from R2)
-          --> /scenarios/contribute.html --> Turnstile -> POST /api/scenarios/upload
+Browser --> /scenarios/ (Archive tab)  --> GET /api/scenarios (list from D1)
+         \                             --> click row --> GET /api/scenarios/download/:id (stream from R2)
+          --> /scenarios/#contribute    --> Turnstile -> POST /api/scenarios/upload
                                               |
                                               |-- validate ext + size (<=5 MB, <=100 MB zip)
                                               |-- extract zips (fflate) in-Worker
