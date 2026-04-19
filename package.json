@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "sync:mcminimap": "node scripts/sync-mcminimap.mjs",
-    "build:mcminimap": "npm run sync:mcminimap && node scripts/build-mcminimap-bundle.mjs",
+    "fetch:pylibs": "node scripts/fetch-pylibs.mjs",
+    "build:mcminimap": "npm run sync:mcminimap && npm run fetch:pylibs && node scripts/build-mcminimap-bundle.mjs",
     "predev": "npm run build:mcminimap",
     "dev": "wrangler dev",
     "predeploy": "npm run build:mcminimap",

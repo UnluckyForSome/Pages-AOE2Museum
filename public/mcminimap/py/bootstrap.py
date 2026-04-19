@@ -12,8 +12,13 @@ import sys
 import tempfile
 
 _VENDOR_DIR = "/home/pyodide/aoe2mcminimap"
-if _VENDOR_DIR not in sys.path:
-    sys.path.insert(0, _VENDOR_DIR)
+# `pylibs/` holds pure-Python packages that micropip cannot install as wheels
+# (notably `construct==2.8.16`, which the vendored happyleaves mgz tree pins).
+# Placed before site-packages so our pinned version wins any version race.
+_PYLIBS_DIR = _VENDOR_DIR + "/pylibs"
+for _p in (_PYLIBS_DIR, _VENDOR_DIR):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from McMinimap import MinimapSettings, to_png_bytes  # noqa: E402
 

@@ -26,16 +26,15 @@ async function boot() {
   await pyodide.loadPackage(["Pillow", "micropip"]);
 
   progress("Installing Python packages\u2026");
-  // construct==2.8.16 matches the vendored happyleaves mgz tree. The rest
-  // are pure-Python and available on PyPI. keep_going=true so a single
-  // missing dependency degrades gracefully (the primary parser path does
-  // not require mgz-fast).
+  // `construct==2.8.16` is vendored in the tarball (PyPI has no pure-Python
+  // wheel for that pinned version), so it is not listed here. The remaining
+  // packages are pure-Python wheels on PyPI. `keep_going=True` so one
+  // optional dep failing does not take the whole render path down.
   await pyodide.runPythonAsync(
     [
       "import micropip",
       "await micropip.install(",
       "    [",
-      '        "construct==2.8.16",',
       '        "AoE2ScenarioParser",',
       '        "mgz-fast",',
       '        "aocref",',

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// Packs the runtime-needed slice of the AOE2-McMinimap submodule into a single
-// tar at public/mcminimap/vendor/aoe2mcminimap.tar, plus a manifest.json
-// describing the source SHA and contents.
+// Packs the runtime-needed slice of the AOE2-McMinimap submodule plus any
+// vendored pure-Python packages into a single tar at
+// public/mcminimap/vendor/aoe2mcminimap.tar, plus a manifest.json describing
+// the source SHAs and contents.
 //
-// SHA-gated: if the submodule HEAD matches manifest.sourceSha and the tar
-// already exists, we exit early.
+// Cache-gated: if the submodule HEAD SHA and every vendored pylib version
+// match what's in manifest.json and the tar already exists, we skip work.
 
 import { execFileSync } from "node:child_process";
 import {
@@ -18,25 +19,44 @@ import {
   writeSync,
   closeSync,
 } from "node:fs";
-import { join, relative, resolve, dirname, posix } from "node:path";
+import { dirname, join, posix, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const submoduleDir = resolve(repoRoot, "mcminimap/vendor/aoe2mcminimap");
+const pylibsDir = resolve(repoRoot, "mcminimap/vendor/pylibs");
 const outDir = resolve(repoRoot, "public/mcminimap/vendor");
 const tarPath = join(outDir, "aoe2mcminimap.tar");
 const manifestPath = join(outDir, "manifest.json");
 
-// Only these top-level entries are shipped to the browser.
-const INCLUDE = ["McMinimap.py", "data", "emblems", "legacy"];
+// Submodule top-level entries to ship to the browser.
+const SUBMODULE_INCLUDE = ["McMinimap.py", "data", "emblems", "legacy"];
 // Inside `legacy`, only the mgz_legacy tree is needed at runtime.
 const LEGACY_KEEP = new Set(["mgz_legacy"]);
+
+const SKIP_DIRS = new Set(["__pycache__", ".git", "examples", "tests"]);
 
 function getSubmoduleSha() {
   return execFileSync("git", ["-C", submoduleDir, "rev-parse", "HEAD"], {
     encoding: "utf8",
   }).trim();
+}
+
+function readPylibVersions() {
+  // Map each pylib to its version marker (written by fetch-pylibs.mjs).
+  if (!existsSync(pylibsDir)) return {};
+  const out = {};
+  for (const name of readdirSync(pylibsDir)) {
+    const marker = join(pylibsDir, name, ".version");
+    if (!existsSync(marker)) continue;
+    try {
+      out[name] = readFileSync(marker, "utf8").trim();
+    } catch {
+      // ignore
+    }
+  }
+  return out;
 }
 
 function readManifest() {
@@ -50,7 +70,8 @@ function readManifest() {
 
 function collectFiles() {
   const files = [];
-  for (const top of INCLUDE) {
+
+  for (const top of SUBMODULE_INCLUDE) {
     const abs = join(submoduleDir, top);
     if (!existsSync(abs)) continue;
     const st = statSync(abs);
@@ -60,13 +81,23 @@ function collectFiles() {
       walk(abs, top, files, top === "legacy" ? LEGACY_KEEP : null);
     }
   }
+
+  if (existsSync(pylibsDir)) {
+    for (const name of readdirSync(pylibsDir)) {
+      const abs = join(pylibsDir, name);
+      if (!statSync(abs).isDirectory()) continue;
+      walk(abs, posix.join("pylibs", name), files, null);
+    }
+  }
+
   return files;
 }
 
 function walk(dirAbs, dirRel, files, topLevelFilter) {
   for (const name of readdirSync(dirAbs)) {
     if (dirRel === "legacy" && topLevelFilter && !topLevelFilter.has(name)) continue;
-    if (name === "__pycache__" || name === ".git") continue;
+    if (SKIP_DIRS.has(name)) continue;
+    if (name === ".version") continue;
     const abs = join(dirAbs, name);
     const rel = posix.join(dirRel, name);
     const st = statSync(abs);
@@ -82,7 +113,6 @@ function walk(dirAbs, dirRel, files, topLevelFilter) {
 // --- minimal USTAR writer (512-byte blocks, no GNU extensions) ---------------
 
 function octal(num, length) {
-  // USTAR numeric field: length-1 octal digits + trailing NUL.
   return num.toString(8).padStart(length - 1, "0") + "\0";
 }
 
@@ -136,6 +166,13 @@ function writeTar(files, outPath) {
 
 // -----------------------------------------------------------------------------
 
+function shallowEqual(a, b) {
+  const ak = Object.keys(a || {});
+  const bk = Object.keys(b || {});
+  if (ak.length !== bk.length) return false;
+  return ak.every((k) => a[k] === b[k]);
+}
+
 function main() {
   if (!existsSync(join(submoduleDir, "McMinimap.py"))) {
     console.error(
@@ -145,9 +182,21 @@ function main() {
   }
 
   const sha = getSubmoduleSha();
+  const pylibs = readPylibVersions();
+
   const prev = readManifest();
-  if (prev && prev.sourceSha === sha && existsSync(tarPath)) {
-    console.log(`[build-mcminimap-bundle] up to date at ${sha.slice(0, 7)}, skipping.`);
+  if (
+    prev &&
+    prev.sourceSha === sha &&
+    shallowEqual(prev.pylibs, pylibs) &&
+    existsSync(tarPath)
+  ) {
+    const pylibSummary = Object.keys(pylibs).length
+      ? " + " + Object.entries(pylibs).map(([n, v]) => `${n}@${v}`).join(",")
+      : "";
+    console.log(
+      `[build-mcminimap-bundle] up to date at ${sha.slice(0, 7)}${pylibSummary}, skipping.`,
+    );
     return;
   }
 
@@ -158,6 +207,7 @@ function main() {
 
   const manifest = {
     sourceSha: sha,
+    pylibs,
     builtAt: new Date().toISOString(),
     fileCount: files.length,
     bytes,
@@ -165,9 +215,12 @@ function main() {
   };
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 
+  const pylibSummary = Object.keys(pylibs).length
+    ? ", pylibs: " + Object.entries(pylibs).map(([n, v]) => `${n}@${v}`).join(",")
+    : "";
   console.log(
     `[build-mcminimap-bundle] wrote ${relative(repoRoot, tarPath)} ` +
-      `(${files.length} files, ${(bytes / 1024).toFixed(1)} KiB, sha ${sha.slice(0, 7)})`,
+      `(${files.length} files, ${(bytes / 1024).toFixed(1)} KiB, sha ${sha.slice(0, 7)}${pylibSummary})`,
   );
 }
 
