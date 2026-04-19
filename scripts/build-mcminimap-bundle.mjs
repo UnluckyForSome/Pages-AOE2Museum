@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Packs the runtime-needed slice of the AOE2-McMinimap submodule plus any
-// vendored pure-Python packages into a single tar at
+// Packs the runtime-needed slice of the AOE2-McMinimap submodule (repo-root
+// vendor/aoe2mcminimap) plus vendor/pylibs into a single tar at
 // public/mcminimap/vendor/aoe2mcminimap.tar, plus a manifest.json describing
 // the source SHAs and contents.
 //
@@ -24,8 +24,8 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
-const submoduleDir = resolve(repoRoot, "mcminimap/vendor/aoe2mcminimap");
-const pylibsDir = resolve(repoRoot, "mcminimap/vendor/pylibs");
+const submoduleDir = resolve(repoRoot, "vendor/aoe2mcminimap");
+const pylibsDir = resolve(repoRoot, "vendor/pylibs");
 const outDir = resolve(repoRoot, "public/mcminimap/vendor");
 const tarPath = join(outDir, "aoe2mcminimap.tar");
 const manifestPath = join(outDir, "manifest.json");

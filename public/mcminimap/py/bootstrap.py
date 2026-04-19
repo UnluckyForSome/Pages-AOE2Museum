@@ -30,7 +30,7 @@ for _pkg in ("construct", "aocref"):
     if importlib.util.find_spec(_pkg) is None:
         raise ImportError(
             f"vendored package {_pkg!r} not found on sys.path; "
-            f"check that mcminimap/vendor/pylibs/{_pkg} was bundled into "
+            f"check that vendor/pylibs/{_pkg} was bundled into "
             "aoe2mcminimap.tar (scripts/fetch-pylibs.mjs + "
             "scripts/build-mcminimap-bundle.mjs)."
         )

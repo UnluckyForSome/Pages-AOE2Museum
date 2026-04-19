@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Downloads pinned pure-Python packages that micropip cannot resolve as
-// wheels and vendors their source into mcminimap/vendor/pylibs/. The bundle
+// wheels and vendors their source into vendor/pylibs/. The bundle
 // script then ships them alongside the renderer and bootstrap.py adds
 // `pylibs/` to sys.path so `import construct` Just Works.
 //
@@ -45,7 +45,7 @@ const PYLIBS = [
   },
 ];
 
-const pylibsRoot = join(repoRoot, "mcminimap/vendor/pylibs");
+const pylibsRoot = join(repoRoot, "vendor/pylibs");
 
 function versionMarkerPath(pkg) {
   return join(pylibsRoot, pkg.name, ".version");

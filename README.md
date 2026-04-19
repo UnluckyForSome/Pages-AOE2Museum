@@ -25,11 +25,10 @@ public/                             # served by the Cloudflare assets binding
     py/bootstrap.py                 # exposes render(bytes, ext, settings)
     vendor/aoe2mcminimap.tar        # generated from the submodule (gitignored)
     vendor/manifest.json            # { sourceSha, builtAt, files } (gitignored)
-mcminimap/
-  vendor/
-    aoe2mcminimap/                  # git submodule -> UnluckyForSome/AOE2-McMinimap
-    pylibs/                         # downloaded pure-Python deps with no PyPI wheel (gitignored)
-      construct/                    #   construct 2.8.16 source (pinned by the vendored mgz tree)
+vendor/
+  aoe2mcminimap/                    # git submodule -> UnluckyForSome/AOE2-McMinimap
+  pylibs/                           # downloaded pure-Python deps with no PyPI wheel (gitignored)
+    construct/                      #   construct 2.8.16 + aocref (sdist-only on PyPI)
 scripts/
   sync-mcminimap.mjs                # ensures submodule is initialised
   fetch-pylibs.mjs                  # downloads pinned sdists (e.g. construct==2.8.16) from PyPI
@@ -43,9 +42,13 @@ First-time setup clones the submodule:
 ```bash
 git clone --recurse-submodules <this-repo>
 # or, if already cloned:
+git submodule sync
 git submodule update --init --recursive
 npm install
 ```
+
+If you pulled after the submodule path moved from `mcminimap/vendor/…` to
+`vendor/…`, run `git submodule sync` once so Git updates local paths.
 
 Run the dev server (the `predev` script regenerates the vendor tar if the
 submodule has moved):
@@ -59,9 +62,9 @@ Then open http://localhost:8787.
 ### Bumping the McMinimap version
 
 ```bash
-git submodule update --remote mcminimap/vendor/aoe2mcminimap
+git submodule update --remote vendor/aoe2mcminimap
 npm run build:mcminimap   # rebuilds the tar if the SHA changed, no-op otherwise
-git add mcminimap/vendor/aoe2mcminimap
+git add vendor/aoe2mcminimap
 git commit -m "bump AOE2-McMinimap"
 ```
 
@@ -77,7 +80,7 @@ The `predeploy` hook runs `npm run build:mcminimap`, which:
 
 1. initialises the submodule if needed (`sync:mcminimap`),
 2. downloads any pinned pure-Python deps that micropip cannot install as wheels
-   (`fetch:pylibs` &mdash; currently just `construct==2.8.16`),
+   (`fetch:pylibs` &mdash; `construct==2.8.16` and `aocref`, both sdist-only),
 3. compares the submodule HEAD SHA and vendored pylib versions against
    `public/mcminimap/vendor/manifest.json`, and
 4. rebuilds the tarball only when something changed (fast no-op otherwise).
@@ -117,8 +120,8 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 ```
 
-Either way, `scripts/fetch-pylibs.mjs` pulls `construct` straight from PyPI at
-build time, so you do not need to commit it.
+Either way, `scripts/fetch-pylibs.mjs` pulls those sdists from PyPI at build
+time, so you do not need to commit them.
 
 ## How `/mcminimap` works (high level)
 
@@ -127,10 +130,10 @@ Browser --> index.html --> app.js --> new Worker("/mcminimap/worker.js")
                                          |
                                          |-- loads Pyodide runtime from jsDelivr
                                          |-- installs pure-Python wheels via micropip
-                                         |     (AoE2ScenarioParser, mgz-fast, aocref, tabulate)
+                                         |     (AoE2ScenarioParser, mgz-fast, tabulate)
                                          |-- fetches /mcminimap/vendor/aoe2mcminimap.tar
                                          |-- pyodide.unpackArchive -> /home/pyodide/aoe2mcminimap
-                                         |     (renderer + pylibs/construct bundled in)
+                                         |     (renderer + pylibs: construct, aocref)
                                          |-- runs /mcminimap/py/bootstrap.py
                                          |     (adds pylibs/ + vendor dir to sys.path)
                                          |

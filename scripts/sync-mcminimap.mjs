@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
-const submodulePath = "mcminimap/vendor/aoe2mcminimap";
+const submodulePath = "vendor/aoe2mcminimap";
 const submoduleDir = resolve(repoRoot, submodulePath);
 
 function git(args, opts = {}) {

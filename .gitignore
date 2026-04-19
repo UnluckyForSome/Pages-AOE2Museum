@@ -9,4 +9,4 @@ public/mcminimap/vendor/aoe2mcminimap.tar
 public/mcminimap/vendor/manifest.json
 
 # Downloaded by scripts/fetch-pylibs.mjs from PyPI at build time.
-mcminimap/vendor/pylibs/
+vendor/pylibs/
