@@ -1,0 +1,3 @@
+[submodule "mcminimap/vendor/aoe2mcminimap"]
+	path = mcminimap/vendor/aoe2mcminimap
+	url = https://github.com/UnluckyForSome/AOE2-McMinimap.git
