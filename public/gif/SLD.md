@@ -50,18 +50,22 @@ damage-mask support is future work.
 ## Directions
 
 DE sprites store **16 directions**, one per slice, with no mirroring. Slice
-ordering is counter-clockwise starting at S:
+ordering is counter-clockwise starting at **E**:
 
-| Index | Bearing | Index | Bearing |
+| Slice | Bearing | Slice | Bearing |
 |:-----:|:-------:|:-----:|:-------:|
-| 0     | S       | 8     | N       |
-| 1     | SSW     | 9     | NNE     |
-| 2     | SW      | 10    | NE      |
-| 3     | WSW     | 11    | ENE     |
-| 4     | W       | 12    | E       |
-| 5     | WNW     | 13    | ESE     |
-| 6     | NW      | 14    | SE      |
-| 7     | NNW     | 15    | SSE     |
+| 0     | E       | 8     | W       |
+| 1     | ESE     | 9     | WNW     |
+| 2     | SE      | 10    | NW      |
+| 3     | SSE     | 11    | NNW     |
+| 4     | S       | 12    | N       |
+| 5     | SSW     | 13    | NNE     |
+| 6     | SW      | 14    | NE      |
+| 7     | WSW     | 15    | ENE     |
+
+The UI dropdown presents the bearings in a human-friendly S→W→N→E order but
+each `<option value>` is the raw stored-slice index, so the worker's
+`startIdx = directionIndex * fpd` formula stays a straight lookup.
 
 `framesPerDirection = numFrames / 16`, with one AoE2:DE wrinkle: most
 military walk / attack / death sprites ship with **one extra trailing

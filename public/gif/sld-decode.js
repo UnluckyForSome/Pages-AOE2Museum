@@ -18,12 +18,14 @@ export const LAYER_UNKNOWN = 0x04; // damage/selection tile-mask refinement (ski
 export const LAYER_SMUDGE  = 0x08; // damage overlay (not rendered)
 export const LAYER_PLAYER  = 0x10;
 
-// Counter-clockwise storage order starting at S. UI direction index -> bearing.
+// Counter-clockwise storage order starting at E. Slice index -> bearing.
+// This is the order frames are stored in the SLD file itself; the UI option
+// values are set so that each picker entry maps directly to its stored slice.
 export const DIRECTION_ORDER = [
+  "E", "ESE", "SE", "SSE",
   "S", "SSW", "SW", "WSW",
   "W", "WNW", "NW", "NNW",
   "N", "NNE", "NE", "ENE",
-  "E", "ESE", "SE", "SSE",
 ];
 
 // ---------------------------------------------------------------------------
