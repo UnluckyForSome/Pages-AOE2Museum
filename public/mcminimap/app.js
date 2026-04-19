@@ -67,11 +67,11 @@
   const dropzone = document.getElementById("dropzone");
   const browseBtn = document.getElementById("browse-btn");
   const fileMeta = document.getElementById("file-meta");
-  const statusEl = document.getElementById("status");
+  const statusBar = document.getElementById("statusbar");
+  const statusText = document.getElementById("status");
+  const progressFill = statusBar.querySelector(".statusbar__fill");
   const imgEl = document.getElementById("img");
   const submitBtn = document.getElementById("submit");
-  const progressEl = document.getElementById("progress");
-  const progressFill = progressEl.querySelector(".progress__fill");
   const advancedToggle = document.getElementById("advanced-toggle");
   const advancedBody = document.getElementById("advanced-body");
   const advancedLabel = advancedToggle.querySelector(".advanced__label");
@@ -116,9 +116,17 @@
 
   // ---------- status + progress ------------------------------------------
 
+  const STATUS_TONES = ["idle", "loading", "success", "error"];
+
+  function setStatusTone(tone) {
+    STATUS_TONES.forEach(function (t) {
+      statusBar.classList.toggle("statusbar--" + t, t === tone);
+    });
+  }
+
   function setStatus(text, tone) {
-    statusEl.textContent = text || "";
-    statusEl.className = "status" + (tone ? " status--" + tone : "");
+    statusText.textContent = text || "";
+    setStatusTone(tone || "idle");
   }
 
   function setProgress(pct, opts) {
@@ -127,19 +135,15 @@
       clearTimeout(progressHideTimer);
       progressHideTimer = 0;
     }
-    progressEl.classList.toggle("progress--error", !!options.error);
-    progressEl.classList.remove("progress--done");
     const clamped = Math.max(0, Math.min(100, pct));
-    progressFill.style.setProperty("--p", clamped + "%");
-    progressFill.style.setProperty("width", clamped + "%");
+    statusBar.style.setProperty("--p", clamped + "%");
+    progressFill.style.width = clamped + "%";
     if (clamped >= 100 && options.autoHide !== false) {
+      const hold = options.holdMs != null ? options.holdMs : 500;
       progressHideTimer = setTimeout(function () {
-        progressEl.classList.add("progress--done");
-        setTimeout(function () {
-          progressFill.style.setProperty("width", "0%");
-          progressEl.classList.remove("progress--done");
-        }, 400);
-      }, options.holdMs != null ? options.holdMs : 500);
+        statusBar.style.setProperty("--p", "0%");
+        progressFill.style.width = "0%";
+      }, hold);
     }
   }
 

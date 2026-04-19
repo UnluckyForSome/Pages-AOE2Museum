@@ -10,214 +10,220 @@
     />
     <style>
       :root {
-        color-scheme: dark;
+        color-scheme: light dark;
         --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
         --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-        --bg: #0b0d10;
-        --surface: #14181d;
-        --surface-2: #1b2026;
-        --surface-3: #232a31;
-        --border: #252c34;
-        --border-strong: #313a44;
-        --text: #e6edf3;
-        --muted: #8b96a3;
-        --muted-2: #6a7683;
+        --r-sm: 8px;
+        --r-md: 12px;
+        --r-lg: 16px;
+        --r-pill: 999px;
 
-        --accent: #6aa6ff;
-        --accent-strong: #3b83ff;
-        --accent-soft: rgba(106, 166, 255, 0.14);
-        --success: #5ddf8b;
-        --success-soft: rgba(93, 223, 139, 0.14);
-        --error: #ff7070;
-        --error-soft: rgba(255, 112, 112, 0.16);
-        --warn: #f0c160;
-        --warn-soft: rgba(240, 193, 96, 0.16);
-
-        --radius: 10px;
-        --radius-sm: 6px;
-        --radius-lg: 14px;
-        --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-        --dur: 180ms;
-        --progress-h: 3px;
-
-        --topbar-h: 56px;
         --s-1: 8px;
         --s-2: 12px;
         --s-3: 16px;
         --s-4: 20px;
         --s-5: 24px;
+
+        --border: rgba(127, 127, 127, 0.35);
+        --border-strong: rgba(127, 127, 127, 0.5);
+        --surface: rgba(127, 127, 127, 0.06);
+        --surface-2: rgba(127, 127, 127, 0.1);
+        --surface-3: rgba(127, 127, 127, 0.15);
+        --text-muted: rgba(127, 127, 127, 0.92);
+
+        --accent: #6366f1;
+        --accent-hover: #5558e8;
+        --accent-soft: rgba(99, 102, 241, 0.2);
+        --accent-softer: rgba(99, 102, 241, 0.1);
+
+        --status-success: #16a34a;
+        --status-success-bg: color-mix(in srgb, #16a34a 14%, transparent);
+        --status-error: #dc2626;
+        --status-error-bg: color-mix(in srgb, #dc2626 14%, transparent);
+
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 20px rgba(0, 0, 0, 0.04);
+        --focus: 0 0 0 3px rgba(99, 102, 241, 0.45);
+
+        --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --dur: 180ms;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 24px rgba(0, 0, 0, 0.25);
+          --surface: rgba(255, 255, 255, 0.05);
+          --surface-2: rgba(255, 255, 255, 0.08);
+          --surface-3: rgba(255, 255, 255, 0.12);
+        }
       }
 
       * { box-sizing: border-box; }
-
-      html, body {
-        margin: 0;
-        padding: 0;
-        background: var(--bg);
-        color: var(--text);
+      html, body { margin: 0; padding: 0; }
+      body {
         font-family: var(--font);
         line-height: 1.5;
-        min-height: 100%;
+        background: Canvas;
+        color: CanvasText;
       }
 
       a { color: var(--accent); text-decoration: none; }
-      a:hover { color: var(--accent-strong); }
+      a:hover { color: var(--accent-hover); }
 
       code, kbd { font-family: var(--mono); font-size: 0.9em; }
 
       .visually-hidden {
         position: absolute; width: 1px; height: 1px;
-        padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0);
-        white-space: nowrap; border: 0;
+        padding: 0; margin: -1px; overflow: hidden;
+        clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
       }
 
       :focus { outline: none; }
       :focus-visible {
         outline: 2px solid var(--accent);
         outline-offset: 2px;
-        border-radius: var(--radius-sm);
+        border-radius: var(--r-sm);
       }
 
-      /* ---------- topbar + progress ---------- */
-
-      .topbar {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        background: color-mix(in srgb, var(--bg) 88%, transparent);
-        backdrop-filter: saturate(140%) blur(8px);
-        border-bottom: 1px solid var(--border);
-      }
-      .topbar__row {
-        max-width: 1200px;
+      .wrap {
+        max-width: 1080px;
         margin: 0 auto;
-        padding: 0 var(--s-3);
-        height: var(--topbar-h);
-        display: flex;
-        align-items: center;
-        gap: var(--s-3);
+        padding: var(--s-5) var(--s-3);
       }
-      .brand {
-        display: flex;
-        align-items: baseline;
-        gap: var(--s-2);
-        min-width: 0;
+      @media (min-width: 640px) {
+        .wrap { padding: var(--s-5) var(--s-4); }
       }
-      .brand__home {
-        color: var(--muted);
-        font-size: 0.82rem;
+
+      /* ---------- hero ---------- */
+
+      header.hero { margin-bottom: var(--s-4); }
+      .back {
+        display: inline-block;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-bottom: var(--s-2);
       }
-      .brand__title {
+      .back:hover { color: var(--accent); }
+      h1 {
+        margin: 0 0 var(--s-1);
+        font-size: clamp(1.5rem, 3vw, 2.1rem);
+        letter-spacing: -0.02em;
+      }
+      header.hero p {
         margin: 0;
-        font-size: 1.02rem;
-        font-weight: 600;
-        letter-spacing: -0.01em;
+        color: var(--text-muted);
+        max-width: 70ch;
+        font-size: 0.92rem;
       }
+
+      /* ---------- tabs ---------- */
+
       .tabs {
-        display: flex;
-        gap: 2px;
-        margin-left: auto;
+        display: inline-flex;
         padding: 3px;
+        gap: 2px;
         background: var(--surface);
         border: 1px solid var(--border);
-        border-radius: 999px;
+        border-radius: var(--r-pill);
+        margin-bottom: var(--s-2);
       }
       .tab {
         appearance: none;
         border: 0;
         background: transparent;
-        color: var(--muted);
+        color: var(--text-muted);
         font: inherit;
         font-size: 0.88rem;
-        padding: 6px 14px;
-        border-radius: 999px;
+        font-weight: 500;
+        padding: 6px 16px;
+        border-radius: var(--r-pill);
         cursor: pointer;
         transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
       }
-      .tab:hover { color: var(--text); }
+      .tab:hover { color: CanvasText; }
       .tab[aria-selected="true"] {
         background: var(--accent-soft);
-        color: var(--accent);
+        color: color-mix(in srgb, var(--accent) 60%, CanvasText);
       }
 
-      .progress {
+      /* ---------- status bubble / progress bar ---------- */
+
+      .statusbar {
         position: relative;
-        height: var(--progress-h);
-        background: transparent;
         overflow: hidden;
+        width: 100%;
+        padding: 10px var(--s-3);
+        margin-bottom: var(--s-4);
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+        font-size: 0.88rem;
+        color: var(--text-muted);
       }
-      .progress__fill {
-        height: 100%;
-        width: var(--p, 0%);
-        background: linear-gradient(90deg, var(--accent), var(--accent-strong));
-        box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent);
-        transition: width var(--dur) var(--ease), opacity var(--dur) var(--ease);
-      }
-      .progress--done .progress__fill {
-        opacity: 0;
-      }
-      .progress--error .progress__fill {
-        background: var(--error);
-        box-shadow: 0 0 8px color-mix(in srgb, var(--error) 60%, transparent);
-      }
-      .status {
+      .statusbar__fill {
         position: absolute;
-        right: var(--s-3);
-        top: calc(var(--progress-h) + 4px);
-        font-size: 0.75rem;
-        color: var(--muted);
-        transition: opacity var(--dur) var(--ease);
+        inset: 0 auto 0 0;
+        width: var(--p, 0%);
+        background: var(--accent-soft);
+        transition: width var(--dur) var(--ease),
+                    background-color var(--dur) var(--ease),
+                    opacity var(--dur) var(--ease);
         pointer-events: none;
       }
-      .status--success { color: var(--success); }
-      .status--error { color: var(--error); }
-      .status--loading { color: var(--accent); }
-
-      /* ---------- layout ---------- */
-
-      .main {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: var(--s-4) var(--s-3) var(--s-5);
+      .statusbar__text {
+        position: relative;
+        display: block;
+        font-variant-numeric: tabular-nums;
       }
+      .statusbar--loading { color: color-mix(in srgb, var(--accent) 55%, CanvasText); }
+      .statusbar--success {
+        color: var(--status-success);
+        border-color: color-mix(in srgb, var(--status-success) 40%, var(--border));
+      }
+      .statusbar--success .statusbar__fill { background: var(--status-success-bg); }
+      .statusbar--error {
+        color: var(--status-error);
+        border-color: color-mix(in srgb, var(--status-error) 40%, var(--border));
+      }
+      .statusbar--error .statusbar__fill { background: var(--status-error-bg); }
+      .statusbar--idle .statusbar__fill { opacity: 0; }
+
+      /* ---------- panels ---------- */
 
       .panel[hidden] { display: none; }
-      .panel {
-        animation: fadein var(--dur) var(--ease);
-      }
+      .panel { animation: fadein var(--dur) var(--ease); }
       @keyframes fadein {
         from { opacity: 0; transform: translateY(4px); }
         to { opacity: 1; transform: none; }
       }
 
-      /* ---------- generate panel ---------- */
-
       .gen-grid {
         display: grid;
         grid-template-columns: 1fr;
-        gap: var(--s-4);
+        gap: var(--s-3);
       }
       @media (min-width: 900px) {
-        .gen-grid { grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr); }
+        .gen-grid { grid-template-columns: minmax(320px, 380px) minmax(0, 1fr); }
       }
 
       .card {
         background: var(--surface);
         border: 1px solid var(--border);
-        border-radius: var(--radius-lg);
+        border-radius: var(--r-lg);
         padding: var(--s-4);
+        box-shadow: var(--shadow);
       }
-      .card--viewer {
-        padding: var(--s-2);
-      }
+      .card--viewer { padding: var(--s-2); }
+
+      /* ---------- preview (square) ---------- */
 
       .imgwrap {
         position: relative;
-        aspect-ratio: 4 / 3;
-        border-radius: var(--radius);
+        aspect-ratio: 1 / 1;
+        width: 100%;
+        border-radius: var(--r-md);
         overflow: hidden;
-        background: var(--bg);
+        background: var(--surface-2);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -241,19 +247,18 @@
         justify-content: center;
         gap: var(--s-1);
         min-height: 150px;
-        padding: var(--s-4);
+        padding: var(--s-3);
         text-align: center;
         background: var(--surface-2);
         border: 1.5px dashed var(--border-strong);
-        border-radius: var(--radius);
+        border-radius: var(--r-md);
         cursor: pointer;
         transition: background var(--dur) var(--ease),
-                    border-color var(--dur) var(--ease),
-                    color var(--dur) var(--ease);
+                    border-color var(--dur) var(--ease);
       }
       .dropzone:hover,
       .dropzone:focus-visible {
-        background: var(--accent-soft);
+        background: var(--accent-softer);
         border-color: var(--accent);
       }
       .dropzone.is-dragover {
@@ -265,32 +270,31 @@
         opacity: 0.55;
         cursor: not-allowed;
       }
-      .dz-title {
-        font-weight: 600;
-        font-size: 0.98rem;
-      }
+      .dz-title { font-weight: 600; font-size: 0.98rem; }
       .dz-meta {
         font-size: 0.82rem;
-        color: var(--muted);
+        color: var(--text-muted);
         min-height: 1.1em;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
-      .dz-meta.is-set { color: var(--text); }
+      .dz-meta.is-set { color: CanvasText; }
       .dz-hint {
-        font-size: 0.72rem;
-        color: var(--muted-2);
+        font-size: 0.7rem;
+        color: var(--text-muted);
         font-family: var(--mono);
       }
-      .dz-browse {
-        margin-top: var(--s-1);
-      }
+      .dz-browse { margin-top: 6px; }
 
       .field-label {
         display: block;
-        font-size: 0.76rem;
-        font-weight: 600;
-        letter-spacing: 0.04em;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
-        color: var(--muted);
+        color: var(--text-muted);
         margin-bottom: 6px;
       }
 
@@ -301,24 +305,24 @@
         padding: 3px;
         background: var(--surface-2);
         border: 1px solid var(--border);
-        border-radius: var(--radius);
+        border-radius: var(--r-md);
       }
       .seg-btn {
         appearance: none;
         border: 0;
         background: transparent;
-        color: var(--muted);
+        color: var(--text-muted);
         font: inherit;
         font-size: 0.85rem;
         padding: 7px 10px;
-        border-radius: calc(var(--radius) - 3px);
+        border-radius: calc(var(--r-md) - 3px);
         cursor: pointer;
         transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
       }
-      .seg-btn:hover { color: var(--text); }
+      .seg-btn:hover { color: CanvasText; }
       .seg-btn[aria-checked="true"] {
         background: var(--surface-3);
-        color: var(--text);
+        color: CanvasText;
       }
 
       .btn {
@@ -328,7 +332,7 @@
         justify-content: center;
         gap: 8px;
         padding: 10px 16px;
-        border-radius: var(--radius);
+        border-radius: var(--r-md);
         font: inherit;
         font-weight: 600;
         cursor: pointer;
@@ -341,25 +345,26 @@
 
       .btn--primary {
         background: var(--accent);
-        color: #0b0d10;
+        color: #fff;
         border: 1px solid var(--accent);
       }
       .btn--primary:hover:not(:disabled) {
-        background: var(--accent-strong);
-        border-color: var(--accent-strong);
+        background: var(--accent-hover);
+        border-color: var(--accent-hover);
       }
       .btn--primary:disabled {
         background: var(--surface-3);
-        color: var(--muted-2);
+        color: var(--text-muted);
         border-color: var(--border);
         cursor: not-allowed;
       }
       .btn--ghost {
         background: transparent;
-        color: var(--text);
+        color: CanvasText;
         border: 1px solid var(--border);
       }
       .btn--ghost:hover { background: var(--surface-2); border-color: var(--border-strong); }
+      .btn--ghost:disabled { opacity: 0.5; cursor: not-allowed; }
 
       .linklike {
         appearance: none;
@@ -371,25 +376,23 @@
         cursor: pointer;
         padding: 0;
       }
-      .linklike:hover { color: var(--accent-strong); text-decoration: underline; }
+      .linklike:hover { color: var(--accent-hover); text-decoration: underline; }
 
       /* ---------- advanced ---------- */
 
-      .advanced {
-        margin-top: var(--s-4);
-      }
+      .advanced { margin-top: var(--s-4); }
       .advanced__toggle {
         appearance: none;
         width: 100%;
         padding: 10px 14px;
         background: var(--surface);
-        color: var(--text);
+        color: CanvasText;
         font: inherit;
         font-size: 0.88rem;
         font-weight: 600;
         letter-spacing: 0.02em;
         border: 1px solid var(--border);
-        border-radius: var(--radius);
+        border-radius: var(--r-md);
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -418,9 +421,7 @@
         transition: max-height 320ms var(--ease);
       }
       .advanced__body.is-open { max-height: 3000px; }
-      .advanced__card {
-        margin-top: var(--s-2);
-      }
+      .advanced__card { margin-top: var(--s-2); }
 
       .row {
         display: grid;
@@ -428,17 +429,14 @@
         gap: 10px;
         align-items: center;
       }
-      input[type="range"] {
-        width: 100%;
-        accent-color: var(--accent);
-      }
+      input[type="range"] { width: 100%; accent-color: var(--accent); }
       input[type="number"], select {
         width: 100%;
         padding: 8px 10px;
-        border-radius: var(--radius-sm);
+        border-radius: var(--r-sm);
         border: 1px solid var(--border);
-        background: var(--bg);
-        color: var(--text);
+        background: Canvas;
+        color: CanvasText;
         font: inherit;
         transition: border-color var(--dur) var(--ease);
       }
@@ -453,7 +451,7 @@
         font-weight: 700;
         letter-spacing: 0.06em;
         text-transform: uppercase;
-        color: var(--muted);
+        color: var(--text-muted);
       }
       .toggles {
         display: grid;
@@ -467,13 +465,13 @@
         gap: 8px;
         align-items: center;
         font-size: 0.85rem;
-        color: var(--muted);
+        color: var(--text-muted);
         cursor: pointer;
       }
       .toggle input { accent-color: var(--accent); }
       .hint {
         font-size: 0.78rem;
-        color: var(--muted-2);
+        color: var(--text-muted);
         margin: var(--s-1) 0 0;
       }
 
@@ -491,7 +489,11 @@
         font-size: 1.05rem;
         font-weight: 600;
       }
-      .gallery-head p { margin: 0; color: var(--muted); font-size: 0.85rem; }
+      .gallery-head p {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+      }
 
       .grid {
         display: grid;
@@ -501,18 +503,21 @@
       .empty, .error-state {
         padding: var(--s-5);
         border: 1px dashed var(--border);
-        border-radius: var(--radius-lg);
-        color: var(--muted);
+        border-radius: var(--r-lg);
+        color: var(--text-muted);
         text-align: center;
         font-size: 0.9rem;
       }
-      .error-state { color: var(--error); border-color: var(--error-soft); }
+      .error-state {
+        color: var(--status-error);
+        border-color: color-mix(in srgb, var(--status-error) 30%, var(--border));
+      }
 
       figure.card-img {
         margin: 0;
         background: var(--surface);
         border: 1px solid var(--border);
-        border-radius: var(--radius);
+        border-radius: var(--r-md);
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -526,7 +531,7 @@
         width: 100%;
         aspect-ratio: 1 / 1;
         object-fit: contain;
-        background: var(--bg);
+        background: var(--surface-2);
         display: block;
       }
       figure.card-img figcaption {
@@ -536,7 +541,7 @@
         justify-content: space-between;
         gap: 8px;
         font-size: 0.68rem;
-        color: var(--muted);
+        color: var(--text-muted);
       }
       figure.card-img .src {
         min-width: 0;
@@ -544,42 +549,53 @@
         white-space: nowrap;
         text-overflow: ellipsis;
       }
-      figure.card-img time { white-space: nowrap; font-variant-numeric: tabular-nums; }
+      figure.card-img time {
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
     </style>
   </head>
   <body>
-    <header class="topbar" role="banner">
-      <div class="topbar__row">
-        <div class="brand">
-          <a class="brand__home" href="/" aria-label="Back to the museum">&larr; Museum</a>
-          <h1 class="brand__title">McMinimap</h1>
-        </div>
-        <nav class="tabs" role="tablist" aria-label="McMinimap views">
-          <button
-            class="tab"
-            role="tab"
-            id="tab-generate"
-            aria-selected="true"
-            aria-controls="panel-generate"
-            data-tab="generate"
-          >Generate</button>
-          <button
-            class="tab"
-            role="tab"
-            id="tab-gallery"
-            aria-selected="false"
-            aria-controls="panel-gallery"
-            data-tab="gallery"
-          >Gallery</button>
-        </nav>
-      </div>
-      <div class="progress" id="progress" aria-hidden="true">
-        <div class="progress__fill"></div>
-      </div>
-      <span class="status" id="status" role="status" aria-live="polite" aria-atomic="true"></span>
-    </header>
+    <div class="wrap">
+      <header class="hero">
+        <a class="back" href="/">&larr; Museum</a>
+        <h1>AOE2 McMinimap</h1>
+        <p>
+          Upload a scenario or recording, pick a preset, and render a minimap PNG. Rendering
+          runs entirely in your browser via Pyodide &mdash; nothing is uploaded for rendering.
+        </p>
+      </header>
 
-    <main class="main">
+      <nav class="tabs" role="tablist" aria-label="McMinimap views">
+        <button
+          class="tab"
+          role="tab"
+          id="tab-generate"
+          aria-selected="true"
+          aria-controls="panel-generate"
+          data-tab="generate"
+        >Generate</button>
+        <button
+          class="tab"
+          role="tab"
+          id="tab-gallery"
+          aria-selected="false"
+          aria-controls="panel-gallery"
+          data-tab="gallery"
+        >Gallery</button>
+      </nav>
+
+      <div
+        id="statusbar"
+        class="statusbar statusbar--idle"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <div class="statusbar__fill" aria-hidden="true"></div>
+        <span class="statusbar__text" id="status">Starting&hellip;</span>
+      </div>
+
       <section
         class="panel"
         id="panel-generate"
@@ -590,16 +606,6 @@
           <input id="file" class="visually-hidden" name="file" type="file" required />
 
           <div class="gen-grid">
-            <div class="card card--viewer">
-              <div class="imgwrap" id="imgwrap">
-                <img
-                  id="img"
-                  src="/mcminimap/assets/rainbow.png"
-                  alt="Minimap preview. A rainbow placeholder is shown until you render."
-                />
-              </div>
-            </div>
-
             <div class="card">
               <div class="stack">
                 <div
@@ -631,6 +637,16 @@
                 </div>
 
                 <button id="submit" class="btn btn--primary" type="submit">Render minimap</button>
+              </div>
+            </div>
+
+            <div class="card card--viewer">
+              <div class="imgwrap" id="imgwrap">
+                <img
+                  id="img"
+                  src="/mcminimap/assets/rainbow.png"
+                  alt="Minimap preview. A rainbow placeholder is shown until you render."
+                />
               </div>
             </div>
           </div>
@@ -783,7 +799,7 @@
         </div>
         <div id="gallery-grid" class="grid" aria-live="polite"></div>
       </section>
-    </main>
+    </div>
 
     <script src="/mcminimap/app.js" defer></script>
   </body>
