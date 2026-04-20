@@ -184,129 +184,7 @@ function decodeDxt1Layer(chunkBytes, frame, previousRgba, hasCoords) {
     }
   }
 
-  return { rgba: out, coordinates: coords, flags, inherited: !!inheritPrev };
-}
-
-// ---------------------------------------------------------------------------
-// 0x04 "tile mask" layer -> clips the main layer when it inherits from prev.
-// ---------------------------------------------------------------------------
-//
-// When the main layer sets flag1 bit 7 ("reuse pixels from previous frame"),
-// the SLD also emits a per-tile 16-bit clipping bitmask encoded as an RLE
-// stream. Each bit j of a tile word corresponds to pixel j of a 4x4 block:
-// bit=1 keeps the pixel, bit=0 zeros its alpha. A tile word of 0 clears the
-// whole block. openage's sld-files.md does not document this layer (it is
-// labelled "???"); the format is reverse-engineered by SLD Extractor 1.4
-// (public/gif/newexamples/SLD Extractor 1.4/sld.js, adjustByUnknownLayer).
-//
-// Structure:
-//   bytes [0..2]        : fixed marker (0x05 0x00), ignored here.
-//   bytes [2..headerEnd]: rows * uint16-LE row offsets, relative to headerEnd.
-//   bytes [headerEnd..] : per-row RLE stream of skip / emit / repeat tokens.
-//
-// Per-row token grammar (leading skips, then alternating subsegs + repeats):
-//   byte <128     -> advance xOff by byte*4 pixels (skip that many 4x4 blocks)
-//   byte >=128    -> announces the next subseg: (byte - 128) explicit tiles
-//                    follow as uint16-LE words.
-//   After a subseg ends, the next byte is a repeat count for the last-read
-//   tile word, optionally extended by further <128 bytes, then followed by a
-//   fresh >=128 subseg-length byte.
-//
-// Reference: SLD Extractor 1.4's adjustByUnknownLayer. We fix an operator-
-// precedence bug in that implementation (`tile & (1 << j) == 0` was parsed
-// as `tile & ((1 << j) == 0)` and silently skipped all partial-tile clears).
-// The writer side of Extractor 1.4 confirms the intended check is
-// `(tile & (1 << j)) == 0` -> pixel j is cleared.
-function applyUnknownMask(chunkBytes, normalResult, frame) {
-  if (!normalResult || !normalResult.inherited) return;
-  const coords = normalResult.coordinates;
-  if (!coords) return;
-
-  const stride = frame.width;
-  const frameHeight = frame.height;
-  const data = normalResult.rgba;
-  const [x0, y0, x1, y1] = coords;
-  const rightLimit = x1;
-  const rows = ((y1 - y0) / 4) | 0;
-  const raw = chunkBytes;
-
-  if (rows <= 0) return;
-  const headerSize = 2 + rows * 2;
-  if (raw.byteLength < headerSize) return;
-
-  const rowOffsets = new Array(rows + 1);
-  for (let p = 0; p < rows; p++) {
-    const ptr = 2 + p * 2;
-    rowOffsets[p] = (raw[ptr] | (raw[ptr + 1] << 8)) + headerSize;
-  }
-  rowOffsets[rows] = raw.byteLength;
-
-  function clearBlock(xOff, yOff, tile) {
-    // tile === 0 -> clear the whole 4x4 block's alpha.
-    // tile !== 0 -> clear alpha on every pixel whose bit is 0 in `tile`.
-    for (let j = 0; j < 16; j++) {
-      if (tile !== 0 && (tile & (1 << j)) !== 0) continue;
-      const x = xOff + (j & 3);
-      if (x < 0 || x >= stride) continue;
-      const y = yOff + (j >> 2);
-      if (y < 0 || y >= frameHeight) continue;
-      data[((x + y * stride) << 2) + 3] = 0;
-    }
-  }
-
-  let tile = 0;
-  for (let p = 0; p < rows; p++) {
-    let off0 = rowOffsets[p];
-    const off1 = rowOffsets[p + 1];
-    if (off0 >= off1) continue;
-
-    let xOff = x0;
-    let yOff = p * 4 + y0;
-
-    // Leading skip run (bytes <128). The first byte >=128 announces the
-    // length of the first explicit-tile subseg for this row.
-    let c = raw[off0];
-    if (c < 128) {
-      xOff += c * 4;
-      c = raw[++off0];
-    }
-    while (off0 < off1 && c < 128) {
-      if (c > 1) xOff += c * 4;
-      c = raw[++off0];
-    }
-    if (off0 >= off1) continue;
-    let slen = c - 128;
-    off0++;
-
-    while (off0 < off1) {
-      if (slen <= 0) {
-        // End of subseg: parse a repeat run for the last-seen tile, plus
-        // the announce byte for the next subseg.
-        let rep = raw[off0];
-        let c1 = raw[++off0];
-        while (off0 < off1 && c1 < 128) {
-          if (c1 > 1) rep += c1;
-          c1 = raw[++off0];
-        }
-        if (off0 >= off1) break;
-        slen = c1 - 128;
-        for (let k = 0; k < rep; k++) {
-          clearBlock(xOff, yOff, tile);
-          xOff += 4;
-          if (xOff >= rightLimit) { xOff = x0; yOff += 4; }
-        }
-        off0++;
-        if (off0 >= off1) break;
-      }
-      if (off0 + 1 >= off1) break;
-      tile = raw[off0] | (raw[off0 + 1] << 8);
-      clearBlock(xOff, yOff, tile);
-      xOff += 4;
-      if (xOff >= rightLimit) { xOff = x0; yOff += 4; }
-      off0 += 2;
-      slen -= 1;
-    }
-  }
+  return { rgba: out, coordinates: coords, flags };
 }
 
 // ---------------------------------------------------------------------------
@@ -398,6 +276,159 @@ function decodeDxt4Layer(chunkBytes, frame, previousGray, hasCoords) {
 }
 
 // ---------------------------------------------------------------------------
+// Damage-mask / "LAYER_UNKNOWN" refinement (chunk 0x04).
+//
+// For frames whose main layer inherits pixels from the previous frame
+// (main-layer flag 0x80), this chunk carries a compressed per-pixel bitmask
+// that specifies which inherited pixels must be cleared to transparent. SLD
+// Extractor 1.3 discarded it entirely, which leaves ghost trails on attack /
+// death / turn animations. This port is derived from SLD Extractor 1.4's
+// adjustByUnknownLayer(), with the upstream operator-precedence bug fixed so
+// partial tiles actually get cleared per-pixel (upstream wrote
+// `tile & (1 << j) == 0`, which JS parses as `tile & ((1<<j)==0)` -> always
+// 0, reducing the function to "clear whole 4x4 tiles where tile === 0").
+//
+// Layout (reverse-engineered from 1.4's compileUnknown writer):
+//   [2 bytes magic, ignored]
+//   [rows * 2 bytes of u16 LE: per-row byte offset into segment blob]
+//   [segment blob]
+//
+// Each row's segment is a run-length encoded stream of:
+//   - leading skip bytes (value < 128) advancing xOff by N * 4
+//   - a length byte (value >= 128) marking the count (value - 128) of 16-bit
+//     tile bitmasks that follow
+//   - each tile bitmask: bit j set means "keep inherited pixel j", bit j
+//     clear means "zero the alpha"; a fully-zero tile clears the whole block
+//   - repeat blocks (when the length counter runs out) that re-emit the
+//     previous tile pattern N times before the next length byte
+// ---------------------------------------------------------------------------
+
+function adjustNormalByTileMask(chunkBytes, normalRgba, coordinates, frameWidth, frameHeight) {
+  if (!chunkBytes || !normalRgba || !coordinates) return;
+  const [x0, y0, x1, y1] = coordinates;
+  const layerW = x1 - x0;
+  const layerH = y1 - y0;
+  if (layerW <= 0 || layerH <= 0) return;
+
+  const rows = layerH >>> 2;
+  if (rows === 0) return;
+
+  const headerLen = 2 + rows * 2;
+  if (chunkBytes.length < headerLen) return;
+
+  const offsets = new Array(rows + 1);
+  for (let p = 0; p < rows; p++) {
+    const ptr = 2 + p * 2;
+    offsets[p] = (chunkBytes[ptr] | (chunkBytes[ptr + 1] << 8)) + headerLen;
+  }
+  offsets[rows] = chunkBytes.length;
+
+  const stride = frameWidth;
+  const rightLimit = x1;
+
+  // Pixel-clear helpers. Both guard x/y against the frame bounds so a
+  // corrupted mask cannot write outside the RGBA buffer.
+  const clearMasked = (xOff, yOff, tile) => {
+    for (let j = 0; j < 16; j++) {
+      const x = xOff + (j & 3);
+      if (x < 0 || x >= stride || x >= rightLimit) continue;
+      const y = yOff + (j >> 2);
+      if (y < 0 || y >= frameHeight) continue;
+      if ((tile & (1 << j)) === 0) {
+        normalRgba[((x + y * stride) << 2) + 3] = 0;
+      }
+    }
+  };
+  const clearAll = (xOff, yOff) => {
+    for (let j = 0; j < 16; j++) {
+      const x = xOff + (j & 3);
+      if (x < 0 || x >= stride) continue;
+      const y = yOff + (j >> 2);
+      if (y < 0 || y >= frameHeight) continue;
+      normalRgba[((x + y * stride) << 2) + 3] = 0;
+    }
+  };
+
+  let tile = 0;
+  for (let p = 0; p < rows; p++) {
+    let off0 = offsets[p];
+    const off1 = Math.min(offsets[p + 1], chunkBytes.length);
+    if (off0 >= off1) continue;
+
+    let xOff = x0;
+    let yOff = p * 4 + y0;
+
+    // Leading skips: walk past bytes < 128, advancing xOff by N * 4. The
+    // first byte skips unconditionally; subsequent bytes only advance when
+    // value > 1 (matching the 1.4 encoder's per-row header semantics).
+    let c = chunkBytes[off0];
+    if (c < 128) {
+      xOff += c * 4;
+      off0++;
+      while (off0 < off1) {
+        c = chunkBytes[off0];
+        if (c >= 128) break;
+        if (c > 1) xOff += c * 4;
+        off0++;
+      }
+      if (off0 >= off1) continue;
+    }
+    let slen = c - 128;
+    off0++;
+
+    while (off0 < off1) {
+      if (slen <= 0) {
+        // Repeat block: `rep` copies of the previous tile pattern, followed
+        // by another length byte (>= 128) that begins the next tile run.
+        if (off0 >= off1) break;
+        let rep = chunkBytes[off0++];
+        let foundNext = false;
+        while (off0 < off1) {
+          const c1 = chunkBytes[off0++];
+          if (c1 >= 128) {
+            slen = c1 - 128;
+            foundNext = true;
+            break;
+          }
+          if (c1 > 1) rep += c1;
+        }
+
+        if (tile) {
+          for (let k = 0; k < rep; k++) {
+            clearMasked(xOff, yOff, tile);
+            xOff += 4;
+            if (xOff >= rightLimit) { xOff = x0; yOff += 4; }
+          }
+        } else {
+          for (let k = 0; k < rep; k++) {
+            clearAll(xOff, yOff);
+            xOff += 4;
+            if (xOff >= rightLimit) { xOff = x0; yOff += 4; }
+          }
+        }
+
+        if (!foundNext) break;
+        if (off0 >= off1) break;
+      }
+
+      if (off0 + 1 >= off1) break;
+      const tileX = xOff, tileY = yOff;
+      tile = chunkBytes[off0] | (chunkBytes[off0 + 1] << 8);
+      off0 += 2;
+      slen -= 1;
+
+      if (tile) {
+        clearMasked(tileX, tileY, tile);
+      } else {
+        clearAll(tileX, tileY);
+      }
+      xOff += 4;
+      if (xOff >= rightLimit) { xOff = x0; yOff += 4; }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Per-frame decode + composition
 // ---------------------------------------------------------------------------
 
@@ -474,11 +505,20 @@ export function decodeFrame(c, keep, previousLayers, opts) {
     shadowResult = decodeDxt4Layer(c.chunk(), frame, previousLayers.shadow, true);
   }
   if (frameType & LAYER_UNKNOWN) {
-    // Clip mask for the inherited pixels of the main layer. If the main layer
-    // did not inherit (flag1 & 0x80), applyUnknownMask is a no-op but the
-    // chunk still has to be consumed to keep the byte cursor aligned.
-    const unknownChunk = c.chunk();
-    applyUnknownMask(unknownChunk, normalResult, frame);
+    // Per-pixel alpha refinement for inherited main layers. Non-inherited
+    // frames carry the chunk too (we still need to consume it for cursor
+    // alignment), but the mask only has visible effect when the normal
+    // layer copied pixels from the previous frame via flag 0x80.
+    const maskBytes = c.chunk();
+    if (normalResult && (normalResult.flags & 0x80)) {
+      adjustNormalByTileMask(
+        maskBytes,
+        normalResult.rgba,
+        normalResult.coordinates,
+        width,
+        height,
+      );
+    }
   }
   if (frameType & LAYER_SMUDGE) {
     c.chunk();

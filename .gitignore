@@ -1,4 +1,7 @@
 remotebucket/
+examples/
+oldexamples/
+newexamples/
 node_modules/
 .wrangler/
 .dev.vars
