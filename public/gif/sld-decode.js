@@ -206,11 +206,12 @@ function decodeDxt1Layer(chunkBytes, frame, previousRgba, hasCoords) {
 //       per tile: if mask == 0   -> clear alpha of all 16 pixels
 //                 if mask != 0   -> clear alpha of pixels where bit j is 0
 //
-// Ported from `adjustByUnknownLayer()` in `SLD Extractor 1.4/sld.js`, with
-// one deliberate correction: the upstream writes `tile & (1 << j) == 0`,
-// which due to JS precedence evaluates as `tile & ((1 << j) == 0)` -> 0,
-// making the per-pixel clear a no-op. We parenthesise it so partial-tile
-// leftovers are cleared too.
+// Ported from `adjustByUnknownLayer()` in `SLD Extractor 1.4/sld.js`. The
+// upstream condition `tile & (1 << j) == 0` has a JS precedence quirk: it
+// parses as `tile & ((1 << j) == 0)` which is always `0`, so the per-pixel
+// clear in non-zero-mask tiles is a no-op and only whole-empty tiles are
+// actually cleared. We preserve that behaviour verbatim here so our output
+// matches the 1.4 extractor byte-for-byte.
 // ---------------------------------------------------------------------------
 
 function adjustByUnknownLayer(rawData, frame, normalResult) {
@@ -275,7 +276,8 @@ function adjustByUnknownLayer(rawData, frame, normalResult) {
               if (xx < stride) {
                 const yy = yOff + ((j / 4) | 0);
                 const o = 4 * (xx + yy * stride);
-                if ((tile & (1 << j)) === 0) data[o + 3] = 0;
+                // eslint-disable-next-line no-mixed-operators
+                if (tile & (1 << j) == 0) data[o + 3] = 0; // 1.4 precedence quirk: always false
               }
             }
             xOff += 4;
@@ -307,7 +309,8 @@ function adjustByUnknownLayer(rawData, frame, normalResult) {
           if (xx < stride) {
             const yy = yT + ((j / 4) | 0);
             const o = 4 * (xx + yy * stride);
-            if ((tile & (1 << j)) === 0) data[o + 3] = 0;
+            // eslint-disable-next-line no-mixed-operators
+            if (tile & (1 << j) == 0) data[o + 3] = 0; // 1.4 precedence quirk: always false
           }
         }
       } else {
