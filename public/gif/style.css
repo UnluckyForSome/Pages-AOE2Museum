@@ -23,9 +23,12 @@
 .stack { display: flex; flex-direction: column; gap: var(--s-3); }
 
 /* Make the control card fill the grid row so the submit button can pin
-   to the bottom (matching the bottom edge of the viewer card beside it). */
-.gen-grid > .card { display: flex; flex-direction: column; }
-.gen-grid > .card > .stack { flex: 1 1 auto; }
+   to the bottom (matching the bottom edge of the viewer card beside it).
+   `min-height: 0` at every flex step prevents the unit picker's inner
+   list content from bubbling up and stretching the grid row to the list's
+   full intrinsic height. */
+.gen-grid > .card { display: flex; flex-direction: column; min-height: 0; }
+.gen-grid > .card > .stack { flex: 1 1 auto; min-height: 0; }
 .gen-grid > .card > .stack > .btn--submit { margin-top: auto; }
 
 /* ---- square preview ------------------------------------------------- */
@@ -79,23 +82,26 @@
 .hint code { color: var(--gold-glow); }
 
 /* ---- unit picker (always-open filterable listbox) ------------------
-   The list is persistently visible and grows to fill whatever vertical
-   space is left in the control card; on narrow screens (no parent height
-   to inherit) it falls back to a generous min-height so it stays useful. */
+   On the desktop two-column layout the picker flex-grows to fill the
+   control card and the list scrolls internally. On the single-column
+   layout the card has no inherited height to share, so the list falls
+   back to a fixed height (still scrolling internally). The `flex-basis:
+   0` + `min-height: 0` on `.picker__list` is what prevents 10000 <li>
+   children from stretching the grid row. */
 
 .picker {
   display: flex;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
-  min-height: 220px;   /* mobile fallback when card has no fixed height */
-  flex: 1 1 auto;       /* desktop: consume leftover stack space */
+  min-height: 0;
+  flex: 1 1 auto;
 }
 .picker__label { margin-bottom: 0; }
 .picker__search { width: 100%; flex: 0 0 auto; }
 .picker__list {
-  flex: 1 1 auto;
-  min-height: 120px;
+  flex: 1 1 0;          /* basis 0 so list content never forces parent growth */
+  min-height: 0;        /* allow shrinking below content so overflow kicks in */
   overflow-y: auto;
   margin: 0;
   padding: 4px;
@@ -104,6 +110,17 @@
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* Below the two-column breakpoint the control card no longer stretches
+   to the viewer's height, so the picker has nothing to grow into. Pin
+   the list to a static, bounded height instead so it still shows enough
+   rows and scrolls rather than walking off the page. */
+@media (max-width: 899px) {
+  .picker__list {
+    flex: none;
+    height: 260px;
+  }
 }
 .picker__option {
   padding: 6px 10px;
