@@ -14,7 +14,7 @@
 // Frame-type bit flags (as they appear in the raw byte).
 export const LAYER_MAIN    = 0x01;
 export const LAYER_SHADOW  = 0x02;
-export const LAYER_UNKNOWN = 0x04; // damage/selection tile-mask refinement (skipped)
+export const LAYER_UNKNOWN = 0x04; // tile clear-mask for inherited main layer (see adjustByUnknownLayer)
 export const LAYER_SMUDGE  = 0x08; // damage overlay (not rendered)
 export const LAYER_PLAYER  = 0x10;
 
@@ -184,7 +184,102 @@ function decodeDxt1Layer(chunkBytes, frame, previousRgba, hasCoords) {
     }
   }
 
-  return { rgba: out, coordinates: coords, flags };
+  return {
+    rgba: out,
+    coordinates: coords,
+    flags,
+    inherited: !!(flags & 0x80),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Unknown (0x4) chunk: packed per-4×4 alpha masks — clear inherited pixels
+// ---------------------------------------------------------------------------
+// When the main layer is inherited (flags & 0x80), this chunk lists which
+// 4×4 tiles / sub-pixels should be fully transparent. Matches SLD Extractor
+// 1.4+ behaviour (inverse of compileUnknown in upstream sld.js).
+
+function decodeUnknownRow(seg, columns) {
+  const out = new Uint16Array(columns);
+  let pos = 0;
+  let lastTile = 0;
+  let col = 0;
+  const len = seg.length;
+  while (col < columns && pos < len) {
+    const b = seg[pos];
+    if (b >= 128) {
+      const n = b - 128;
+      pos++;
+      for (let k = 0; k < n; k++) {
+        if (pos + 1 >= len) return out;
+        const t = seg[pos] | (seg[pos + 1] << 8);
+        pos += 2;
+        out[col++] = t;
+        lastTile = t;
+      }
+    } else {
+      let rep = 0;
+      while (pos < len && seg[pos] === 127) {
+        rep += 127;
+        pos++;
+      }
+      if (pos + 1 < len && seg[pos] === 126 && seg[pos + 1] === 2) {
+        rep += 128;
+        pos += 2;
+      } else if (pos < len) {
+        rep += seg[pos++];
+      }
+      for (let k = 0; k < rep && col < columns; k++) {
+        out[col++] = lastTile;
+      }
+    }
+  }
+  return out;
+}
+
+function adjustByUnknownLayer(rawData, frame, normalResult) {
+  const coords = normalResult.coordinates || frame.normalCoords;
+  if (!coords || rawData.length < 4) return;
+
+  const [x0, y0, x1, y1] = coords;
+  const rows = (y1 - y0) >> 2;
+  const columns = (x1 - x0) >> 2;
+  if (rows <= 0 || columns <= 0) return;
+
+  const view = new DataView(rawData.buffer, rawData.byteOffset, rawData.byteLength);
+  if (view.getUint8(0) !== 5 || view.getUint8(1) !== 0) return;
+
+  const base = 2 + 2 * rows;
+  if (rawData.length < base) return;
+
+  const rowOff = [];
+  for (let r = 0; r < rows; r++) {
+    rowOff[r] = view.getUint16(2 + r * 2, true);
+  }
+  rowOff[rows] = rawData.length - base;
+
+  const data = normalResult.rgba;
+  const { width, height } = frame;
+
+  for (let p = 0; p < rows; p++) {
+    const start = base + rowOff[p];
+    const end = base + rowOff[p + 1];
+    const rowSeg = rawData.subarray(start, end);
+    const tiles = decodeUnknownRow(rowSeg, columns);
+    for (let i = 0; i < columns; i++) {
+      const mask = tiles[i];
+      const xt = x0 + i * 4;
+      const yt = y0 + p * 4;
+      for (let j = 0; j < 16; j++) {
+        if (mask & (1 << j)) continue;
+        const px = xt + (j & 3);
+        const py = yt + (j >> 2);
+        if (px >= width || py >= height) continue;
+        const o = (px + py * width) * 4;
+        data[o + 3] = 0;
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -352,7 +447,10 @@ export function decodeFrame(c, keep, previousLayers, opts) {
     shadowResult = decodeDxt4Layer(c.chunk(), frame, previousLayers.shadow, true);
   }
   if (frameType & LAYER_UNKNOWN) {
-    c.chunk(); // tile-mask refinement - consume for alignment, ignore
+    const unknownChunk = c.chunk();
+    if (normalResult && normalResult.inherited && unknownChunk.length > 0) {
+      adjustByUnknownLayer(unknownChunk, frame, normalResult);
+    }
   }
   if (frameType & LAYER_SMUDGE) {
     c.chunk();
