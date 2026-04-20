@@ -18,50 +18,54 @@ import { buildIndex, listActions, listZooms, resolveKey } from "/gif/sld-index.j
 
 // ---------- reusable option sets (shared by SLP + SLD) ---------------------
 
+// Player color options use the actual in-game button sprites as both the
+// idle and pressed visuals. `icon` drives the <img> src; `iconPressed` is
+// swapped in on pointerdown so tapping feels tactile.
 const PLAYER_COLOR_OPTIONS = [
-  { value: 1, label: "1 Blue",    icon: "/gif/assets/1.png" },
-  { value: 2, label: "2 Red",     icon: "/gif/assets/2.png" },
-  { value: 3, label: "3 Green",   icon: "/gif/assets/3.png" },
-  { value: 4, label: "4 Yellow",  icon: "/gif/assets/4.png" },
-  { value: 5, label: "5 Cyan",    icon: "/gif/assets/5.png" },
-  { value: 6, label: "6 Magenta", icon: "/gif/assets/6.png" },
-  { value: 7, label: "7 Tan",     icon: "/gif/assets/7.png" },
-  { value: 8, label: "8 Orange",  icon: "/gif/assets/8.png" },
+  { value: 1, label: "Player 1 (blue)",    icon: "/gif/assets/1.png", iconPressed: "/gif/assets/1pressed.png" },
+  { value: 2, label: "Player 2 (red)",     icon: "/gif/assets/2.png", iconPressed: "/gif/assets/2pressed.png" },
+  { value: 3, label: "Player 3 (green)",   icon: "/gif/assets/3.png", iconPressed: "/gif/assets/3pressed.png" },
+  { value: 4, label: "Player 4 (yellow)",  icon: "/gif/assets/4.png", iconPressed: "/gif/assets/4pressed.png" },
+  { value: 5, label: "Player 5 (cyan)",    icon: "/gif/assets/5.png", iconPressed: "/gif/assets/5pressed.png" },
+  { value: 6, label: "Player 6 (magenta)", icon: "/gif/assets/6.png", iconPressed: "/gif/assets/6pressed.png" },
+  { value: 7, label: "Player 7 (tan)",     icon: "/gif/assets/7.png", iconPressed: "/gif/assets/7pressed.png" },
+  { value: 8, label: "Player 8 (orange)",  icon: "/gif/assets/8.png", iconPressed: "/gif/assets/8pressed.png" },
 ];
 
 // SLP stores 5 of 8 compass directions and mirrors the rest at render time.
-// The cycle walks clockwise starting from South.
+// The cycle walks clockwise starting from South. `label` is what prints in
+// the tiny rectangle button, so we use the short cardinal form.
 const SLP_DIRECTION_OPTIONS = [
-  { value: "S",  label: "South",     glyph: "\u2193" },
-  { value: "SW", label: "Southwest", glyph: "\u2199" },
-  { value: "W",  label: "West",      glyph: "\u2190" },
-  { value: "NW", label: "Northwest", glyph: "\u2196" },
-  { value: "N",  label: "North",     glyph: "\u2191" },
-  { value: "NE", label: "Northeast", glyph: "\u2197" },
-  { value: "E",  label: "East",      glyph: "\u2192" },
-  { value: "SE", label: "Southeast", glyph: "\u2198" },
+  { value: "S",  label: "S"  },
+  { value: "SW", label: "SW" },
+  { value: "W",  label: "W"  },
+  { value: "NW", label: "NW" },
+  { value: "N",  label: "N"  },
+  { value: "NE", label: "NE" },
+  { value: "E",  label: "E"  },
+  { value: "SE", label: "SE" },
 ];
 
 // SLD has 16 directions stored starting with E and proceeding counter-clockwise.
 // The `value` is the storage slice index; the cycle order below starts at S
 // and walks the full circle clockwise so tapping feels spatial.
 const SLD_DIRECTION_OPTIONS = [
-  { value: 4,  label: "S",   glyph: "\u2193" },
-  { value: 3,  label: "SSE", glyph: "\u2198" },
-  { value: 2,  label: "SE",  glyph: "\u2198" },
-  { value: 1,  label: "ESE", glyph: "\u2192" },
-  { value: 0,  label: "E",   glyph: "\u2192" },
-  { value: 15, label: "ENE", glyph: "\u2197" },
-  { value: 14, label: "NE",  glyph: "\u2197" },
-  { value: 13, label: "NNE", glyph: "\u2191" },
-  { value: 12, label: "N",   glyph: "\u2191" },
-  { value: 11, label: "NNW", glyph: "\u2196" },
-  { value: 10, label: "NW",  glyph: "\u2196" },
-  { value: 9,  label: "WNW", glyph: "\u2190" },
-  { value: 8,  label: "W",   glyph: "\u2190" },
-  { value: 7,  label: "WSW", glyph: "\u2199" },
-  { value: 6,  label: "SW",  glyph: "\u2199" },
-  { value: 5,  label: "SSW", glyph: "\u2193" },
+  { value: 4,  label: "S"   },
+  { value: 3,  label: "SSE" },
+  { value: 2,  label: "SE"  },
+  { value: 1,  label: "ESE" },
+  { value: 0,  label: "E"   },
+  { value: 15, label: "ENE" },
+  { value: 14, label: "NE"  },
+  { value: 13, label: "NNE" },
+  { value: 12, label: "N"   },
+  { value: 11, label: "NNW" },
+  { value: 10, label: "NW"  },
+  { value: 9,  label: "WNW" },
+  { value: 8,  label: "W"   },
+  { value: 7,  label: "WSW" },
+  { value: 6,  label: "SW"  },
+  { value: 5,  label: "SSW" },
 ];
 
 const SLD_ZOOM_OPTIONS = [
@@ -429,61 +433,45 @@ function createCombo(opts) {
 
 // ---------- cycle button (tap-to-advance: zoom / direction / player) --------
 
-// Each cycle button owns an ordered list of { value, label, icon?, glyph? }
-// options and advances to the next enabled option on click/Enter/Space.
-// Disabled options are skipped so the SLD zoom button can still be used when
-// only one zoom level exists for the current (unit, action).
+// Each cycle button owns an ordered list of options and advances to the next
+// enabled option on click / Enter / Space. Options with `.icon` render as an
+// <img> (player color button); options with just `.label` render as text
+// (direction, zoom). Pointerdown/up swaps the image between `icon` and
+// `iconPressed` for tactile feedback; text buttons rely on CSS `:active`.
 function createCycleButton(el, options, init) {
   const settings = init || {};
-  const tag = document.createElement("span");
-  tag.className = "cycle-btn__tag";
-  tag.textContent = settings.tag || "";
-
-  const value = document.createElement("span");
-  value.className = "cycle-btn__value";
-
-  el.textContent = "";
-  el.appendChild(tag);
-  el.appendChild(value);
-
   const state = {
     options: options.slice(),
     index: 0,
     disabled: new Set(),
   };
+  const isImage = state.options.some(function (o) { return !!o.icon; });
+  let imgNode = null;
+  if (isImage) {
+    imgNode = document.createElement("img");
+    imgNode.alt = "";
+    imgNode.draggable = false;
+    el.textContent = "";
+    el.appendChild(imgNode);
+  }
 
   function currentOption() { return state.options[state.index] || null; }
 
   function paint() {
     const opt = currentOption();
-    value.textContent = "";
-    if (!opt) {
-      el.disabled = true;
-      const span = document.createElement("span");
-      span.className = "cycle-btn__text";
-      span.textContent = "\u2014";
-      value.appendChild(span);
-      return;
-    }
-    if (opt.icon) {
-      const img = document.createElement("img");
-      img.className = "cycle-btn__swatch";
-      img.src = opt.icon;
-      img.alt = "";
-      value.appendChild(img);
-    } else if (opt.glyph) {
-      const g = document.createElement("span");
-      g.className = "cycle-btn__icon";
-      g.setAttribute("aria-hidden", "true");
-      g.textContent = opt.glyph;
-      value.appendChild(g);
-    }
-    const span = document.createElement("span");
-    span.className = "cycle-btn__text";
-    span.textContent = opt.label;
-    value.appendChild(span);
     const allDisabled = state.options.every(function (o) { return state.disabled.has(o.value); });
     el.disabled = allDisabled;
+    if (!opt) return;
+    if (settings.tag) {
+      el.setAttribute("aria-label", settings.tag + ": " + opt.label);
+    } else {
+      el.setAttribute("aria-label", opt.label);
+    }
+    if (isImage && imgNode) {
+      imgNode.src = opt.icon || "";
+    } else {
+      el.textContent = opt.label;
+    }
   }
 
   function isEnabled(i) {
@@ -519,6 +507,24 @@ function createCycleButton(el, options, init) {
     }
   });
 
+  // Image buttons get an explicit pressed-sprite swap; :active is unreliable
+  // on mobile touch events. Text buttons use CSS :active instead.
+  if (isImage && imgNode) {
+    const pressDown = function () {
+      const opt = currentOption();
+      if (opt && opt.iconPressed) imgNode.src = opt.iconPressed;
+    };
+    const pressUp = function () {
+      const opt = currentOption();
+      if (opt && opt.icon) imgNode.src = opt.icon;
+    };
+    el.addEventListener("pointerdown", pressDown);
+    el.addEventListener("pointerup", pressUp);
+    el.addEventListener("pointerleave", pressUp);
+    el.addEventListener("pointercancel", pressUp);
+    el.addEventListener("blur", pressUp);
+  }
+
   function setValue(val, notify) {
     for (let i = 0; i < state.options.length; i++) {
       if (state.options[i].value === val) {
@@ -536,8 +542,6 @@ function createCycleButton(el, options, init) {
     for (const opt of state.options) {
       if (!predicate(opt.value)) state.disabled.add(opt.value);
     }
-    // If the current selection is no longer enabled, snap forward to the next
-    // enabled option (matching the old "fall back to x2 else first" behaviour).
     if (!isEnabled(state.index)) {
       const next = findNextEnabled(state.index);
       if (next >= 0) state.index = next;
@@ -545,7 +549,6 @@ function createCycleButton(el, options, init) {
     paint();
   }
 
-  // Initial selection.
   if (settings.initial !== undefined) {
     setValue(settings.initial, false);
   } else {
