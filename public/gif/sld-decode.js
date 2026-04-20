@@ -1,27 +1,46 @@
 // =============================================================================
-// SLD parser + frame decoder (SLDX v4, AoE2: Definitive Edition).
+// SLD (Age of Empires II: DE sprite) decoder.
 //
-// Pure ES module - no DOM, no worker APIs - so it can be imported from both
-// the module worker (worker-sld.js) and the Node smoke test (scripts/test-sld.mjs).
+// Ported from examples/SLD Extractor 1.4/sld.js by WAIFor, stripped to the
+// decode path only and rewritten as a DOM-free ES module so the same code
+// can run in a Web Worker (worker-sld.js) and in Node (scripts/test-sld.mjs).
 //
-// Output frames share the shape returned by worker-slp.js:
-//   { rgba: Uint8ClampedArray, width, height, hotspotX, hotspotY }
+// The public API is a single function:
 //
-// DXT1 / DXT4 reference:
-//   https://github.com/SFTtech/openage/blob/master/doc/media/sld-files.md
+//   renderDirection(bytes, opts, progressCb?)
+//     bytes       - Uint8Array containing the raw .sld file
+//     opts.directionIndex - which 22.5-degree slice to render (clamped)
+//     opts.drawShadow     - draw the shadow layer (else skip)
+//     opts.teamRgb        - [r, g, b] tint for the player-color mask
+//     progressCb  - optional (done, total) => void, called per decoded frame
+//
+// Returns:
+//   {
+//     meta: {
+//       version, frameCount, numDirections, framesPerDirection,
+//       directionIndex, directionLabel, opacity
+//     },
+//     frames: [{ width, height, hotspotX, hotspotY, rgba }]
+//   }
+//
+// SLD layers (per frame, order matters because later ones reference earlier):
+//   0x01 normal  - 16bpp RGB DXT1-style 4x4 blocks
+//   0x02 shadow  - 8bpp alpha DXT5-alpha-style 4x4 blocks
+//   0x04 damage  - run-length "unknown" mask that punches alpha holes in
+//                  inherited normal layers; only meaningful when the normal
+//                  layer set the 0x80 inherit flag
+//   0x08 smudge  - unused in this renderer (we don't expose it)
+//   0x10 player  - 8bpp grayscale player-colour mask
 // =============================================================================
 
-// Frame-type bit flags (as they appear in the raw byte).
-export const LAYER_MAIN    = 0x01;
-export const LAYER_SHADOW  = 0x02;
-export const LAYER_UNKNOWN = 0x04; // tile-mask refinement for inherited frames
-export const LAYER_SMUDGE  = 0x08; // damage overlay (not rendered)
-export const LAYER_PLAYER  = 0x10;
+// Alpha we stamp onto pixels that belong to the main RGB layer; any other
+// alpha value signals a different layer (shadow/player) in the composite
+// buffer and survives later passes.
+const NORMAL_COLOR_ALPHA = 224;
 
-// Counter-clockwise storage order starting at E. Slice index -> bearing.
-// This is the order frames are stored in the SLD file itself; the UI option
-// values are set so that each picker entry maps directly to its stored slice.
-export const DIRECTION_ORDER = [
+// 22.5-degree compass labels, matching the SLD_DIRECTION_OPTIONS list in
+// app.js (index 0 = E, walking clockwise through S, W, N and back to E).
+const DIRECTION_LABELS_16 = [
   "E", "ESE", "SE", "SSE",
   "S", "SSW", "SW", "WSW",
   "W", "WNW", "NW", "NNW",
@@ -29,203 +48,315 @@ export const DIRECTION_ORDER = [
 ];
 
 // ---------------------------------------------------------------------------
-// Cursor: tiny DataView-backed reader (LE throughout).
+// Little-endian byte reader. Mirrors the reference ArrayReader but trimmed
+// to the surface decode uses.
 // ---------------------------------------------------------------------------
 
-export function cursor(bytes) {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  let p = 0;
-  return {
-    get pos() { return p; },
-    set pos(v) { p = v; },
-    get end() { return bytes.byteLength; },
-    u8()   { return bytes[p++]; },
-    i8()   { const v = view.getInt8(p); p += 1; return v; },
-    u16()  { const v = view.getUint16(p, true); p += 2; return v; },
-    i16()  { const v = view.getInt16(p, true);  p += 2; return v; },
-    u32()  { const v = view.getUint32(p, true); p += 4; return v; },
-    bytes(n) { const s = bytes.subarray(p, p + n); p += n; return s; },
-    // Read a layer chunk header (u32 size, inclusive of the 4-byte header
-    // itself) and return the remaining bytes padded up to 4-byte alignment.
-    chunk() {
-      const size = view.getUint32(p, true); p += 4;
-      const padded = ((size - 1) >> 2) << 2;
-      const data = bytes.subarray(p, p + padded);
-      p += padded;
-      return data;
-    },
-  };
+class ArrayReader {
+  constructor(array) {
+    this.array = array;
+    this.pointer = 0;
+  }
+  read(length) {
+    const slice = this.array.subarray(this.pointer, this.pointer + length);
+    this.pointer += length;
+    return slice;
+  }
+  readText(length) {
+    let s = "";
+    const end = this.pointer + length;
+    for (let i = this.pointer; i < end; i++) s += String.fromCharCode(this.array[i]);
+    this.pointer = end;
+    return s;
+  }
+  readUBytes(length) {
+    return Array.from(this.read(length));
+  }
+  readUShorts(length) {
+    const out = new Array(length);
+    for (let i = 0; i < length; i++) {
+      const p = this.pointer + i * 2;
+      out[i] = this.array[p] | (this.array[p + 1] << 8);
+    }
+    this.pointer += length * 2;
+    return out;
+  }
+  readShorts(length) {
+    return this.readUShorts(length).map((e) => (e >= 0x8000 ? e - 0x10000 : e));
+  }
+  readUInts(length) {
+    const out = new Array(length);
+    for (let i = 0; i < length; i++) {
+      const p = this.pointer + i * 4;
+      out[i] = (this.array[p]
+        | (this.array[p + 1] << 8)
+        | (this.array[p + 2] << 16)
+        | (this.array[p + 3] << 24)) >>> 0;
+    }
+    this.pointer += length * 4;
+    return out;
+  }
+  // SLD chunks are a u32 length (includes the 4 length bytes themselves) then
+  // bytes padded to the next 4-byte boundary.
+  readChunk() {
+    const size = this.readUInts(1)[0];
+    const payload = (size - 1) >> 2 << 2;
+    return this.read(payload);
+  }
 }
 
 // ---------------------------------------------------------------------------
-// DXT colour helpers
+// Colour / math helpers.
 // ---------------------------------------------------------------------------
 
-function rgb565to888(c) {
+function fromColor16(v) {
   return [
-    ((c >> 11) & 0x1f) * 255 / 31 | 0,
-    ((c >>  5) & 0x3f) * 255 / 63 | 0,
-    ( c        & 0x1f) * 255 / 31 | 0,
+    (v >> 11 & 0x1f) * 255 / 31,
+    (v >> 5  & 0x3f) * 255 / 63,
+    (v       & 0x1f) * 255 / 31,
   ];
 }
 
-function mix3(a, b, t) {
-  return [
-    (a[0] * (1 - t) + b[0] * t) | 0,
-    (a[1] * (1 - t) + b[1] * t) | 0,
-    (a[2] * (1 - t) + b[2] * t) | 0,
-  ];
+function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
+function mixValue(a, b, t) { return Math.floor(a * (1 - t) + b * t); }
+function mixColor(a, b, t) {
+  return [mixValue(a[0], b[0], t), mixValue(a[1], b[1], t), mixValue(a[2], b[2], t)];
 }
 
-function mixI(a, b, t) { return (a * (1 - t) + b * t) | 0; }
+function setPixel(data, offset, color, alpha) {
+  if (!color) return;
+  offset *= 4;
+  data[offset]     = color[0];
+  data[offset + 1] = color[1];
+  data[offset + 2] = color[2];
+  data[offset + 3] = alpha;
+}
 
 // ---------------------------------------------------------------------------
-// Layer header (shared between main/shadow and smudge/player variants).
+// Per-layer headers. All layers share the "drawCount"-of-run-length-pairs
+// bitmap that tells us which 4x4 tiles are present vs empty.
 // ---------------------------------------------------------------------------
 
-function readLayerHeader(c, hasCoords) {
-  let coordinates = null;
-  if (hasCoords) coordinates = [c.i16(), c.i16(), c.i16(), c.i16()];
-  const flags = c.u8();
-  c.u8(); // unknown
-  const drawCount = c.i16();
-  const draws = c.bytes(drawCount * 2);
+function readLayerHeader(reader, hasSize) {
+  let coordinates;
+  if (hasSize) coordinates = reader.readShorts(4);
+  const [flags/*, unk*/] = reader.readUBytes(2);
+  const drawCount = reader.readShorts(1)[0];
+  const draws = reader.readUBytes(drawCount * 2);
   return { coordinates, flags, draws };
 }
 
 // ---------------------------------------------------------------------------
-// DXT1 main-graphics / smudge layer -> RGBA Uint8ClampedArray
+// Normal (RGB) layer - BC1-ish 4x4 blocks of 16bpp colors.
 // ---------------------------------------------------------------------------
 
-function decodeDxt1Layer(chunkBytes, frame, previousRgba, hasCoords) {
-  const c = cursor(chunkBytes);
-  const { coordinates, flags, draws } = readLayerHeader(c, hasCoords);
-  const coords = coordinates || frame.normalCoords;
+function createNormalLayer(rawData, frame, previousFrame) {
+  const reader = new ArrayReader(rawData);
+  const { coordinates, flags, draws } = readLayerHeader(reader, true);
   const { width, height } = frame;
-  const out = new Uint8ClampedArray(width * height * 4);
-  const inheritPrev = (flags & 0x80) && previousRgba;
 
-  const [x0, y0, x1, y1] = coords;
-  let drawIdx = 0;
-  let drawNumber = draws.length > 0 ? draws[0] : 0;
-  let draw = false;
+  const data = new Uint8ClampedArray(width * height * 4);
+  let previousData = null;
+  let inherited = false;
+  if ((flags & 0x80) && previousFrame && previousFrame.data.normal) {
+    previousData = previousFrame.data.normal.data;
+    inherited = true;
+  }
 
-  const view = new DataView(chunkBytes.buffer, chunkBytes.byteOffset, chunkBytes.byteLength);
+  const [x0, y0, x1, y1] = coordinates;
+  let drawIndex = 0, drawNumber = draws[0], draw = false;
 
   for (let y = y0; y < y1; y += 4) {
     for (let x = x0; x < x1; x += 4) {
       while (--drawNumber < 0) {
-        drawNumber = draws[++drawIdx];
-        draw = (drawIdx % 2) === 1;
+        drawNumber = draws[++drawIndex];
+        draw = (drawIndex % 2) === 1;
       }
-
       if (draw) {
-        const p = c.pos;
-        const c0v = view.getUint16(p, true);
-        const c1v = view.getUint16(p + 2, true);
-        const indices = view.getUint32(p + 4, true);
-        c.pos = p + 8;
+        const [cv0, cv1] = reader.readUShorts(2);
+        const c0 = fromColor16(cv0);
+        const c1 = fromColor16(cv1);
+        const indices = reader.readUInts(1)[0];
 
-        const color0 = rgb565to888(c0v);
-        const color1 = rgb565to888(c1v);
-        let lut2, lut3, alpha3;
-        if (c0v > c1v) {
-          lut2 = mix3(color0, color1, 1 / 3);
-          lut3 = mix3(color0, color1, 2 / 3);
-          alpha3 = 255;
+        let colors;
+        if (cv0 > cv1) {
+          colors = [c0, c1, mixColor(c0, c1, 1 / 3), mixColor(c0, c1, 2 / 3)];
         } else {
-          lut2 = mix3(color0, color1, 0.5);
-          lut3 = null;
-          alpha3 = 0;
+          // 3-colour + transparent (matching DXT1 1-bit alpha mode)
+          colors = [c0, c1, mixColor(c0, c1, 0.5), null];
         }
-
         for (let m = 0; m < 4; m++) {
-          const yy = y + m;
-          if (yy >= height) continue;
           for (let n = 0; n < 4; n++) {
-            const xx = x + n;
-            if (xx >= width) continue;
             const i = m * 4 + n;
-            const ci = (indices >>> (i * 2)) & 0x3;
-            const off = (xx + yy * width) * 4;
-            if (ci === 3) {
-              if (lut3) {
-                out[off]     = lut3[0];
-                out[off + 1] = lut3[1];
-                out[off + 2] = lut3[2];
-                out[off + 3] = alpha3;
-              }
-              // else leave pre-zeroed (transparent)
-            } else {
-              const col = ci === 0 ? color0 : ci === 1 ? color1 : lut2;
-              out[off]     = col[0];
-              out[off + 1] = col[1];
-              out[off + 2] = col[2];
-              out[off + 3] = 255;
-            }
+            const col = colors[(indices >> (i * 2)) & 0x3];
+            setPixel(data, (x + n) + (y + m) * width, col, NORMAL_COLOR_ALPHA);
           }
         }
-      } else if (inheritPrev) {
+      } else if (previousData) {
+        // Copy a 4x4 tile verbatim from the previous frame.
         for (let m = 0; m < 4; m++) {
-          const yy = y + m;
-          if (yy >= height) continue;
-          const rowStart = (x + yy * width) * 4;
-          for (let n = 0; n < 4; n++) {
-            const xx = x + n;
-            if (xx >= width) break;
-            const off = rowStart + n * 4;
-            out[off]     = previousRgba[off];
-            out[off + 1] = previousRgba[off + 1];
-            out[off + 2] = previousRgba[off + 2];
-            out[off + 3] = previousRgba[off + 3];
+          let offset = ((x + (y + m) * width) << 2);
+          for (let n = 0; n < 16; n++) {
+            data[offset] = previousData[offset];
+            offset++;
           }
         }
       }
     }
   }
 
-  return { rgba: out, coordinates: coords, flags, inherited: !!(flags & 0x80) };
+  return { width, height, data, coordinates, inherited };
 }
 
 // ---------------------------------------------------------------------------
-// Tile-mask refinement for inherited frames (layer 0x04).
-//
-// When flag 0x80 of the main layer says "reuse last frame's pixels in any
-// block that isn't re-drawn this frame", a separate RLE-encoded tile-mask
-// stream tells us which of those inherited pixels are actually still part
-// of the silhouette. Any pixel whose bit in the mask is zero must have its
-// alpha cleared, otherwise we leak stale pixels from the previous frame
-// (the "uncleared tiles of inherited frames" bug in the 1.3 extractor).
-//
-// Stream layout, per row of 4x4 tiles:
-//   u8[2]       - header (version=5, 0)
-//   u16[rows]   - per-row byte offset into the payload
-//   payload:    - interleaved (skip-count / draw-header / tile-mask[]) runs
-//     skip bytes  (c < 128)  advance the tile cursor by c tiles
-//     draw header (c >= 128) starts a run of (c - 128) u16 tile masks
-//       per tile: if mask == 0   -> clear alpha of all 16 pixels
-//                 if mask != 0   -> clear alpha of pixels where bit j is 0
-//
-// Ported from `adjustByUnknownLayer()` in `SLD Extractor 1.4/sld.js`. The
-// upstream condition `tile & (1 << j) == 0` has a JS precedence quirk: it
-// parses as `tile & ((1 << j) == 0)` which is always `0`, so the per-pixel
-// clear in non-zero-mask tiles is a no-op and only whole-empty tiles are
-// actually cleared. We preserve that behaviour verbatim here so our output
-// matches the 1.4 extractor byte-for-byte.
+// Shadow layer - single-channel alpha map, BC4-ish 4x4 blocks.
 // ---------------------------------------------------------------------------
 
-function adjustByUnknownLayer(rawData, frame, normalResult) {
-  if (!normalResult || !normalResult.inherited) return;
-  const coord = normalResult.coordinates;
-  if (!coord) return;
+function createShadowLayer(rawData, frame, previousFrame) {
+  const reader = new ArrayReader(rawData);
+  const { coordinates, flags, draws } = readLayerHeader(reader, true);
+  const { width, height } = frame;
 
-  const [x0, y0, x1, y1] = coord;
-  const stride = frame.width;
-  const rightLimit = x1;
-  const data = normalResult.rgba;
+  const data = new Uint8Array(width * height);
+  let previousData = null;
+  if ((flags & 0x80) && previousFrame && previousFrame.data.shadow) {
+    previousData = previousFrame.data.shadow.data;
+  }
 
-  const rows = (y1 - y0) >> 2;
-  if (rows <= 0) return;
+  const [x0, y0, x1, y1] = coordinates;
+  let drawIndex = 0, drawNumber = draws[0], draw = false;
+
+  for (let y = y0; y < y1; y += 4) {
+    for (let x = x0; x < x1; x += 4) {
+      while (--drawNumber < 0) {
+        drawNumber = draws[++drawIndex];
+        draw = (drawIndex % 2) === 1;
+      }
+      if (draw) {
+        const [a0, a1] = reader.readUBytes(2);
+        const indices = reader.readUBytes(6);
+
+        let colors;
+        if (a0 > a1) {
+          colors = [a0, a1,
+            mixValue(a0, a1, 1 / 7), mixValue(a0, a1, 2 / 7),
+            mixValue(a0, a1, 3 / 7), mixValue(a0, a1, 4 / 7),
+            mixValue(a0, a1, 5 / 7), mixValue(a0, a1, 6 / 7)];
+        } else {
+          colors = [a0, a1,
+            mixValue(a0, a1, 1 / 5), mixValue(a0, a1, 2 / 5),
+            mixValue(a0, a1, 3 / 5), mixValue(a0, a1, 4 / 5),
+            0, 255];
+        }
+
+        for (let m = 0; m < 4; m++) {
+          for (let n = 0; n < 4; n++) {
+            const i = m * 4 + n;
+            const vi = Math.floor(i * 3 / 8);
+            const ri = (i * 3) % 8;
+            const col = colors[((indices[vi] | (indices[vi + 1] << 8)) >> ri) & 0x7];
+            data[(x + n) + (y + m) * width] = col;
+          }
+        }
+      } else if (previousData) {
+        for (let m = 0; m < 4; m++) {
+          let off = x + (y + m) * width;
+          for (let n = 0; n < 4; n++) { data[off] = previousData[off]; off++; }
+        }
+      }
+    }
+  }
+
+  return { width, height, data, coordinates };
+}
+
+// ---------------------------------------------------------------------------
+// Player (team-colour mask) layer - same BC4-ish encoding as shadow, but the
+// "empty" slot stays transparent instead of fully opaque.
+// ---------------------------------------------------------------------------
+
+function createPlayerLayer(rawData, frame, previousFrame) {
+  const reader = new ArrayReader(rawData);
+  const { flags, draws } = readLayerHeader(reader, false);
+  // Player mask re-uses the normal layer's bounding rect rather than storing
+  // its own - the encoder side guarantees these match.
+  const coordinates = frame.data.normal.coordinates;
+  const { width, height } = frame;
+
+  const data = new Uint8Array(width * height);
+  let previousData = null;
+  if ((flags & 0x80) && previousFrame && previousFrame.data.player) {
+    previousData = previousFrame.data.player.data;
+  }
+
+  const [x0, y0, x1, y1] = coordinates;
+  let drawIndex = 0, drawNumber = draws[0], draw = false;
+
+  for (let y = y0; y < y1; y += 4) {
+    for (let x = x0; x < x1; x += 4) {
+      while (--drawNumber < 0) {
+        drawNumber = draws[++drawIndex];
+        draw = (drawIndex % 2) === 1;
+      }
+      if (draw) {
+        const [a0, a1] = reader.readUBytes(2);
+        const indices = reader.readUBytes(6);
+
+        let colors;
+        if (a0 > a1) {
+          colors = [a0, a1,
+            mixValue(a0, a1, 1 / 7), mixValue(a0, a1, 2 / 7),
+            mixValue(a0, a1, 3 / 7), mixValue(a0, a1, 4 / 7),
+            mixValue(a0, a1, 5 / 7), mixValue(a0, a1, 6 / 7)];
+        } else {
+          colors = [a0, a1,
+            mixValue(a0, a1, 1 / 5), mixValue(a0, a1, 2 / 5),
+            mixValue(a0, a1, 3 / 5), mixValue(a0, a1, 4 / 5),
+            null, 255];
+        }
+
+        for (let m = 0; m < 4; m++) {
+          for (let n = 0; n < 4; n++) {
+            const i = m * 4 + n;
+            const vi = Math.floor(i * 3 / 8);
+            const ri = (i * 3) % 8;
+            const col = colors[((indices[vi] | (indices[vi + 1] << 8)) >> ri) & 0x7];
+            if (col != null) data[(x + n) + (y + m) * width] = col;
+          }
+        }
+      } else if (previousData) {
+        for (let m = 0; m < 4; m++) {
+          let off = x + (y + m) * width;
+          for (let n = 0; n < 4; n++) { data[off] = previousData[off]; off++; }
+        }
+      }
+    }
+  }
+
+  return { width, height, data, coordinates };
+}
+
+// ---------------------------------------------------------------------------
+// "Unknown" layer (a.k.a. damage/inherit-fix mask).
+//
+// For frames that inherit their normal layer (flag 0x80), the encoder stores
+// a compressed RLE of 16-bit tile bitmasks describing which pixels of the
+// inherited tile are actually transparent in this frame. We walk it and punch
+// alpha=0 into those pixels.
+// ---------------------------------------------------------------------------
+
+function adjustByUnknownLayer(rawData, frame) {
+  const normal = frame.data.normal;
+  if (!normal || !normal.inherited) return;
+
+  const coord = normal.coordinates;
+  const width = coord[2] - coord[0];
+  const height = coord[3] - coord[1];
+  const stride = normal.width;
+  const rightLimit = coord[2];
+  const data = normal.data;
+
+  const rows = height / 4;
   const startOffset = 2 + rows * 2;
 
   const offsets = new Array(rows + 1);
@@ -239,364 +370,298 @@ function adjustByUnknownLayer(rawData, frame, normalResult) {
   for (let p = 0; p < rows; p++) {
     let off0 = offsets[p];
     const off1 = offsets[p + 1];
-    let xOff = x0;
-    let yOff = p * 4 + y0;
 
-    // Consume leading skip bytes to align the cursor to the first drawn tile.
+    let xOff = coord[0];
+    let yOff = p * 4 + coord[1];
     let c = rawData[off0];
-    if (c < 128) {
-      xOff += c * 4;
-      c = rawData[++off0];
-    }
-    while (c !== undefined && c < 128) {
+    if (c < 128) { xOff += c * 4; c = rawData[++off0]; }
+    while (c < 128) {
       if (c > 1) xOff += c * 4;
       c = rawData[++off0];
     }
-    if (c === undefined) continue;
     let slen = c - 128;
     off0++;
 
     for (; off0 < off1; off0 += 2, slen -= 1) {
       if (slen <= 0) {
-        // Next skip-count / draw-header pair.
         let rep = rawData[off0];
         let c1 = rawData[++off0];
-        while (c1 !== undefined && c1 < 128) {
+        while (c1 < 128) {
           if (c1 > 1) rep += c1;
           c1 = rawData[++off0];
         }
-        if (c1 === undefined) break;
         slen = c1 - 128;
 
-        // Apply the last-seen tile mask to each skipped tile.
         if (tile) {
           for (let k = 0; k < rep; k++) {
             for (let j = 0; j < 16; j++) {
-              const xx = xOff + (j % 4);
-              if (xx < stride) {
-                const yy = yOff + ((j / 4) | 0);
-                const o = 4 * (xx + yy * stride);
-                // eslint-disable-next-line no-mixed-operators
-                if (tile & (1 << j) == 0) data[o + 3] = 0; // 1.4 precedence quirk: always false
+              const x = xOff + (j % 4);
+              if (x < stride) {
+                const y = yOff + Math.floor(j / 4);
+                const o = 4 * (x + y * stride);
+                // Note: this mirrors the reference's (likely buggy) test -
+                // `tile & (1 << j) == 0` parses as `tile & ((1<<j) == 0)`,
+                // i.e. `tile & 0`, i.e. always zero. We preserve the
+                // behaviour so outputs match the extractor bit-for-bit.
+                if (tile & (1 << j) == 0) data[o + 3] = 0;
               }
             }
             xOff += 4;
-            if (xOff >= rightLimit) { xOff = x0; yOff += 4; }
+            if (xOff >= rightLimit) { xOff = coord[0]; yOff += 4; }
           }
         } else {
           for (let k = 0; k < rep; k++) {
             for (let j = 0; j < 16; j++) {
-              const xx = xOff + (j % 4);
-              const yy = yOff + ((j / 4) | 0);
-              const o = 4 * (xx + yy * stride);
+              const x = xOff + (j % 4);
+              const y = yOff + Math.floor(j / 4);
+              const o = 4 * (x + y * stride);
               data[o + 3] = 0;
             }
             xOff += 4;
-            if (xOff >= rightLimit) { xOff = x0; yOff += 4; }
+            if (xOff >= rightLimit) { xOff = coord[0]; yOff += 4; }
           }
         }
 
         if (++off0 >= off1) break;
       }
 
-      // Read the next 16-bit tile mask and apply it to the current tile.
-      const xT = xOff;
-      const yT = yOff;
+      const x0 = xOff, y0 = yOff;
       tile = rawData[off0] | (rawData[off0 + 1] << 8);
       if (tile) {
         for (let j = 0; j < 16; j++) {
-          const xx = xT + (j % 4);
-          if (xx < stride) {
-            const yy = yT + ((j / 4) | 0);
-            const o = 4 * (xx + yy * stride);
-            // eslint-disable-next-line no-mixed-operators
-            if (tile & (1 << j) == 0) data[o + 3] = 0; // 1.4 precedence quirk: always false
+          const x = x0 + (j % 4);
+          if (x < stride) {
+            const y = y0 + Math.floor(j / 4);
+            const o = 4 * (x + y * stride);
+            if (tile & (1 << j) == 0) data[o + 3] = 0;
           }
         }
       } else {
         for (let j = 0; j < 16; j++) {
-          const xx = xT + (j % 4);
-          const yy = yT + ((j / 4) | 0);
-          const o = 4 * (xx + yy * stride);
+          const x = xOff + (j % 4);
+          const y = yOff + Math.floor(j / 4);
+          const o = 4 * (x + y * stride);
           data[o + 3] = 0;
         }
       }
       xOff += 4;
-      if (xOff >= rightLimit) { xOff = x0; yOff += 4; }
+      if (xOff >= rightLimit) { xOff = coord[0]; yOff += 4; }
     }
   }
 }
 
 // ---------------------------------------------------------------------------
-// DXT4 shadow / player-mask layer -> grayscale Uint8Array
+// Parsing pass - walks all frames linearly. We must process every frame up
+// through the end of the selected direction because inheritance chains can
+// cross frame boundaries; we release each frame's layer buffers as soon as
+// the *next* frame stops referencing them.
 // ---------------------------------------------------------------------------
 
-function decodeDxt4Layer(chunkBytes, frame, previousGray, hasCoords) {
-  const c = cursor(chunkBytes);
-  const { coordinates, flags, draws } = readLayerHeader(c, hasCoords);
-  const coords = coordinates || frame.normalCoords;
-  const { width, height } = frame;
-  const out = new Uint8Array(width * height);
-  const inheritPrev = (flags & 0x80) && previousGray;
-
-  const [x0, y0, x1, y1] = coords;
-  let drawIdx = 0;
-  let drawNumber = draws.length > 0 ? draws[0] : 0;
-  let draw = false;
-
-  for (let y = y0; y < y1; y += 4) {
-    for (let x = x0; x < x1; x += 4) {
-      while (--drawNumber < 0) {
-        drawNumber = draws[++drawIdx];
-        draw = (drawIdx % 2) === 1;
-      }
-
-      if (draw) {
-        const color0 = c.u8();
-        const color1 = c.u8();
-        const idx0 = c.u8(), idx1 = c.u8(), idx2 = c.u8();
-        const idx3 = c.u8(), idx4 = c.u8(), idx5 = c.u8();
-        const indices = [idx0, idx1, idx2, idx3, idx4, idx5];
-
-        let lut;
-        if (color0 > color1) {
-          lut = [
-            color0, color1,
-            mixI(color0, color1, 1 / 7),
-            mixI(color0, color1, 2 / 7),
-            mixI(color0, color1, 3 / 7),
-            mixI(color0, color1, 4 / 7),
-            mixI(color0, color1, 5 / 7),
-            mixI(color0, color1, 6 / 7),
-          ];
-        } else {
-          lut = [
-            color0, color1,
-            mixI(color0, color1, 1 / 5),
-            mixI(color0, color1, 2 / 5),
-            mixI(color0, color1, 3 / 5),
-            mixI(color0, color1, 4 / 5),
-            -1, // fully empty
-            255,
-          ];
-        }
-
-        for (let m = 0; m < 4; m++) {
-          const yy = y + m;
-          if (yy >= height) continue;
-          for (let n = 0; n < 4; n++) {
-            const xx = x + n;
-            if (xx >= width) continue;
-            const i = m * 4 + n;
-            const vi = (i * 3) >> 3;
-            const ri = (i * 3) & 0x7;
-            const low = indices[vi] | 0;
-            const high = vi + 1 < 6 ? (indices[vi + 1] | 0) : 0;
-            const ci = ((low | (high << 8)) >> ri) & 0x7;
-            const v = lut[ci];
-            if (v >= 0) out[xx + yy * width] = v;
-          }
-        }
-      } else if (inheritPrev) {
-        for (let m = 0; m < 4; m++) {
-          const yy = y + m;
-          if (yy >= height) continue;
-          const rowStart = x + yy * width;
-          for (let n = 0; n < 4; n++) {
-            const xx = x + n;
-            if (xx >= width) break;
-            out[rowStart + n] = previousGray[rowStart + n];
-          }
-        }
-      }
-    }
+function parseHeader(reader) {
+  const format = reader.readText(4);
+  if (format !== "SLDX") {
+    throw new Error("Not a valid SLD file (expected 'SLDX' magic, got '" + format + "')");
   }
+  const [version, frameCount] = reader.readUShorts(2);
+  const [unknown1, opacity] = reader.readUInts(2);
+  if (frameCount >= 4096) throw new Error("SLD frame count overflow: " + frameCount);
+  return { format, version, frameCount, unknown1, opacity };
+}
 
-  return { gray: out, coordinates: coords, flags };
+function parseFrame(reader, previousFrame) {
+  const [width, height, anchorX, anchorY] = reader.readShorts(4);
+  const [frameType, unknown] = reader.readUBytes(2);
+  const index = reader.readShorts(1)[0];
+
+  const frame = { width, height, anchorX, anchorY, frameType, unknown, index, data: {} };
+
+  if (frameType & 0x1) {
+    frame.data.normal = createNormalLayer(reader.readChunk(), frame, previousFrame);
+  }
+  if (frameType & 0x2) {
+    frame.data.shadow = createShadowLayer(reader.readChunk(), frame, previousFrame);
+  }
+  if (frameType & 0x4) {
+    adjustByUnknownLayer(reader.readChunk(), frame);
+  }
+  if (frameType & 0x8) {
+    // Smudge layer - same DXT1-style encoding as normal but we don't render
+    // it. Read past the bytes so the reader stays aligned.
+    reader.readChunk();
+  }
+  if (frameType & 0x10) {
+    frame.data.player = createPlayerLayer(reader.readChunk(), frame, previousFrame);
+  }
+  return frame;
 }
 
 // ---------------------------------------------------------------------------
-// Per-frame decode + composition
+// Composite pass - flattens a frame's normal + shadow + player-mask layers
+// into a single width*height RGBA buffer sized to the frame's bounding box.
 // ---------------------------------------------------------------------------
 
-function composeFrameRGBA(frame, normal, shadow, player, opts) {
+function composeRGBA(frame, { drawShadow, teamRgb }) {
   const { width, height } = frame;
-  const out = normal
-    ? new Uint8ClampedArray(normal.rgba)
-    : new Uint8ClampedArray(width * height * 4);
+  const rgba = new Uint8ClampedArray(width * height * 4);
+  const size = width * height;
 
-  const teamRgb = opts.teamRgb || [0, 0, 0];
-  const drawShadow = opts.drawShadow !== false;
+  // 1. Blit the normal layer, promoting its "carry this alpha" marker to
+  //    either fully opaque or fully transparent depending on whether a tint
+  //    is about to overwrite it.
+  const normal = frame.data.normal;
+  if (normal) rgba.set(normal.data);
 
-  if (shadow && drawShadow) {
-    const g = shadow.gray;
-    for (let i = 0, j = 0; i < g.length; i++, j += 4) {
-      const a = g[i];
-      if (a && out[j + 3] < 128) {
-        out[j]     = 0;
-        out[j + 1] = 0;
-        out[j + 2] = 0;
-        out[j + 3] = a;
+  // 2. Shadow fills any pixels the normal layer left transparent-ish.
+  const shadow = frame.data.shadow;
+  if (drawShadow && shadow) {
+    const sdata = shadow.data;
+    for (let i = 0; i < size; i++) {
+      const a = sdata[i];
+      if (!a) continue;
+      const off = i << 2;
+      if (rgba[off + 3] < 128) {
+        rgba[off]     = 0;
+        rgba[off + 1] = 0;
+        rgba[off + 2] = 0;
+        rgba[off + 3] = a;
       }
     }
   }
 
-  if (player) {
-    const m = player.gray;
-    const tr = teamRgb[0], tg = teamRgb[1], tb = teamRgb[2];
-    for (let i = 0, j = 0; i < m.length; i++, j += 4) {
-      const alpha = m[i];
-      if (!alpha) continue;
-      const r = out[j], g = out[j + 1], b = out[j + 2];
-      const lum = out[j + 3] ? (0.299 * r + 0.587 * g + 0.114 * b) : 160;
-      const lk = lum / 255;
-      const targetR = (tr * lk) | 0;
-      const targetG = (tg * lk) | 0;
-      const targetB = (tb * lk) | 0;
-      const k = alpha / 255;
-      out[j]     = (r * (1 - k) + targetR * k) | 0;
-      out[j + 1] = (g * (1 - k) + targetG * k) | 0;
-      out[j + 2] = (b * (1 - k) + targetB * k) | 0;
-      out[j + 3] = 255;
+  // 3. Player mask tints any normal-layer pixel where the mask is > 0. We
+  //    scale the team colour by the original pixel's luminance so bright
+  //    fabric looks like bright team colour and dark looks dark.
+  const player = frame.data.player;
+  if (player && teamRgb) {
+    const pdata = player.data;
+    const [tr, tg, tb] = teamRgb;
+    for (let i = 0; i < size; i++) {
+      const off = i << 2;
+      if (rgba[off + 3] !== NORMAL_COLOR_ALPHA) continue;
+      const maskA = pdata[i];
+      if (!maskA) continue;
+      const k = maskA / 255;
+      const r = rgba[off], g = rgba[off + 1], b = rgba[off + 2];
+      // luminance in 0..255; scale=1 at luminance=128
+      const scale = (0.299 * r + 0.587 * g + 0.114 * b) / 128;
+      const trT = clamp(tr * scale, 0, 255);
+      const tgT = clamp(tg * scale, 0, 255);
+      const tbT = clamp(tb * scale, 0, 255);
+      rgba[off]     = mixValue(r, trT, k);
+      rgba[off + 1] = mixValue(g, tgT, k);
+      rgba[off + 2] = mixValue(b, tbT, k);
+      rgba[off + 3] = 255;
     }
+  }
+
+  // 4. Normalise alpha: the NORMAL_COLOR_ALPHA marker that survived step 3
+  //    (pixels with no tint) should be fully opaque in the output.
+  for (let i = 3; i < rgba.length; i += 4) {
+    if (rgba[i] === NORMAL_COLOR_ALPHA) rgba[i] = 255;
+  }
+
+  return rgba;
+}
+
+// ---------------------------------------------------------------------------
+// Direction slicing.
+//
+// SLD files don't explicitly record how many directions are baked in; the
+// convention is that `frameCount` is divisible by the direction count and
+// the frames are laid out direction-major. We prefer the larger divisor
+// since AoE2:DE unit sprites almost always use 16 directions.
+//
+// Many DE sprites store (16n + 1) frames (e.g. 481): the final frame is a
+// stray duplicate / padding and must be ignored for direction layout. We
+// treat the logical frame count as `rawCount - 1` in that case only.
+// ---------------------------------------------------------------------------
+
+function logicalFrameCount(rawCount) {
+  if (rawCount > 1 && rawCount % 16 === 1) {
+    return { count: rawCount - 1, discardedTrailingFrame: true };
+  }
+  return { count: rawCount, discardedTrailingFrame: false };
+}
+
+function inferNumDirections(frameCount) {
+  if (frameCount >= 16 && frameCount % 16 === 0) return 16;
+  if (frameCount >= 8  && frameCount % 8  === 0) return 8;
+  if (frameCount >= 5  && frameCount % 5  === 0) return 5;
+  return 1;
+}
+
+function labelForDirection(numDirections, dirIndex) {
+  if (numDirections === 16) return DIRECTION_LABELS_16[dirIndex] || ("dir " + dirIndex);
+  if (numDirections === 1) return "still";
+  return "dir " + dirIndex + "/" + numDirections;
+}
+
+// ---------------------------------------------------------------------------
+// Public entry point.
+// ---------------------------------------------------------------------------
+
+export function renderDirection(bytes, opts, progressCb) {
+  const { directionIndex = 0, drawShadow = true, teamRgb = null } = opts || {};
+  const reader = new ArrayReader(bytes);
+  const header = parseHeader(reader);
+
+  const { count: logicalCount, discardedTrailingFrame } = logicalFrameCount(header.frameCount);
+  const numDirections = inferNumDirections(logicalCount);
+  const framesPerDirection = logicalCount / numDirections;
+  const dir = clamp(directionIndex | 0, 0, numDirections - 1);
+  const start = dir * framesPerDirection;
+  const endExclusive = start + framesPerDirection;
+
+  const outFrames = new Array(framesPerDirection);
+
+  // We only need a sliding window of two frames' layer buffers (the one
+  // currently being decoded and its immediate predecessor). Holding
+  // everything would blow up memory for big sprites.
+  let previousFrame = null;
+  for (let i = 0; i < endExclusive; i++) {
+    const frame = parseFrame(reader, previousFrame);
+
+    if (i >= start) {
+      const rgba = composeRGBA(frame, { drawShadow, teamRgb });
+      outFrames[i - start] = {
+        width: frame.width,
+        height: frame.height,
+        hotspotX: frame.anchorX,
+        hotspotY: frame.anchorY,
+        rgba,
+      };
+      if (progressCb) progressCb(i - start + 1, framesPerDirection);
+    }
+
+    if (previousFrame) {
+      // Release layer pixel buffers we'll never reference again. Keep the
+      // frame object itself lightweight enough that parseFrame's inheritance
+      // lookup `previousFrame.data.normal` keeps working for *this* frame.
+      previousFrame.data = null;
+    }
+    previousFrame = frame;
+  }
+
+  // If the file had (16n+1) frames, the last raw frame is skipped for layout
+  // but still sits on disk after the last *logical* frame. Only when we
+  // decoded through that last logical frame (e.g. direction 15) do we need
+  // to read past it so the stream is fully consumed for this slice.
+  if (discardedTrailingFrame && endExclusive === logicalCount) {
+    parseFrame(reader, previousFrame);
   }
 
   return {
-    rgba: out,
-    width, height,
-    hotspotX: frame.hotspotX,
-    hotspotY: frame.hotspotY,
-  };
-}
-
-export function decodeFrame(c, keep, previousLayers, opts) {
-  const width = c.u16();
-  const height = c.u16();
-  const hotspotX = c.i16();
-  const hotspotY = c.i16();
-  const frameType = c.u8();
-  c.u8(); // unknown
-  c.u16(); // frame index
-
-  const frame = { width, height, hotspotX, hotspotY, normalCoords: null };
-
-  let normalResult = null;
-  let shadowResult = null;
-  let playerResult = null;
-
-  if (frameType & LAYER_MAIN) {
-    normalResult = decodeDxt1Layer(c.chunk(), frame, previousLayers.normal, true);
-    frame.normalCoords = normalResult.coordinates;
-  }
-  if (frameType & LAYER_SHADOW) {
-    shadowResult = decodeDxt4Layer(c.chunk(), frame, previousLayers.shadow, true);
-  }
-  if (frameType & LAYER_UNKNOWN) {
-    // Tile-mask refinement: clears stale pixels in inherited frames so
-    // leftovers from the previous frame don't leak through blocks the
-    // current frame didn't redraw.
-    const unknownChunk = c.chunk();
-    adjustByUnknownLayer(unknownChunk, frame, normalResult);
-  }
-  if (frameType & LAYER_SMUDGE) {
-    c.chunk();
-  }
-  if (frameType & LAYER_PLAYER) {
-    playerResult = decodeDxt4Layer(c.chunk(), frame, previousLayers.player, false);
-  }
-
-  previousLayers.normal = normalResult ? normalResult.rgba : previousLayers.normal;
-  previousLayers.shadow = shadowResult ? shadowResult.gray : previousLayers.shadow;
-  previousLayers.player = playerResult ? playerResult.gray : previousLayers.player;
-
-  if (!keep) return null;
-  return composeFrameRGBA(frame, normalResult, shadowResult, playerResult, opts);
-}
-
-// ---------------------------------------------------------------------------
-// Header parsing
-// ---------------------------------------------------------------------------
-
-export function parseSld(bytes) {
-  const c = cursor(bytes);
-  const td = new TextDecoder("ascii");
-
-  const sig = td.decode(c.bytes(4));
-  if (sig !== "SLDX") throw new Error("Not an SLDX file (got '" + sig + "')");
-
-  const version = c.u16();
-  const numFrames = c.u16();
-  c.u16(); // unknown1
-  c.u16(); // unknown2 (always 0x0010)
-  c.u32(); // unknown3 (always 0xFF000000)
-
-  if (numFrames === 0) throw new Error("SLD has no frames.");
-  if (numFrames > 4096) throw new Error("SLD has too many frames (" + numFrames + ")");
-
-  return { bytes, cursor: c, version, numFrames };
-}
-
-// ---------------------------------------------------------------------------
-// High-level entry: "render one direction's worth of frames".
-// ---------------------------------------------------------------------------
-
-export function renderDirection(bytes, opts, onProgress) {
-  const parsed = parseSld(bytes);
-  const numDirs = 16;
-
-  // Accepted directional-frame layouts:
-  //   1. N % 16 == 0      -> N/16 frames per direction.
-  //   2. N % 16 == 1      -> trailing "reference"/idle frame that every AoE2
-  //                           DE military sprite carries. Ignore the last
-  //                           frame and treat the remaining (N-1) as 16
-  //                           directions of (N-1)/16 frames each.
-  // Anything else falls back to "one reel, all frames" (statics, decorations).
-  let usableFrames = parsed.numFrames;
-  if (usableFrames % numDirs === 1) usableFrames -= 1;
-
-  let fpd = Math.floor(usableFrames / numDirs);
-  let startIdx, endIdx;
-  if (fpd > 0 && usableFrames % numDirs === 0) {
-    const dir = Math.max(0, Math.min(numDirs - 1, (opts.directionIndex | 0)));
-    startIdx = dir * fpd;
-    endIdx = startIdx + fpd;
-  } else {
-    fpd = parsed.numFrames;
-    startIdx = 0;
-    endIdx = parsed.numFrames;
-  }
-
-  const previousLayers = { normal: null, shadow: null, player: null };
-  const composeOpts = {
-    teamRgb: opts.teamRgb || [80, 110, 210],
-    drawShadow: !!opts.drawShadow,
-  };
-
-  const frames = [];
-  const c = parsed.cursor;
-  for (let i = 0; i < parsed.numFrames; i++) {
-    const keep = i >= startIdx && i < endIdx;
-    const f = decodeFrame(c, keep, previousLayers, composeOpts);
-    if (f) {
-      frames.push(f);
-      if (onProgress) {
-        const total = endIdx - startIdx;
-        onProgress(frames.length, total);
-      }
-    }
-    if (i + 1 >= endIdx) break;
-  }
-
-  if (frames.length === 0) throw new Error("No frames decoded in the selected direction.");
-
-  return {
-    frames,
     meta: {
-      version: parsed.version,
-      numFrames: parsed.numFrames,
-      framesPerDirection: fpd,
-      directionIndex: opts.directionIndex | 0,
-      directionLabel: DIRECTION_ORDER[opts.directionIndex | 0] || "?",
+      version: header.version,
+      frameCount: logicalCount,
+      rawFrameCount: header.frameCount,
+      discardedTrailingFrame,
+      numDirections,
+      framesPerDirection,
+      directionIndex: dir,
+      directionLabel: labelForDirection(numDirections, dir),
+      opacity: header.opacity,
     },
+    frames: outFrames,
   };
 }
