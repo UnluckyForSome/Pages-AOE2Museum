@@ -104,15 +104,18 @@
                   </select>
                 </div>
 
-                <div>
-                  <span class="field-label">Frame options</span>
-                  <div class="cycle-row" id="slp-cycles" role="group" aria-label="Frame options">
+                <div class="cycle-row" id="slp-cycles" role="group" aria-label="Frame options">
+                  <div class="cycle-cell">
+                    <span class="cycle-cell__label">Direction</span>
                     <button type="button" class="cycle-btn cycle-btn--text" id="slp-direction" aria-label="Direction"></button>
+                  </div>
+                  <div class="cycle-cell">
+                    <span class="cycle-cell__label">Color</span>
                     <button type="button" class="cycle-btn cycle-btn--image" id="slp-player" aria-label="Player color"></button>
                   </div>
                 </div>
 
-                <button id="submit" class="btn" type="submit" disabled>Generate GIF</button>
+                <button id="submit" class="btn btn--submit" type="submit" disabled>Generate GIF</button>
               </div>
             </div>
 
@@ -209,16 +212,22 @@
                   </select>
                 </div>
 
-                <div>
-                  <span class="field-label">Frame options</span>
-                  <div class="cycle-row" id="sld-cycles" role="group" aria-label="Frame options">
+                <div class="cycle-row" id="sld-cycles" role="group" aria-label="Frame options">
+                  <div class="cycle-cell">
+                    <span class="cycle-cell__label">Zoom</span>
                     <button type="button" class="cycle-btn cycle-btn--text" id="sld-zoom" aria-label="Zoom"></button>
+                  </div>
+                  <div class="cycle-cell">
+                    <span class="cycle-cell__label">Direction</span>
                     <button type="button" class="cycle-btn cycle-btn--text" id="sld-direction" aria-label="Direction"></button>
+                  </div>
+                  <div class="cycle-cell">
+                    <span class="cycle-cell__label">Color</span>
                     <button type="button" class="cycle-btn cycle-btn--image" id="sld-player" aria-label="Player color"></button>
                   </div>
                 </div>
 
-                <button id="sld-submit" class="btn" type="submit" disabled>Generate GIF</button>
+                <button id="sld-submit" class="btn btn--submit" type="submit" disabled>Generate GIF</button>
               </div>
             </div>
 

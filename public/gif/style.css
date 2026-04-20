@@ -22,6 +22,12 @@
 
 .stack { display: flex; flex-direction: column; gap: var(--s-3); }
 
+/* Make the control card fill the grid row so the submit button can pin
+   to the bottom (matching the bottom edge of the viewer card beside it). */
+.gen-grid > .card { display: flex; flex-direction: column; }
+.gen-grid > .card > .stack { flex: 1 1 auto; }
+.gen-grid > .card > .stack > .btn--submit { margin-top: auto; }
+
 /* ---- square preview ------------------------------------------------- */
 
 .imgwrap {
@@ -115,22 +121,41 @@
 .combo__option--empty:hover { background: transparent; color: var(--text-muted); }
 
 /* ---- cycle buttons (tap to advance: zoom / direction / player) -----
-   The player variant literally IS the AoE2 UI button asset (30x24 native);
-   the text variants are plain rectangles matched to that size. Pressed
+   The player variant literally IS the AoE2 UI button asset (30x24 native),
+   rendered pixel-perfect at 3x = 90x72. The text variants match that size
+   exactly and contain a cycling label. Each button lives in its own cell so
+   the row can distribute evenly with a caption above each one. Pressed
    feedback uses the `pressed` PNG for image buttons and an accent flip for
    the text rectangles. */
 
 .cycle-row {
   display: flex;
+  gap: var(--s-2);
+  align-items: flex-end;
+  justify-content: space-between;
+}
+.cycle-cell {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 6px;
-  align-items: flex-start;
+}
+.cycle-cell__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: 1;
 }
 .cycle-btn {
   appearance: none;
   margin: 0;
   padding: 0;
-  width: 30px;
-  height: 24px;
+  width: 90px;
+  height: 72px;
   font: inherit;
   line-height: 1;
   cursor: pointer;
@@ -139,10 +164,11 @@
 .cycle-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .cycle-btn:focus-visible {
   outline: 2px solid var(--gold-dim);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
-/* image variant: the whole button is a sprite. */
+/* image variant: the whole button is a sprite, scaled 3x with nearest-
+   neighbor so the original pixel art stays crisp. */
 .cycle-btn--image {
   border: 0;
   background: transparent;
@@ -157,15 +183,16 @@
   user-select: none;
 }
 
-/* text variant: a tiny chiselled rectangle with the current label. */
+/* text variant: a chiselled rectangle with the current label. */
 .cycle-btn--text {
   background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--r-sm, 4px);
   color: var(--text);
+  font-family: var(--font-display, inherit);
   font-weight: 700;
-  font-size: 10px;
-  letter-spacing: 0.02em;
+  font-size: 1.4rem;
+  letter-spacing: 0.04em;
   display: flex;
   align-items: center;
   justify-content: center;
