@@ -369,8 +369,11 @@ function createPicker(opts) {
   }
 
   function commit(value) {
+    // Selecting a row intentionally does NOT overwrite the search input:
+    // doing so would narrow the filter to just the committed row and hide
+    // the rest of the matches. The selection is tracked separately and
+    // surfaced via `aria-current` on the row itself.
     selectedValue = value;
-    input.value = value;
     render();
     if (onSelect) onSelect(value);
   }
@@ -423,7 +426,6 @@ function createPicker(opts) {
     getSelected: function () { return selectedValue; },
     setSelected: function (value) {
       selectedValue = value || "";
-      input.value = selectedValue;
       render();
     },
   };

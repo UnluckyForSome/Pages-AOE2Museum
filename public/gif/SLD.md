@@ -33,19 +33,24 @@ signature; other versions have not been observed in released DE data.
 
 Each frame declares its layer set with the `frame_type` bitfield:
 
-| Bit mask | Layer              | Decoder           | Rendered? |
-|:--------:|:-------------------|:------------------|:---------:|
-| `0x01`   | Main graphics      | DXT1 -> RGBA      | yes       |
-| `0x02`   | Shadow             | DXT4 -> grayscale | yes (toggleable) |
-| `0x04`   | "???" / tile mask  | skipped           | no        |
-| `0x08`   | Smudge / damage    | skipped           | no        |
-| `0x10`   | Playercolor mask   | DXT4 -> grayscale | yes       |
+| Bit mask | Layer              | Decoder              | Rendered? |
+|:--------:|:-------------------|:---------------------|:---------:|
+| `0x01`   | Main graphics      | DXT1 -> RGBA         | yes       |
+| `0x02`   | Shadow             | DXT4 -> grayscale    | yes (toggleable) |
+| `0x04`   | "???" / tile mask  | RLE -> clip main α   | applied (no pixels of its own) |
+| `0x08`   | Smudge / damage    | skipped              | no        |
+| `0x10`   | Playercolor mask   | DXT4 -> grayscale    | yes       |
 
-The `0x04` tile-mask refinement (what [`adjustByUnknownLayer`](newexamples/SLD%20Extractor%201.4/sld.js)
-does in the original Chinese extractor) is consumed to keep the byte cursor
-aligned but not applied; sprites that lean heavily on the "reuse previous
-block" semantics may show minor artefacts on inherited blocks. Full
-damage-mask support is future work.
+The `0x04` layer is the per-tile clip mask that accompanies the main
+graphics layer when it sets `flag1 & 0x80` ("inherit pixels from the previous
+frame"). Each 4x4 block is stored as a 16-bit word where bit `j = 1` keeps
+pixel `j`, bit `j = 0` zeros its alpha, and word `0` clears the whole block.
+The openage spec does not describe this layer; the format is reverse-
+engineered by
+[`adjustByUnknownLayer` in SLD Extractor 1.4](newexamples/SLD%20Extractor%201.4/sld.js).
+Without applying it, inherited main-layer blocks show pixels from the
+previous frame where the current frame should be transparent, which manifests
+as "ghost" duplication across an animation.
 
 ## Directions
 
