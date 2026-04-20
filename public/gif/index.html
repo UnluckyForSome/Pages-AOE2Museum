@@ -78,28 +78,24 @@
           <div class="gen-grid">
             <div class="card">
               <div class="stack">
-                <div>
-                  <label class="field-label" for="unit-input">Unit</label>
-                  <div class="combo" data-combo>
-                    <input
-                      id="unit-input"
-                      class="combo__input"
-                      name="unit"
-                      type="search"
-                      role="combobox"
-                      aria-expanded="false"
-                      aria-controls="unit-list"
-                      aria-autocomplete="list"
-                      placeholder="Start typing&hellip;"
-                      autocomplete="off"
-                    />
-                    <ul id="unit-list" class="combo__list" role="listbox" hidden></ul>
-                  </div>
+                <div class="picker" id="slp-unit-picker">
+                  <label class="field-label picker__label" for="unit-input">Unit</label>
+                  <input
+                    id="unit-input"
+                    class="picker__search"
+                    name="unit"
+                    type="search"
+                    role="searchbox"
+                    aria-controls="unit-list"
+                    placeholder="Search units&hellip;"
+                    autocomplete="off"
+                  />
+                  <ul id="unit-list" class="picker__list" role="listbox"></ul>
                 </div>
 
-                <div>
+                <div class="field">
                   <label class="field-label" for="action-select">Action</label>
-                  <select id="action-select" name="action" disabled>
+                  <select id="action-select" class="field__select" name="action" disabled>
                     <option value="">Pick a unit first</option>
                   </select>
                 </div>
@@ -111,7 +107,7 @@
                   </div>
                   <div class="cycle-cell">
                     <span class="cycle-cell__label">Color</span>
-                    <button type="button" class="cycle-btn cycle-btn--image" id="slp-player" aria-label="Player color"></button>
+                    <button type="button" class="cycle-btn cycle-btn--text" id="slp-player" aria-label="Player color"></button>
                   </div>
                 </div>
 
@@ -186,28 +182,24 @@
           <div class="gen-grid">
             <div class="card">
               <div class="stack">
-                <div>
-                  <label class="field-label" for="sld-unit">Unit</label>
-                  <div class="combo" data-combo>
-                    <input
-                      id="sld-unit"
-                      class="combo__input"
-                      name="unit"
-                      type="search"
-                      role="combobox"
-                      aria-expanded="false"
-                      aria-controls="sld-unit-list"
-                      aria-autocomplete="list"
-                      placeholder="Start typing&hellip;"
-                      autocomplete="off"
-                    />
-                    <ul id="sld-unit-list" class="combo__list" role="listbox" hidden></ul>
-                  </div>
+                <div class="picker" id="sld-unit-picker">
+                  <label class="field-label picker__label" for="sld-unit">Unit</label>
+                  <input
+                    id="sld-unit"
+                    class="picker__search"
+                    name="unit"
+                    type="search"
+                    role="searchbox"
+                    aria-controls="sld-unit-list"
+                    placeholder="Search units&hellip;"
+                    autocomplete="off"
+                  />
+                  <ul id="sld-unit-list" class="picker__list" role="listbox"></ul>
                 </div>
 
-                <div>
+                <div class="field">
                   <label class="field-label" for="sld-action">Action</label>
-                  <select id="sld-action" name="action" disabled>
+                  <select id="sld-action" class="field__select" name="action" disabled>
                     <option value="">Pick a unit first</option>
                   </select>
                 </div>
@@ -223,7 +215,7 @@
                   </div>
                   <div class="cycle-cell">
                     <span class="cycle-cell__label">Color</span>
-                    <button type="button" class="cycle-btn cycle-btn--image" id="sld-player" aria-label="Player color"></button>
+                    <button type="button" class="cycle-btn cycle-btn--text" id="sld-player" aria-label="Player color"></button>
                   </div>
                 </div>
 

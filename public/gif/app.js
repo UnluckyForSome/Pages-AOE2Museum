@@ -18,18 +18,18 @@ import { buildIndex, listActions, listZooms, resolveKey } from "/gif/sld-index.j
 
 // ---------- reusable option sets (shared by SLP + SLD) ---------------------
 
-// Player color options use the actual in-game button sprites as both the
-// idle and pressed visuals. `icon` drives the <img> src; `iconPressed` is
-// swapped in on pointerdown so tapping feels tactile.
+// Player color options render as plain text cycle buttons: the label is the
+// player number, inked in an approximation of that player's AoE2 team color
+// so the button itself identifies which player it points at.
 const PLAYER_COLOR_OPTIONS = [
-  { value: 1, label: "Player 1 (blue)",    icon: "/gif/assets/1.png", iconPressed: "/gif/assets/1pressed.png" },
-  { value: 2, label: "Player 2 (red)",     icon: "/gif/assets/2.png", iconPressed: "/gif/assets/2pressed.png" },
-  { value: 3, label: "Player 3 (green)",   icon: "/gif/assets/3.png", iconPressed: "/gif/assets/3pressed.png" },
-  { value: 4, label: "Player 4 (yellow)",  icon: "/gif/assets/4.png", iconPressed: "/gif/assets/4pressed.png" },
-  { value: 5, label: "Player 5 (cyan)",    icon: "/gif/assets/5.png", iconPressed: "/gif/assets/5pressed.png" },
-  { value: 6, label: "Player 6 (magenta)", icon: "/gif/assets/6.png", iconPressed: "/gif/assets/6pressed.png" },
-  { value: 7, label: "Player 7 (tan)",     icon: "/gif/assets/7.png", iconPressed: "/gif/assets/7pressed.png" },
-  { value: 8, label: "Player 8 (orange)",  icon: "/gif/assets/8.png", iconPressed: "/gif/assets/8pressed.png" },
+  { value: 1, label: "1", ariaLabel: "Player 1 (blue)",   color: "#3f7fff" },
+  { value: 2, label: "2", ariaLabel: "Player 2 (red)",    color: "#ff4d4d" },
+  { value: 3, label: "3", ariaLabel: "Player 3 (green)",  color: "#5bd361" },
+  { value: 4, label: "4", ariaLabel: "Player 4 (yellow)", color: "#ffd84a" },
+  { value: 5, label: "5", ariaLabel: "Player 5 (teal)",   color: "#2dd4c7" },
+  { value: 6, label: "6", ariaLabel: "Player 6 (purple)", color: "#b368e9" },
+  { value: 7, label: "7", ariaLabel: "Player 7 (grey)",   color: "#b0b6bd" },
+  { value: 8, label: "8", ariaLabel: "Player 8 (orange)", color: "#ff9040" },
 ];
 
 // SLP stores 5 of 8 compass directions and mirrors the rest at render time.
@@ -296,22 +296,26 @@ function workerProgressHandler(msg) {
 const slpWorker = makeWorkerHandle("/gif/worker-slp.js", workerProgressHandler);
 const sldWorker = makeWorkerHandle("/gif/worker-sld.js", workerProgressHandler, { type: "module" });
 
-// ---------- combo (live-filter dropdown) ------------------------------------
+// ---------- picker (always-open filterable listbox) ------------------------
 
-// A light-weight combobox: the `<input>` stays a regular text input so the
-// browser keeps its native IME / mobile keyboard, but typing filters a
-// scrollable `<ul role="listbox">` rendered below. Mouse/keyboard both drive
-// the same "active option" state.
-const COMBO_MAX_ROWS = 200;
+// A filterable <ul role="listbox"> that is always visible: typing in the
+// search input narrows the visible rows, clicking or pressing Enter commits
+// a selection. Unlike a combobox there is no open/close state and no
+// "phantom" text in the input -- the selected value is tracked separately
+// via `aria-current` on the row and reflected into the bound form input on
+// commit.
+const PICKER_MAX_ROWS = 500;
 
-function createCombo(opts) {
+function createPicker(opts) {
+  const root = opts.root;
   const input = opts.input;
   const list = opts.list;
   const getOptions = opts.getOptions;
   const onSelect = opts.onSelect;
 
-  let current = [];
-  let activeIdx = -1;
+  let current = [];        // filtered rows currently rendered
+  let activeIdx = -1;      // keyboard-focused row (for arrow-key nav)
+  let selectedValue = "";  // committed value (drives aria-current)
 
   function render() {
     const q = input.value.trim().toLowerCase();
@@ -319,32 +323,40 @@ function createCombo(opts) {
     const matches = q
       ? pool.filter(function (u) { return u.toLowerCase().includes(q); })
       : pool.slice();
-    current = matches.slice(0, COMBO_MAX_ROWS);
+    current = matches.slice(0, PICKER_MAX_ROWS);
     list.textContent = "";
     if (current.length === 0) {
       const li = document.createElement("li");
-      li.className = "combo__option combo__option--empty";
-      li.textContent = "Nothing matches";
+      li.className = "picker__option picker__option--empty";
+      li.textContent = q ? "Nothing matches" : "No units available";
       li.setAttribute("role", "presentation");
       list.appendChild(li);
-    } else {
-      const frag = document.createDocumentFragment();
-      for (let i = 0; i < current.length; i++) {
-        const li = document.createElement("li");
-        li.className = "combo__option";
-        li.setAttribute("role", "option");
-        li.setAttribute("data-idx", String(i));
-        li.textContent = current[i];
-        frag.appendChild(li);
-      }
-      list.appendChild(frag);
+      activeIdx = -1;
+      return;
     }
-    activeIdx = current.length > 0 ? 0 : -1;
+    const frag = document.createDocumentFragment();
+    let selIdx = -1;
+    for (let i = 0; i < current.length; i++) {
+      const li = document.createElement("li");
+      li.className = "picker__option";
+      li.setAttribute("role", "option");
+      li.setAttribute("data-idx", String(i));
+      li.textContent = current[i];
+      if (current[i] === selectedValue) {
+        li.setAttribute("aria-current", "true");
+        selIdx = i;
+      }
+      frag.appendChild(li);
+    }
+    list.appendChild(frag);
+    // Prefer the committed selection as the keyboard-active row; otherwise
+    // start at the top so ArrowDown feels obvious.
+    activeIdx = selIdx >= 0 ? selIdx : 0;
     paintActive();
   }
 
   function paintActive() {
-    const nodes = list.querySelectorAll(".combo__option[role='option']");
+    const nodes = list.querySelectorAll(".picker__option[role='option']");
     nodes.forEach(function (n, i) {
       n.setAttribute("aria-selected", i === activeIdx ? "true" : "false");
     });
@@ -356,88 +368,73 @@ function createCombo(opts) {
     }
   }
 
-  function open() {
-    if (!list.hidden) return;
-    render();
-    list.hidden = false;
-    input.setAttribute("aria-expanded", "true");
-  }
-
-  function close() {
-    if (list.hidden) return;
-    list.hidden = true;
-    input.setAttribute("aria-expanded", "false");
-  }
-
   function commit(value) {
+    selectedValue = value;
     input.value = value;
-    close();
+    render();
     if (onSelect) onSelect(value);
   }
 
-  input.addEventListener("focus", open);
-  input.addEventListener("input", function () {
-    open();
-    render();
-  });
+  input.addEventListener("input", render);
   input.addEventListener("keydown", function (ev) {
     if (ev.key === "ArrowDown") {
       ev.preventDefault();
-      if (list.hidden) { open(); return; }
       if (current.length === 0) return;
       activeIdx = (activeIdx + 1) % current.length;
       paintActive();
     } else if (ev.key === "ArrowUp") {
       ev.preventDefault();
-      if (list.hidden) { open(); return; }
       if (current.length === 0) return;
       activeIdx = (activeIdx - 1 + current.length) % current.length;
       paintActive();
     } else if (ev.key === "Enter") {
-      if (!list.hidden && activeIdx >= 0 && current[activeIdx]) {
+      if (activeIdx >= 0 && current[activeIdx]) {
         ev.preventDefault();
         commit(current[activeIdx]);
       }
     } else if (ev.key === "Escape") {
-      if (!list.hidden) { ev.preventDefault(); close(); }
+      if (input.value) {
+        ev.preventDefault();
+        input.value = "";
+        render();
+      }
     }
   });
 
-  // Use pointerdown so selection wins the race against the input's blur.
-  list.addEventListener("pointerdown", function (ev) {
-    const li = ev.target.closest(".combo__option[role='option']");
+  // Select-all on focus/click so typing immediately replaces the query --
+  // this is not the browser default and the user specifically asked for it.
+  function selectAll() { try { input.select(); } catch (_) {} }
+  input.addEventListener("focus", selectAll);
+  input.addEventListener("click", selectAll);
+
+  list.addEventListener("click", function (ev) {
+    const li = ev.target.closest(".picker__option[role='option']");
     if (!li || !list.contains(li)) return;
-    ev.preventDefault();
     const idx = Number(li.getAttribute("data-idx"));
     if (!Number.isFinite(idx) || !current[idx]) return;
     commit(current[idx]);
   });
 
-  document.addEventListener("pointerdown", function (ev) {
-    if (list.hidden) return;
-    const root = input.closest("[data-combo]");
-    if (root && root.contains(ev.target)) return;
-    close();
-  });
-
-  input.addEventListener("blur", function () {
-    // Give pointerdown-on-option a chance to fire first.
-    setTimeout(close, 120);
-  });
+  if (root) root.setAttribute("data-picker", "");
+  render();  // initial empty-state paint so the listbox is never blank
 
   return {
-    refresh: function () { if (!list.hidden) render(); },
-    close: close,
+    refresh: function () { render(); },
+    getSelected: function () { return selectedValue; },
+    setSelected: function (value) {
+      selectedValue = value || "";
+      input.value = selectedValue;
+      render();
+    },
   };
 }
 
 // ---------- cycle button (tap-to-advance: zoom / direction / player) --------
 
 // Each cycle button owns an ordered list of options and advances to the next
-// enabled option on click / Enter / Space. Options with `.icon` render as an
-// <img> (player color button); options with just `.label` render as text
-// (direction, zoom). Pointerdown/up swaps the image between `icon` and
-// `iconPressed` for tactile feedback; text buttons rely on CSS `:active`.
+// enabled option on click / Enter / Space. Options render as plain text; if
+// the option has a `color`, it is applied as the button's text color so the
+// player-color cycle can identify itself by tint alone.
 function createCycleButton(el, options, init) {
   const settings = init || {};
   const state = {
@@ -445,15 +442,6 @@ function createCycleButton(el, options, init) {
     index: 0,
     disabled: new Set(),
   };
-  const isImage = state.options.some(function (o) { return !!o.icon; });
-  let imgNode = null;
-  if (isImage) {
-    imgNode = document.createElement("img");
-    imgNode.alt = "";
-    imgNode.draggable = false;
-    el.textContent = "";
-    el.appendChild(imgNode);
-  }
 
   function currentOption() { return state.options[state.index] || null; }
 
@@ -462,16 +450,10 @@ function createCycleButton(el, options, init) {
     const allDisabled = state.options.every(function (o) { return state.disabled.has(o.value); });
     el.disabled = allDisabled;
     if (!opt) return;
-    if (settings.tag) {
-      el.setAttribute("aria-label", settings.tag + ": " + opt.label);
-    } else {
-      el.setAttribute("aria-label", opt.label);
-    }
-    if (isImage && imgNode) {
-      imgNode.src = opt.icon || "";
-    } else {
-      el.textContent = opt.label;
-    }
+    const aria = opt.ariaLabel || opt.label;
+    el.setAttribute("aria-label", settings.tag ? settings.tag + ": " + aria : aria);
+    el.textContent = opt.label;
+    el.style.color = opt.color || "";
   }
 
   function isEnabled(i) {
@@ -506,24 +488,6 @@ function createCycleButton(el, options, init) {
       advance(true);
     }
   });
-
-  // Image buttons get an explicit pressed-sprite swap; :active is unreliable
-  // on mobile touch events. Text buttons use CSS :active instead.
-  if (isImage && imgNode) {
-    const pressDown = function () {
-      const opt = currentOption();
-      if (opt && opt.iconPressed) imgNode.src = opt.iconPressed;
-    };
-    const pressUp = function () {
-      const opt = currentOption();
-      if (opt && opt.icon) imgNode.src = opt.icon;
-    };
-    el.addEventListener("pointerdown", pressDown);
-    el.addEventListener("pointerup", pressUp);
-    el.addEventListener("pointerleave", pressUp);
-    el.addEventListener("pointercancel", pressUp);
-    el.addEventListener("blur", pressUp);
-  }
 
   function setValue(val, notify) {
     for (let i = 0; i < state.options.length; i++) {
@@ -669,7 +633,7 @@ const slp = (function () {
   }
 
   function populateUnits() {
-    combo.refresh();
+    picker.refresh();
   }
 
   function populateActions(unit) {
@@ -703,7 +667,8 @@ const slp = (function () {
     onChange: function () { refresh(); },
   });
 
-  const combo = createCombo({
+  const picker = createPicker({
+    root: document.getElementById("slp-unit-picker"),
     input: unitInput,
     list: unitList,
     getOptions: function () { return mapping ? mapping.units : []; },
@@ -729,7 +694,7 @@ const slp = (function () {
 
   function selection() {
     return {
-      unit: unitInput.value.trim(),
+      unit: picker.getSelected(),
       action: actionSelect.value,
       direction: directionCycle.value || "S",
       player: Number(playerCycle.value || 1),
@@ -778,7 +743,7 @@ const slp = (function () {
   }
 
   function onUnitChanged() {
-    const unit = unitInput.value.trim();
+    const unit = picker.getSelected();
     if (mapping && mapping.byUnit.has(unit)) populateActions(unit);
     else {
       actionSelect.innerHTML = "<option value=\"\">Pick a unit first</option>";
@@ -786,8 +751,6 @@ const slp = (function () {
     }
     refresh();
   }
-  unitInput.addEventListener("input", onUnitChanged);
-  unitInput.addEventListener("change", onUnitChanged);
 
   async function fetchSlp(id) {
     if (slpCache.has(id)) return slpCache.get(id);
@@ -979,7 +942,7 @@ const sld = (function () {
   // ----- populate helpers --------------------------------------------------
 
   function populateUnits() {
-    combo.refresh();
+    picker.refresh();
   }
 
   function populateActions(unit) {
@@ -1001,7 +964,7 @@ const sld = (function () {
   }
 
   function refreshZooms() {
-    const unit = unitInput.value.trim();
+    const unit = picker.getSelected();
     const action = actionSelect.value;
     const available = (index && unit && action)
       ? new Set(listZooms(index, unit, action))
@@ -1031,7 +994,8 @@ const sld = (function () {
     onChange: function () { refresh(); },
   });
 
-  const combo = createCombo({
+  const picker = createPicker({
+    root: document.getElementById("sld-unit-picker"),
     input: unitInput,
     list: unitList,
     getOptions: function () { return index ? index.units : []; },
@@ -1061,7 +1025,7 @@ const sld = (function () {
 
   function selection() {
     return {
-      unit: unitInput.value.trim(),
+      unit: picker.getSelected(),
       action: actionSelect.value,
       zoom: zoomCycle.value || "",
       directionIndex: Number(directionCycle.value != null ? directionCycle.value : 0),
@@ -1112,7 +1076,7 @@ const sld = (function () {
 
   function onUnitChanged() {
     if (!index) { refresh(); return; }
-    const unit = unitInput.value.trim();
+    const unit = picker.getSelected();
     if (index.byUnit.has(unit)) populateActions(unit);
     else {
       actionSelect.innerHTML = "<option value=\"\">Pick a unit first</option>";
@@ -1121,8 +1085,6 @@ const sld = (function () {
     refreshZooms();
     refresh();
   }
-  unitInput.addEventListener("input", onUnitChanged);
-  unitInput.addEventListener("change", onUnitChanged);
   actionSelect.addEventListener("change", function () { refreshZooms(); refresh(); });
 
   // ----- SLD fetch + cache + render ---------------------------------------

@@ -78,28 +78,34 @@
 }
 .hint code { color: var(--gold-glow); }
 
-/* ---- unit combobox (live-filter dropdown) -------------------------- */
+/* ---- unit picker (always-open filterable listbox) ------------------
+   The list is persistently visible and grows to fill whatever vertical
+   space is left in the control card; on narrow screens (no parent height
+   to inherit) it falls back to a generous min-height so it stays useful. */
 
-.combo { position: relative; }
-.combo__input { width: 100%; }
-.combo__list {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 20;
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  min-height: 220px;   /* mobile fallback when card has no fixed height */
+  flex: 1 1 auto;       /* desktop: consume leftover stack space */
+}
+.picker__label { margin-bottom: 0; }
+.picker__search { width: 100%; flex: 0 0 auto; }
+.picker__list {
+  flex: 1 1 auto;
+  min-height: 120px;
+  overflow-y: auto;
   margin: 0;
   padding: 4px;
   list-style: none;
-  max-height: 240px;
-  overflow-y: auto;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
 }
-.combo__list[hidden] { display: none; }
-.combo__option {
+.picker__option {
   padding: 6px 10px;
   border-radius: calc(var(--r-md) - 3px);
   color: var(--text-muted);
@@ -108,34 +114,46 @@
   line-height: 1.2;
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
 }
-.combo__option:hover,
-.combo__option[aria-selected="true"] {
+.picker__option:hover,
+.picker__option[aria-selected="true"] {
   background: var(--accent-soft);
   color: var(--gold-glow);
 }
-.combo__option--empty {
+.picker__option[aria-current="true"] {
+  background: var(--accent-soft);
+  color: var(--gold-glow);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+.picker__option--empty {
   color: var(--text-muted);
   font-style: italic;
   cursor: default;
 }
-.combo__option--empty:hover { background: transparent; color: var(--text-muted); }
+.picker__option--empty:hover { background: transparent; color: var(--text-muted); }
+
+/* Action select styled to match the picker's search input so the form
+   reads as one consistent control column. */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field__select { width: 100%; }
 
 /* ---- cycle buttons (tap to advance: zoom / direction / player) -----
-   The player variant literally IS the AoE2 UI button asset (30x24 native),
-   rendered pixel-perfect at 3x = 90x72. The text variants match that size
-   exactly and contain a cycling label. Each button lives in its own cell so
-   the row can distribute evenly with a caption above each one. Pressed
-   feedback uses the `pressed` PNG for image buttons and an accent flip for
-   the text rectangles. */
+   All three buttons are identical 90x72 text rectangles that advance on
+   click/tap. The player-color variant is styled by the JS layer: it sets
+   the option's `color` as an inline style so the button's label ("1",
+   "2", ...) is inked in the AoE2 team color it represents. The row hugs
+   the left edge with a caption ("Zoom" / "Direction" / "Color") above
+   each button. */
 
 .cycle-row {
   display: flex;
   gap: var(--s-2);
   align-items: flex-end;
-  justify-content: space-between;
+  justify-content: flex-start;
+  flex-wrap: wrap;
 }
 .cycle-cell {
-  flex: 1 1 0;
+  flex: 0 0 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -166,24 +184,6 @@
   outline: 2px solid var(--gold-dim);
   outline-offset: 2px;
 }
-
-/* image variant: the whole button is a sprite, scaled 3x with nearest-
-   neighbor so the original pixel art stays crisp. */
-.cycle-btn--image {
-  border: 0;
-  background: transparent;
-  display: block;
-}
-.cycle-btn--image > img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  image-rendering: pixelated;
-  pointer-events: none;
-  user-select: none;
-}
-
-/* text variant: a chiselled rectangle with the current label. */
 .cycle-btn--text {
   background: var(--bg-panel);
   border: 1px solid var(--border);
@@ -199,17 +199,14 @@
   text-align: center;
   transition:
     background var(--dur) var(--ease),
-    color var(--dur) var(--ease),
     border-color var(--dur) var(--ease);
 }
 .cycle-btn--text:hover:not(:disabled) {
   border-color: var(--gold-dim);
-  color: var(--gold-glow);
 }
 .cycle-btn--text:active:not(:disabled),
 .cycle-btn--text[data-pressed="true"]:not(:disabled) {
   background: var(--accent-soft);
-  color: var(--gold-glow);
   border-color: var(--gold-dim);
 }
 
