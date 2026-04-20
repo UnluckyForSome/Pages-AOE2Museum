@@ -3,8 +3,10 @@ import { handleList } from "./scenarios/handlers/list";
 import { handleUpload } from "./scenarios/handlers/upload";
 import { handleDownload } from "./scenarios/handlers/download";
 import { handleSync } from "./scenarios/handlers/sync";
+import type { GifEnv } from "./gif/env";
+import { routeGif } from "./gif/handlers";
 
-export interface Env extends ScenariosEnv {
+export interface Env extends ScenariosEnv, GifEnv {
   ASSETS: Fetcher;
   MINIMAPS: R2Bucket;
   MINIMAP_INDEX: KVNamespace;
@@ -201,6 +203,12 @@ export default {
 
     if (pathname === "/api/scenarios" || pathname.startsWith("/api/scenarios/")) {
       const res = await routeScenarios(request, env, ctx, pathname);
+      if (res) return res;
+      return new Response("not found", { status: 404 });
+    }
+
+    if (pathname.startsWith("/api/gif/")) {
+      const res = await routeGif(request, env, ctx, pathname);
       if (res) return res;
       return new Response("not found", { status: 404 });
     }

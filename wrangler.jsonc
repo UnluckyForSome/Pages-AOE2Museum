@@ -31,6 +31,17 @@
       "database_id": "94e77071-f016-4073-9c1a-c9012424b48d"
     }
   ],
+  // Non-secret config for the Garage S3 backend that hosts the raw SLP/SLD
+  // sprites consumed by the /gif/ app. Credentials are stored as Wrangler
+  // secrets, not here:
+  //   wrangler secret put GARAGE_ACCESS_KEY_ID
+  //   wrangler secret put GARAGE_SECRET_ACCESS_KEY
+  "vars": {
+    "GARAGE_ENDPOINT": "https://garage.mcclemont.com",
+    "GARAGE_REGION": "garage",
+    "GARAGE_BUCKET_SLP": "slp",
+    "GARAGE_BUCKET_SLD": "sld"
+  },
   "triggers": {
     // Weekly R2 <-> D1 reconcile for the Scenarios app. Matches the cron on
     // the standalone `scenarios` worker; during the coexistence window both

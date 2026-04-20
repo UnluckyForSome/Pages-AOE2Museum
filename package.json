@@ -10,6 +10,7 @@
     "predeploy": "npm run build:mcminimap",
     "deploy": "wrangler deploy",
     "check": "wrangler check",
+    "check:garage": "node scripts/check-garage.mjs",
     "db:migrate:scenarios": "wrangler d1 execute scenarios --file=src/scenarios/db/schema.sql --remote"
   },
   "devDependencies": {
@@ -18,6 +19,7 @@
     "wrangler": "^4.83.0"
   },
   "dependencies": {
+    "aws4fetch": "^1.0.20",
     "fflate": "^0.8.2"
   }
 }

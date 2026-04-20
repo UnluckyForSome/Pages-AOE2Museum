@@ -18,11 +18,14 @@ import { buildIndex, listActions, listZooms, resolveKey } from "/gif/sld-index.j
 
 // ---------- config ----------------------------------------------------------
 
-const SLP_MAPPING_URL = "/gif/sourcefiles/slp_mapping.json";
-const SLP_URL = (id) => "/gif/sourcefiles/slp/" + id + ".slp";
+// SLP/SLD raw bytes and dropdown manifests are served by the Worker, which
+// streams them on demand from the self-hosted Garage S3 buckets. The browser
+// never speaks to Garage directly.
+const SLP_MANIFEST_URL = "/api/gif/slp/manifest";
+const SLP_URL = (id) => "/api/gif/slp/" + id + ".slp";
 
-const SLD_MAPPING_URL = "/gif/sourcefiles/sld/sld_mapping.json";
-const SLD_URL = (key) => "/gif/sourcefiles/sld/" + key + ".sld";
+const SLD_MANIFEST_URL = "/api/gif/sld/manifest";
+const SLD_URL = (key) => "/api/gif/sld/" + key + ".sld";
 
 const PLACEHOLDER_URL = "/gif/assets/placeholder.png";
 
@@ -312,26 +315,30 @@ const slp = (function () {
 
   function loadMapping() {
     if (mappingPromise) return mappingPromise;
-    mappingPromise = fetch(SLP_MAPPING_URL, { cache: "force-cache" })
+    // Worker returns { units: { [unit]: { [action]: slpId } }, total }, already
+    // intersected with what Garage actually has. Normalise to the Map shape
+    // the rest of this module expects.
+    mappingPromise = fetch(SLP_MANIFEST_URL, { cache: "default" })
       .then(function (res) {
-        if (!res.ok) throw new Error("Failed to fetch SLP mapping: HTTP " + res.status);
+        if (!res.ok) throw new Error("Failed to fetch SLP manifest: HTTP " + res.status);
         return res.json();
       })
-      .then(function (rows) {
+      .then(function (manifest) {
+        const units = (manifest && manifest.units) || {};
         const byUnit = new Map();
-        for (const row of rows) {
-          if (!row || typeof row.SLP !== "number") continue;
-          const unit = String(row.Unit || "").trim();
-          const action = String(row.Action || "").trim();
-          if (!unit || !action) continue;
-          if (!byUnit.has(unit)) byUnit.set(unit, new Map());
-          const actions = byUnit.get(unit);
-          if (!actions.has(action)) actions.set(action, row.SLP);
-        }
-        const units = Array.from(byUnit.keys()).sort(function (a, b) {
+        Object.keys(units).forEach(function (unit) {
+          const actions = units[unit] || {};
+          const actionMap = new Map();
+          Object.keys(actions).forEach(function (action) {
+            const id = actions[action];
+            if (typeof id === "number") actionMap.set(action, id);
+          });
+          if (actionMap.size > 0) byUnit.set(unit, actionMap);
+        });
+        const unitList = Array.from(byUnit.keys()).sort(function (a, b) {
           return a.localeCompare(b);
         });
-        mapping = { byUnit, units };
+        mapping = { byUnit, units: unitList };
         return mapping;
       });
     return mappingPromise;
@@ -471,8 +478,8 @@ const slp = (function () {
     const res = await fetch(SLP_URL(id), { cache: "force-cache" });
     if (!res.ok) {
       throw new Error(
-        "SLP " + id + " not available (HTTP " + res.status + "). Most SLPs are not" +
-        " included in this deploy yet; only a few test files are shipped.",
+        "SLP " + id + " not available (HTTP " + res.status + "). The file is not" +
+        " present in the Garage bucket.",
       );
     }
     const buf = await res.arrayBuffer();
@@ -547,7 +554,7 @@ const slp = (function () {
   form.addEventListener("submit", function (ev) { ev.preventDefault(); generate(); });
 
   async function boot() {
-    setStatus("Loading unit index\u2026", "loading");
+    setStatus("Loading SLP catalogue\u2026", "loading");
     setProgress(10, { autoHide: false });
     try {
       await loadMapping();
@@ -610,13 +617,30 @@ const sld = (function () {
     if (indexPromise) return indexPromise;
     setStatus("Loading SLD catalogue\u2026", "loading");
     setProgress(10, { autoHide: false });
-    indexPromise = fetch(SLD_MAPPING_URL, { cache: "force-cache" })
+    // Worker returns a pre-filtered manifest keyed by unit -> action -> zoom
+    // -> key. Flatten it back into the { key: {unit, action, zoom} } shape
+    // that buildIndex already understands so no other SLD-path code moves.
+    indexPromise = fetch(SLD_MANIFEST_URL, { cache: "default" })
       .then(function (res) {
-        if (!res.ok) throw new Error("Failed to fetch SLD mapping: HTTP " + res.status);
+        if (!res.ok) throw new Error("Failed to fetch SLD manifest: HTTP " + res.status);
         return res.json();
       })
-      .then(function (mapping) {
-        index = buildIndex(mapping);
+      .then(function (manifest) {
+        const flat = {};
+        const units = (manifest && manifest.units) || {};
+        Object.keys(units).forEach(function (unit) {
+          const actions = units[unit] || {};
+          Object.keys(actions).forEach(function (action) {
+            const zooms = actions[action] || {};
+            Object.keys(zooms).forEach(function (zoom) {
+              const key = zooms[zoom];
+              if (typeof key === "string" && key) {
+                flat[key] = { unit: unit, action: action, zoom: zoom };
+              }
+            });
+          });
+        });
+        index = buildIndex(flat);
         populateUnits();
         setProgress(100, { holdMs: 400 });
         setStatus("Ready \u00b7 " + index.units.length + " DE units", "success");
@@ -811,8 +835,8 @@ const sld = (function () {
     const res = await fetch(SLD_URL(key), { cache: "force-cache" });
     if (!res.ok) {
       throw new Error(
-        key + ".sld not available (HTTP " + res.status + "). SLD assets are not" +
-        " shipped with this deploy yet; drop files into public/gif/sourcefiles/sld/.",
+        key + ".sld not available (HTTP " + res.status + "). The file is not" +
+        " present in the Garage bucket.",
       );
     }
     const buf = await res.arrayBuffer();

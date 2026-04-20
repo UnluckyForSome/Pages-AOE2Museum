@@ -266,3 +266,21 @@ the old standalone Worker used &mdash; binding two Workers to one resource
 is supported and requires zero data migration. During the coexistence
 window both Workers will run the Monday cron; it is idempotent, so this
 is harmless. Delete the standalone `scenarios` Worker when ready.
+
+## Syncing AoE2 graphics (SLDs) to an S3 bucket
+
+I sync the Age of Empires II: DE graphics folder (containing the SLDs) to an
+S3 bucket (`s3://sld/`) hosted on a separate machine using AWS CLI against a
+Garage S3-compatible endpoint:
+
+```bash
+aws --profile garage --endpoint-url https://garage.mcclemont.com s3 sync "C:\Program Files (x86)\Steam\steamapps\common\AoE2DE\resources\_common\drs\graphics" "s3://sld/" --delete
+```
+
+Notes:
+
+- `--delete` makes the bucket mirror the local directory (removes objects in
+  the bucket that no longer exist locally).
+- For speed, I added a DNS record on the router so `garage.mcclemont.com`
+  resolves to a local IP &mdash; requests stay on the LAN (nothing goes through
+  Cloudflare).
