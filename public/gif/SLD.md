@@ -37,15 +37,18 @@ Each frame declares its layer set with the `frame_type` bitfield:
 |:--------:|:-------------------|:------------------|:---------:|
 | `0x01`   | Main graphics      | DXT1 -> RGBA      | yes       |
 | `0x02`   | Shadow             | DXT4 -> grayscale | yes (toggleable) |
-| `0x04`   | "???" / tile mask  | skipped           | no        |
+| `0x04`   | "???" / tile mask  | RLE bitmask       | yes (alpha-clear only) |
 | `0x08`   | Smudge / damage    | skipped           | no        |
 | `0x10`   | Playercolor mask   | DXT4 -> grayscale | yes       |
 
-The `0x04` tile-mask refinement (what [`adjustByUnknownLayer`](newexamples/SLD%20Extractor%201.4/sld.js)
-does in the original Chinese extractor) is consumed to keep the byte cursor
-aligned but not applied; sprites that lean heavily on the "reuse previous
-block" semantics may show minor artefacts on inherited blocks. Full
-damage-mask support is future work.
+The `0x04` tile-mask refinement (`adjustByUnknownLayer` in
+[SLD Extractor 1.4 / sld.js](examples/SLD%20Extractor%201.4/sld.js)) is
+applied: for frames whose main layer inherits from the previous frame
+(`flag 0x80`), it clears the alpha of any inherited pixel that isn't
+actually part of the current frame's silhouette. Without this, sprites
+that rely on the "reuse previous block" optimisation show uncleared
+leftover tiles from the prior frame. Full damage-mask modulation (the
+semantics in the openage docs) is still future work.
 
 ## Directions
 

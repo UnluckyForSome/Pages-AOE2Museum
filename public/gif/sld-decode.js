@@ -14,7 +14,7 @@
 // Frame-type bit flags (as they appear in the raw byte).
 export const LAYER_MAIN    = 0x01;
 export const LAYER_SHADOW  = 0x02;
-export const LAYER_UNKNOWN = 0x04; // damage/selection tile-mask refinement (skipped)
+export const LAYER_UNKNOWN = 0x04; // tile-mask refinement for inherited frames
 export const LAYER_SMUDGE  = 0x08; // damage overlay (not rendered)
 export const LAYER_PLAYER  = 0x10;
 
@@ -184,7 +184,144 @@ function decodeDxt1Layer(chunkBytes, frame, previousRgba, hasCoords) {
     }
   }
 
-  return { rgba: out, coordinates: coords, flags };
+  return { rgba: out, coordinates: coords, flags, inherited: !!(flags & 0x80) };
+}
+
+// ---------------------------------------------------------------------------
+// Tile-mask refinement for inherited frames (layer 0x04).
+//
+// When flag 0x80 of the main layer says "reuse last frame's pixels in any
+// block that isn't re-drawn this frame", a separate RLE-encoded tile-mask
+// stream tells us which of those inherited pixels are actually still part
+// of the silhouette. Any pixel whose bit in the mask is zero must have its
+// alpha cleared, otherwise we leak stale pixels from the previous frame
+// (the "uncleared tiles of inherited frames" bug in the 1.3 extractor).
+//
+// Stream layout, per row of 4x4 tiles:
+//   u8[2]       - header (version=5, 0)
+//   u16[rows]   - per-row byte offset into the payload
+//   payload:    - interleaved (skip-count / draw-header / tile-mask[]) runs
+//     skip bytes  (c < 128)  advance the tile cursor by c tiles
+//     draw header (c >= 128) starts a run of (c - 128) u16 tile masks
+//       per tile: if mask == 0   -> clear alpha of all 16 pixels
+//                 if mask != 0   -> clear alpha of pixels where bit j is 0
+//
+// Ported from `adjustByUnknownLayer()` in `SLD Extractor 1.4/sld.js`, with
+// one deliberate correction: the upstream writes `tile & (1 << j) == 0`,
+// which due to JS precedence evaluates as `tile & ((1 << j) == 0)` -> 0,
+// making the per-pixel clear a no-op. We parenthesise it so partial-tile
+// leftovers are cleared too.
+// ---------------------------------------------------------------------------
+
+function adjustByUnknownLayer(rawData, frame, normalResult) {
+  if (!normalResult || !normalResult.inherited) return;
+  const coord = normalResult.coordinates;
+  if (!coord) return;
+
+  const [x0, y0, x1, y1] = coord;
+  const stride = frame.width;
+  const rightLimit = x1;
+  const data = normalResult.rgba;
+
+  const rows = (y1 - y0) >> 2;
+  if (rows <= 0) return;
+  const startOffset = 2 + rows * 2;
+
+  const offsets = new Array(rows + 1);
+  for (let p = 0; p < rows; p++) {
+    const ptr = p * 2 + 2;
+    offsets[p] = (rawData[ptr] | (rawData[ptr + 1] << 8)) + startOffset;
+  }
+  offsets[rows] = rawData.length;
+
+  let tile = 0;
+  for (let p = 0; p < rows; p++) {
+    let off0 = offsets[p];
+    const off1 = offsets[p + 1];
+    let xOff = x0;
+    let yOff = p * 4 + y0;
+
+    // Consume leading skip bytes to align the cursor to the first drawn tile.
+    let c = rawData[off0];
+    if (c < 128) {
+      xOff += c * 4;
+      c = rawData[++off0];
+    }
+    while (c !== undefined && c < 128) {
+      if (c > 1) xOff += c * 4;
+      c = rawData[++off0];
+    }
+    if (c === undefined) continue;
+    let slen = c - 128;
+    off0++;
+
+    for (; off0 < off1; off0 += 2, slen -= 1) {
+      if (slen <= 0) {
+        // Next skip-count / draw-header pair.
+        let rep = rawData[off0];
+        let c1 = rawData[++off0];
+        while (c1 !== undefined && c1 < 128) {
+          if (c1 > 1) rep += c1;
+          c1 = rawData[++off0];
+        }
+        if (c1 === undefined) break;
+        slen = c1 - 128;
+
+        // Apply the last-seen tile mask to each skipped tile.
+        if (tile) {
+          for (let k = 0; k < rep; k++) {
+            for (let j = 0; j < 16; j++) {
+              const xx = xOff + (j % 4);
+              if (xx < stride) {
+                const yy = yOff + ((j / 4) | 0);
+                const o = 4 * (xx + yy * stride);
+                if ((tile & (1 << j)) === 0) data[o + 3] = 0;
+              }
+            }
+            xOff += 4;
+            if (xOff >= rightLimit) { xOff = x0; yOff += 4; }
+          }
+        } else {
+          for (let k = 0; k < rep; k++) {
+            for (let j = 0; j < 16; j++) {
+              const xx = xOff + (j % 4);
+              const yy = yOff + ((j / 4) | 0);
+              const o = 4 * (xx + yy * stride);
+              data[o + 3] = 0;
+            }
+            xOff += 4;
+            if (xOff >= rightLimit) { xOff = x0; yOff += 4; }
+          }
+        }
+
+        if (++off0 >= off1) break;
+      }
+
+      // Read the next 16-bit tile mask and apply it to the current tile.
+      const xT = xOff;
+      const yT = yOff;
+      tile = rawData[off0] | (rawData[off0 + 1] << 8);
+      if (tile) {
+        for (let j = 0; j < 16; j++) {
+          const xx = xT + (j % 4);
+          if (xx < stride) {
+            const yy = yT + ((j / 4) | 0);
+            const o = 4 * (xx + yy * stride);
+            if ((tile & (1 << j)) === 0) data[o + 3] = 0;
+          }
+        }
+      } else {
+        for (let j = 0; j < 16; j++) {
+          const xx = xT + (j % 4);
+          const yy = yT + ((j / 4) | 0);
+          const o = 4 * (xx + yy * stride);
+          data[o + 3] = 0;
+        }
+      }
+      xOff += 4;
+      if (xOff >= rightLimit) { xOff = x0; yOff += 4; }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -276,159 +413,6 @@ function decodeDxt4Layer(chunkBytes, frame, previousGray, hasCoords) {
 }
 
 // ---------------------------------------------------------------------------
-// Damage-mask / "LAYER_UNKNOWN" refinement (chunk 0x04).
-//
-// For frames whose main layer inherits pixels from the previous frame
-// (main-layer flag 0x80), this chunk carries a compressed per-pixel bitmask
-// that specifies which inherited pixels must be cleared to transparent. SLD
-// Extractor 1.3 discarded it entirely, which leaves ghost trails on attack /
-// death / turn animations. This port is derived from SLD Extractor 1.4's
-// adjustByUnknownLayer(), with the upstream operator-precedence bug fixed so
-// partial tiles actually get cleared per-pixel (upstream wrote
-// `tile & (1 << j) == 0`, which JS parses as `tile & ((1<<j)==0)` -> always
-// 0, reducing the function to "clear whole 4x4 tiles where tile === 0").
-//
-// Layout (reverse-engineered from 1.4's compileUnknown writer):
-//   [2 bytes magic, ignored]
-//   [rows * 2 bytes of u16 LE: per-row byte offset into segment blob]
-//   [segment blob]
-//
-// Each row's segment is a run-length encoded stream of:
-//   - leading skip bytes (value < 128) advancing xOff by N * 4
-//   - a length byte (value >= 128) marking the count (value - 128) of 16-bit
-//     tile bitmasks that follow
-//   - each tile bitmask: bit j set means "keep inherited pixel j", bit j
-//     clear means "zero the alpha"; a fully-zero tile clears the whole block
-//   - repeat blocks (when the length counter runs out) that re-emit the
-//     previous tile pattern N times before the next length byte
-// ---------------------------------------------------------------------------
-
-function adjustNormalByTileMask(chunkBytes, normalRgba, coordinates, frameWidth, frameHeight) {
-  if (!chunkBytes || !normalRgba || !coordinates) return;
-  const [x0, y0, x1, y1] = coordinates;
-  const layerW = x1 - x0;
-  const layerH = y1 - y0;
-  if (layerW <= 0 || layerH <= 0) return;
-
-  const rows = layerH >>> 2;
-  if (rows === 0) return;
-
-  const headerLen = 2 + rows * 2;
-  if (chunkBytes.length < headerLen) return;
-
-  const offsets = new Array(rows + 1);
-  for (let p = 0; p < rows; p++) {
-    const ptr = 2 + p * 2;
-    offsets[p] = (chunkBytes[ptr] | (chunkBytes[ptr + 1] << 8)) + headerLen;
-  }
-  offsets[rows] = chunkBytes.length;
-
-  const stride = frameWidth;
-  const rightLimit = x1;
-
-  // Pixel-clear helpers. Both guard x/y against the frame bounds so a
-  // corrupted mask cannot write outside the RGBA buffer.
-  const clearMasked = (xOff, yOff, tile) => {
-    for (let j = 0; j < 16; j++) {
-      const x = xOff + (j & 3);
-      if (x < 0 || x >= stride || x >= rightLimit) continue;
-      const y = yOff + (j >> 2);
-      if (y < 0 || y >= frameHeight) continue;
-      if ((tile & (1 << j)) === 0) {
-        normalRgba[((x + y * stride) << 2) + 3] = 0;
-      }
-    }
-  };
-  const clearAll = (xOff, yOff) => {
-    for (let j = 0; j < 16; j++) {
-      const x = xOff + (j & 3);
-      if (x < 0 || x >= stride) continue;
-      const y = yOff + (j >> 2);
-      if (y < 0 || y >= frameHeight) continue;
-      normalRgba[((x + y * stride) << 2) + 3] = 0;
-    }
-  };
-
-  let tile = 0;
-  for (let p = 0; p < rows; p++) {
-    let off0 = offsets[p];
-    const off1 = Math.min(offsets[p + 1], chunkBytes.length);
-    if (off0 >= off1) continue;
-
-    let xOff = x0;
-    let yOff = p * 4 + y0;
-
-    // Leading skips: walk past bytes < 128, advancing xOff by N * 4. The
-    // first byte skips unconditionally; subsequent bytes only advance when
-    // value > 1 (matching the 1.4 encoder's per-row header semantics).
-    let c = chunkBytes[off0];
-    if (c < 128) {
-      xOff += c * 4;
-      off0++;
-      while (off0 < off1) {
-        c = chunkBytes[off0];
-        if (c >= 128) break;
-        if (c > 1) xOff += c * 4;
-        off0++;
-      }
-      if (off0 >= off1) continue;
-    }
-    let slen = c - 128;
-    off0++;
-
-    while (off0 < off1) {
-      if (slen <= 0) {
-        // Repeat block: `rep` copies of the previous tile pattern, followed
-        // by another length byte (>= 128) that begins the next tile run.
-        if (off0 >= off1) break;
-        let rep = chunkBytes[off0++];
-        let foundNext = false;
-        while (off0 < off1) {
-          const c1 = chunkBytes[off0++];
-          if (c1 >= 128) {
-            slen = c1 - 128;
-            foundNext = true;
-            break;
-          }
-          if (c1 > 1) rep += c1;
-        }
-
-        if (tile) {
-          for (let k = 0; k < rep; k++) {
-            clearMasked(xOff, yOff, tile);
-            xOff += 4;
-            if (xOff >= rightLimit) { xOff = x0; yOff += 4; }
-          }
-        } else {
-          for (let k = 0; k < rep; k++) {
-            clearAll(xOff, yOff);
-            xOff += 4;
-            if (xOff >= rightLimit) { xOff = x0; yOff += 4; }
-          }
-        }
-
-        if (!foundNext) break;
-        if (off0 >= off1) break;
-      }
-
-      if (off0 + 1 >= off1) break;
-      const tileX = xOff, tileY = yOff;
-      tile = chunkBytes[off0] | (chunkBytes[off0 + 1] << 8);
-      off0 += 2;
-      slen -= 1;
-
-      if (tile) {
-        clearMasked(tileX, tileY, tile);
-      } else {
-        clearAll(tileX, tileY);
-      }
-      xOff += 4;
-      if (xOff >= rightLimit) { xOff = x0; yOff += 4; }
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Per-frame decode + composition
 // ---------------------------------------------------------------------------
 
@@ -505,20 +489,11 @@ export function decodeFrame(c, keep, previousLayers, opts) {
     shadowResult = decodeDxt4Layer(c.chunk(), frame, previousLayers.shadow, true);
   }
   if (frameType & LAYER_UNKNOWN) {
-    // Per-pixel alpha refinement for inherited main layers. Non-inherited
-    // frames carry the chunk too (we still need to consume it for cursor
-    // alignment), but the mask only has visible effect when the normal
-    // layer copied pixels from the previous frame via flag 0x80.
-    const maskBytes = c.chunk();
-    if (normalResult && (normalResult.flags & 0x80)) {
-      adjustNormalByTileMask(
-        maskBytes,
-        normalResult.rgba,
-        normalResult.coordinates,
-        width,
-        height,
-      );
-    }
+    // Tile-mask refinement: clears stale pixels in inherited frames so
+    // leftovers from the previous frame don't leak through blocks the
+    // current frame didn't redraw.
+    const unknownChunk = c.chunk();
+    adjustByUnknownLayer(unknownChunk, frame, normalResult);
   }
   if (frameType & LAYER_SMUDGE) {
     c.chunk();
