@@ -16,6 +16,59 @@ import { STANDARD_PALETTE } from "/gif/palette.js";
 import { TEAM_COLORS } from "/gif/team-colors.js";
 import { buildIndex, listActions, listZooms, resolveKey } from "/gif/sld-index.js";
 
+// ---------- reusable option sets (shared by SLP + SLD) ---------------------
+
+const PLAYER_COLOR_OPTIONS = [
+  { value: 1, label: "1 Blue",    icon: "/gif/assets/1.png" },
+  { value: 2, label: "2 Red",     icon: "/gif/assets/2.png" },
+  { value: 3, label: "3 Green",   icon: "/gif/assets/3.png" },
+  { value: 4, label: "4 Yellow",  icon: "/gif/assets/4.png" },
+  { value: 5, label: "5 Cyan",    icon: "/gif/assets/5.png" },
+  { value: 6, label: "6 Magenta", icon: "/gif/assets/6.png" },
+  { value: 7, label: "7 Tan",     icon: "/gif/assets/7.png" },
+  { value: 8, label: "8 Orange",  icon: "/gif/assets/8.png" },
+];
+
+// SLP stores 5 of 8 compass directions and mirrors the rest at render time.
+// The cycle walks clockwise starting from South.
+const SLP_DIRECTION_OPTIONS = [
+  { value: "S",  label: "South",     glyph: "\u2193" },
+  { value: "SW", label: "Southwest", glyph: "\u2199" },
+  { value: "W",  label: "West",      glyph: "\u2190" },
+  { value: "NW", label: "Northwest", glyph: "\u2196" },
+  { value: "N",  label: "North",     glyph: "\u2191" },
+  { value: "NE", label: "Northeast", glyph: "\u2197" },
+  { value: "E",  label: "East",      glyph: "\u2192" },
+  { value: "SE", label: "Southeast", glyph: "\u2198" },
+];
+
+// SLD has 16 directions stored starting with E and proceeding counter-clockwise.
+// The `value` is the storage slice index; the cycle order below starts at S
+// and walks the full circle clockwise so tapping feels spatial.
+const SLD_DIRECTION_OPTIONS = [
+  { value: 4,  label: "S",   glyph: "\u2193" },
+  { value: 3,  label: "SSE", glyph: "\u2198" },
+  { value: 2,  label: "SE",  glyph: "\u2198" },
+  { value: 1,  label: "ESE", glyph: "\u2192" },
+  { value: 0,  label: "E",   glyph: "\u2192" },
+  { value: 15, label: "ENE", glyph: "\u2197" },
+  { value: 14, label: "NE",  glyph: "\u2197" },
+  { value: 13, label: "NNE", glyph: "\u2191" },
+  { value: 12, label: "N",   glyph: "\u2191" },
+  { value: 11, label: "NNW", glyph: "\u2196" },
+  { value: 10, label: "NW",  glyph: "\u2196" },
+  { value: 9,  label: "WNW", glyph: "\u2190" },
+  { value: 8,  label: "W",   glyph: "\u2190" },
+  { value: 7,  label: "WSW", glyph: "\u2199" },
+  { value: 6,  label: "SW",  glyph: "\u2199" },
+  { value: 5,  label: "SSW", glyph: "\u2193" },
+];
+
+const SLD_ZOOM_OPTIONS = [
+  { value: "x1", label: "x1" },
+  { value: "x2", label: "x2" },
+];
+
 // ---------- config ----------------------------------------------------------
 
 // SLP/SLD raw bytes and dropdown manifests are served by the Worker, which
@@ -239,6 +292,274 @@ function workerProgressHandler(msg) {
 const slpWorker = makeWorkerHandle("/gif/worker-slp.js", workerProgressHandler);
 const sldWorker = makeWorkerHandle("/gif/worker-sld.js", workerProgressHandler, { type: "module" });
 
+// ---------- combo (live-filter dropdown) ------------------------------------
+
+// A light-weight combobox: the `<input>` stays a regular text input so the
+// browser keeps its native IME / mobile keyboard, but typing filters a
+// scrollable `<ul role="listbox">` rendered below. Mouse/keyboard both drive
+// the same "active option" state.
+const COMBO_MAX_ROWS = 200;
+
+function createCombo(opts) {
+  const input = opts.input;
+  const list = opts.list;
+  const getOptions = opts.getOptions;
+  const onSelect = opts.onSelect;
+
+  let current = [];
+  let activeIdx = -1;
+
+  function render() {
+    const q = input.value.trim().toLowerCase();
+    const pool = getOptions() || [];
+    const matches = q
+      ? pool.filter(function (u) { return u.toLowerCase().includes(q); })
+      : pool.slice();
+    current = matches.slice(0, COMBO_MAX_ROWS);
+    list.textContent = "";
+    if (current.length === 0) {
+      const li = document.createElement("li");
+      li.className = "combo__option combo__option--empty";
+      li.textContent = "Nothing matches";
+      li.setAttribute("role", "presentation");
+      list.appendChild(li);
+    } else {
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < current.length; i++) {
+        const li = document.createElement("li");
+        li.className = "combo__option";
+        li.setAttribute("role", "option");
+        li.setAttribute("data-idx", String(i));
+        li.textContent = current[i];
+        frag.appendChild(li);
+      }
+      list.appendChild(frag);
+    }
+    activeIdx = current.length > 0 ? 0 : -1;
+    paintActive();
+  }
+
+  function paintActive() {
+    const nodes = list.querySelectorAll(".combo__option[role='option']");
+    nodes.forEach(function (n, i) {
+      n.setAttribute("aria-selected", i === activeIdx ? "true" : "false");
+    });
+    if (activeIdx >= 0 && nodes[activeIdx]) {
+      const el = nodes[activeIdx];
+      if (typeof el.scrollIntoView === "function") {
+        el.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }
+
+  function open() {
+    if (!list.hidden) return;
+    render();
+    list.hidden = false;
+    input.setAttribute("aria-expanded", "true");
+  }
+
+  function close() {
+    if (list.hidden) return;
+    list.hidden = true;
+    input.setAttribute("aria-expanded", "false");
+  }
+
+  function commit(value) {
+    input.value = value;
+    close();
+    if (onSelect) onSelect(value);
+  }
+
+  input.addEventListener("focus", open);
+  input.addEventListener("input", function () {
+    open();
+    render();
+  });
+  input.addEventListener("keydown", function (ev) {
+    if (ev.key === "ArrowDown") {
+      ev.preventDefault();
+      if (list.hidden) { open(); return; }
+      if (current.length === 0) return;
+      activeIdx = (activeIdx + 1) % current.length;
+      paintActive();
+    } else if (ev.key === "ArrowUp") {
+      ev.preventDefault();
+      if (list.hidden) { open(); return; }
+      if (current.length === 0) return;
+      activeIdx = (activeIdx - 1 + current.length) % current.length;
+      paintActive();
+    } else if (ev.key === "Enter") {
+      if (!list.hidden && activeIdx >= 0 && current[activeIdx]) {
+        ev.preventDefault();
+        commit(current[activeIdx]);
+      }
+    } else if (ev.key === "Escape") {
+      if (!list.hidden) { ev.preventDefault(); close(); }
+    }
+  });
+
+  // Use pointerdown so selection wins the race against the input's blur.
+  list.addEventListener("pointerdown", function (ev) {
+    const li = ev.target.closest(".combo__option[role='option']");
+    if (!li || !list.contains(li)) return;
+    ev.preventDefault();
+    const idx = Number(li.getAttribute("data-idx"));
+    if (!Number.isFinite(idx) || !current[idx]) return;
+    commit(current[idx]);
+  });
+
+  document.addEventListener("pointerdown", function (ev) {
+    if (list.hidden) return;
+    const root = input.closest("[data-combo]");
+    if (root && root.contains(ev.target)) return;
+    close();
+  });
+
+  input.addEventListener("blur", function () {
+    // Give pointerdown-on-option a chance to fire first.
+    setTimeout(close, 120);
+  });
+
+  return {
+    refresh: function () { if (!list.hidden) render(); },
+    close: close,
+  };
+}
+
+// ---------- cycle button (tap-to-advance: zoom / direction / player) --------
+
+// Each cycle button owns an ordered list of { value, label, icon?, glyph? }
+// options and advances to the next enabled option on click/Enter/Space.
+// Disabled options are skipped so the SLD zoom button can still be used when
+// only one zoom level exists for the current (unit, action).
+function createCycleButton(el, options, init) {
+  const settings = init || {};
+  const tag = document.createElement("span");
+  tag.className = "cycle-btn__tag";
+  tag.textContent = settings.tag || "";
+
+  const value = document.createElement("span");
+  value.className = "cycle-btn__value";
+
+  el.textContent = "";
+  el.appendChild(tag);
+  el.appendChild(value);
+
+  const state = {
+    options: options.slice(),
+    index: 0,
+    disabled: new Set(),
+  };
+
+  function currentOption() { return state.options[state.index] || null; }
+
+  function paint() {
+    const opt = currentOption();
+    value.textContent = "";
+    if (!opt) {
+      el.disabled = true;
+      const span = document.createElement("span");
+      span.className = "cycle-btn__text";
+      span.textContent = "\u2014";
+      value.appendChild(span);
+      return;
+    }
+    if (opt.icon) {
+      const img = document.createElement("img");
+      img.className = "cycle-btn__swatch";
+      img.src = opt.icon;
+      img.alt = "";
+      value.appendChild(img);
+    } else if (opt.glyph) {
+      const g = document.createElement("span");
+      g.className = "cycle-btn__icon";
+      g.setAttribute("aria-hidden", "true");
+      g.textContent = opt.glyph;
+      value.appendChild(g);
+    }
+    const span = document.createElement("span");
+    span.className = "cycle-btn__text";
+    span.textContent = opt.label;
+    value.appendChild(span);
+    const allDisabled = state.options.every(function (o) { return state.disabled.has(o.value); });
+    el.disabled = allDisabled;
+  }
+
+  function isEnabled(i) {
+    const o = state.options[i];
+    return !!o && !state.disabled.has(o.value);
+  }
+
+  function findNextEnabled(fromIdx) {
+    const n = state.options.length;
+    if (n === 0) return -1;
+    for (let step = 1; step <= n; step++) {
+      const i = (fromIdx + step) % n;
+      if (isEnabled(i)) return i;
+    }
+    return -1;
+  }
+
+  function advance(notify) {
+    const next = findNextEnabled(state.index);
+    if (next < 0 || next === state.index) return;
+    state.index = next;
+    paint();
+    if (notify !== false && settings.onChange) {
+      settings.onChange(currentOption().value);
+    }
+  }
+
+  el.addEventListener("click", function () { advance(true); });
+  el.addEventListener("keydown", function (ev) {
+    if (ev.key === "Enter" || ev.key === " ") {
+      ev.preventDefault();
+      advance(true);
+    }
+  });
+
+  function setValue(val, notify) {
+    for (let i = 0; i < state.options.length; i++) {
+      if (state.options[i].value === val) {
+        state.index = i;
+        paint();
+        if (notify && settings.onChange) settings.onChange(val);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function setEnabled(predicate) {
+    state.disabled.clear();
+    for (const opt of state.options) {
+      if (!predicate(opt.value)) state.disabled.add(opt.value);
+    }
+    // If the current selection is no longer enabled, snap forward to the next
+    // enabled option (matching the old "fall back to x2 else first" behaviour).
+    if (!isEnabled(state.index)) {
+      const next = findNextEnabled(state.index);
+      if (next >= 0) state.index = next;
+    }
+    paint();
+  }
+
+  // Initial selection.
+  if (settings.initial !== undefined) {
+    setValue(settings.initial, false);
+  } else {
+    paint();
+  }
+
+  return {
+    get value() { const o = currentOption(); return o ? o.value : null; },
+    setValue: setValue,
+    setEnabled: setEnabled,
+    advance: advance,
+  };
+}
+
 // =============================================================================
 // Tab switching (hash-synced)
 // =============================================================================
@@ -285,8 +606,8 @@ const slp = (function () {
   const unitInput = document.getElementById("unit-input");
   const unitList = document.getElementById("unit-list");
   const actionSelect = document.getElementById("action-select");
-  const compass = document.querySelector(".compass");
-  const swatches = panelSlp.querySelector(".swatches");
+  const directionBtn = document.getElementById("slp-direction");
+  const playerBtn = document.getElementById("slp-player");
   const submitBtn = document.getElementById("submit");
   const imgEl = document.getElementById("img");
   const captionEl = document.getElementById("preview-caption");
@@ -345,14 +666,7 @@ const slp = (function () {
   }
 
   function populateUnits() {
-    const frag = document.createDocumentFragment();
-    mapping.units.forEach(function (u) {
-      const opt = document.createElement("option");
-      opt.value = u;
-      frag.appendChild(opt);
-    });
-    unitList.textContent = "";
-    unitList.appendChild(frag);
+    combo.refresh();
   }
 
   function populateActions(unit) {
@@ -375,24 +689,23 @@ const slp = (function () {
     });
   }
 
-  function wireRadioGroup(container, attr) {
-    container.addEventListener("click", function (ev) {
-      const btn = ev.target.closest("[" + attr + "]");
-      if (!btn || !container.contains(btn)) return;
-      const buttons = container.querySelectorAll("[" + attr + "]");
-      buttons.forEach(function (b) {
-        b.setAttribute("aria-checked", b === btn ? "true" : "false");
-      });
-      refresh();
-    });
-  }
-  wireRadioGroup(compass, "data-dir");
-  wireRadioGroup(swatches, "data-player");
+  const directionCycle = createCycleButton(directionBtn, SLP_DIRECTION_OPTIONS, {
+    tag: "Direction",
+    initial: "S",
+    onChange: function () { refresh(); },
+  });
+  const playerCycle = createCycleButton(playerBtn, PLAYER_COLOR_OPTIONS, {
+    tag: "Player",
+    initial: 1,
+    onChange: function () { refresh(); },
+  });
 
-  function selectedFromGroup(container, attr) {
-    const el = container.querySelector("[" + attr + "][aria-checked='true']");
-    return el ? el.getAttribute(attr) : null;
-  }
+  const combo = createCombo({
+    input: unitInput,
+    list: unitList,
+    getOptions: function () { return mapping ? mapping.units : []; },
+    onSelect: function () { onUnitChanged(); },
+  });
 
   advancedToggle.addEventListener("click", function () {
     const open = !advancedBody.classList.contains("is-open");
@@ -415,8 +728,8 @@ const slp = (function () {
     return {
       unit: unitInput.value.trim(),
       action: actionSelect.value,
-      direction: selectedFromGroup(compass, "data-dir") || "S",
-      player: Number(selectedFromGroup(swatches, "data-player") || "1"),
+      direction: directionCycle.value || "S",
+      player: Number(playerCycle.value || 1),
       delay: Number(delayRange.value),
       scale: Number(scaleRange.value),
       transparent: !!transparentCb.checked,
@@ -582,9 +895,9 @@ const sld = (function () {
   const unitInput = document.getElementById("sld-unit");
   const unitList = document.getElementById("sld-unit-list");
   const actionSelect = document.getElementById("sld-action");
-  const zoomGroup = document.getElementById("sld-zoom");
-  const directionSelect = document.getElementById("sld-direction");
-  const swatches = document.getElementById("sld-swatches");
+  const zoomBtn = document.getElementById("sld-zoom");
+  const directionBtn = document.getElementById("sld-direction");
+  const playerBtn = document.getElementById("sld-player");
   const submitBtn = document.getElementById("sld-submit");
   const imgEl = document.getElementById("sld-img");
   const captionEl = document.getElementById("sld-preview-caption");
@@ -663,14 +976,7 @@ const sld = (function () {
   // ----- populate helpers --------------------------------------------------
 
   function populateUnits() {
-    const frag = document.createDocumentFragment();
-    index.units.forEach(function (u) {
-      const opt = document.createElement("option");
-      opt.value = u;
-      frag.appendChild(opt);
-    });
-    unitList.textContent = "";
-    unitList.appendChild(frag);
+    combo.refresh();
   }
 
   function populateActions(unit) {
@@ -692,54 +998,42 @@ const sld = (function () {
   }
 
   function refreshZooms() {
-    const buttons = zoomGroup.querySelectorAll("[data-zoom]");
     const unit = unitInput.value.trim();
     const action = actionSelect.value;
-    const available = (index && unit && action) ? new Set(listZooms(index, unit, action)) : new Set();
-
-    let firstEnabled = null;
-    let currentChecked = null;
-    buttons.forEach(function (b) {
-      const z = b.getAttribute("data-zoom");
-      const ok = available.has(z);
-      b.disabled = !ok;
-      if (ok && !firstEnabled) firstEnabled = b;
-      if (b.getAttribute("aria-checked") === "true") currentChecked = b;
-    });
-
-    // If the currently-checked zoom is no longer available, fall back to x2
-    // if possible, else the first available, else nothing.
-    if (!currentChecked || currentChecked.disabled) {
-      buttons.forEach(function (b) { b.setAttribute("aria-checked", "false"); });
-      let target = null;
-      buttons.forEach(function (b) {
-        if (!target && !b.disabled && b.getAttribute("data-zoom") === "x2") target = b;
-      });
-      if (!target) target = firstEnabled;
-      if (target) target.setAttribute("aria-checked", "true");
-    }
-  }
-
-  // ----- radio groups ------------------------------------------------------
-
-  function wireRadioGroup(container, attr) {
-    container.addEventListener("click", function (ev) {
-      const btn = ev.target.closest("[" + attr + "]");
-      if (!btn || !container.contains(btn) || btn.disabled) return;
-      const buttons = container.querySelectorAll("[" + attr + "]");
-      buttons.forEach(function (b) {
-        b.setAttribute("aria-checked", b === btn ? "true" : "false");
-      });
-      refresh();
+    const available = (index && unit && action)
+      ? new Set(listZooms(index, unit, action))
+      : null;
+    // When no (unit, action) is selected yet, leave zoom fully enabled so the
+    // user can still cycle it for preview purposes.
+    zoomCycle.setEnabled(function (v) {
+      return available ? available.has(v) : true;
     });
   }
-  wireRadioGroup(zoomGroup, "data-zoom");
-  wireRadioGroup(swatches, "data-player");
 
-  function selectedFromGroup(container, attr) {
-    const el = container.querySelector("[" + attr + "][aria-checked='true']");
-    return el ? el.getAttribute(attr) : null;
-  }
+  // ----- cycle buttons -----------------------------------------------------
+
+  const zoomCycle = createCycleButton(zoomBtn, SLD_ZOOM_OPTIONS, {
+    tag: "Zoom",
+    initial: "x2",
+    onChange: function () { refresh(); },
+  });
+  const directionCycle = createCycleButton(directionBtn, SLD_DIRECTION_OPTIONS, {
+    tag: "Direction",
+    initial: 4,
+    onChange: function () { refresh(); },
+  });
+  const playerCycle = createCycleButton(playerBtn, PLAYER_COLOR_OPTIONS, {
+    tag: "Player",
+    initial: 1,
+    onChange: function () { refresh(); },
+  });
+
+  const combo = createCombo({
+    input: unitInput,
+    list: unitList,
+    getOptions: function () { return index ? index.units : []; },
+    onSelect: function () { onUnitChanged(); },
+  });
 
   // ----- advanced drawer ---------------------------------------------------
 
@@ -766,9 +1060,9 @@ const sld = (function () {
     return {
       unit: unitInput.value.trim(),
       action: actionSelect.value,
-      zoom: selectedFromGroup(zoomGroup, "data-zoom") || "",
-      directionIndex: Number(directionSelect.value || "0"),
-      player: Number(selectedFromGroup(swatches, "data-player") || "1"),
+      zoom: zoomCycle.value || "",
+      directionIndex: Number(directionCycle.value != null ? directionCycle.value : 0),
+      player: Number(playerCycle.value || 1),
       delay: Number(delayRange.value),
       scale: Number(scaleRange.value),
       transparent: !!transparentCb.checked,

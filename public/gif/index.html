@@ -29,9 +29,9 @@
       <div class="page-intro">
         <p>
           Pick a unit and an action, choose a facing and player color, then render an
-          animated GIF right in your browser. Both the classic <code>.slp</code>
-          (AoK / TC / HD) and the Definitive Edition <code>.sld</code> formats are
-          decoded client-side &mdash; nothing is uploaded.
+          animated GIF right in your browser. Both the original game's <code>.slp</code>
+          graphics and the Definitive Edition <code>.sld</code> format are decoded
+          client-side &mdash; nothing is uploaded.
         </p>
       </div>
 
@@ -44,7 +44,7 @@
             aria-selected="true"
             aria-controls="panel-slp"
             data-tab="slp"
-          >SLP (1999 / HD)</button>
+          >Original Game</button>
           <button
             class="tab"
             role="tab"
@@ -80,15 +80,21 @@
               <div class="stack">
                 <div>
                   <label class="field-label" for="unit-input">Unit</label>
-                  <input
-                    id="unit-input"
-                    name="unit"
-                    type="search"
-                    list="unit-list"
-                    placeholder="Start typing&hellip;"
-                    autocomplete="off"
-                  />
-                  <datalist id="unit-list"></datalist>
+                  <div class="combo" data-combo>
+                    <input
+                      id="unit-input"
+                      class="combo__input"
+                      name="unit"
+                      type="search"
+                      role="combobox"
+                      aria-expanded="false"
+                      aria-controls="unit-list"
+                      aria-autocomplete="list"
+                      placeholder="Start typing&hellip;"
+                      autocomplete="off"
+                    />
+                    <ul id="unit-list" class="combo__list" role="listbox" hidden></ul>
+                  </div>
                 </div>
 
                 <div>
@@ -99,31 +105,10 @@
                 </div>
 
                 <div>
-                  <span class="field-label">Direction</span>
-                  <div class="compass" role="radiogroup" aria-label="Facing">
-                    <button type="button" class="compass__btn" data-dir="NW" role="radio" aria-checked="false" aria-label="Northwest">&#x2196;</button>
-                    <button type="button" class="compass__btn" data-dir="N"  role="radio" aria-checked="false" aria-label="North">&#x2191;</button>
-                    <button type="button" class="compass__btn" data-dir="NE" role="radio" aria-checked="false" aria-label="Northeast">&#x2197;</button>
-                    <button type="button" class="compass__btn" data-dir="W"  role="radio" aria-checked="false" aria-label="West">&#x2190;</button>
-                    <span class="compass__center" aria-hidden="true"></span>
-                    <button type="button" class="compass__btn" data-dir="E"  role="radio" aria-checked="false" aria-label="East">&#x2192;</button>
-                    <button type="button" class="compass__btn" data-dir="SW" role="radio" aria-checked="false" aria-label="Southwest">&#x2199;</button>
-                    <button type="button" class="compass__btn" data-dir="S"  role="radio" aria-checked="true"  aria-label="South">&#x2193;</button>
-                    <button type="button" class="compass__btn" data-dir="SE" role="radio" aria-checked="false" aria-label="Southeast">&#x2198;</button>
-                  </div>
-                </div>
-
-                <div>
-                  <span class="field-label">Player color</span>
-                  <div class="swatches" role="radiogroup" aria-label="Player color">
-                    <button type="button" class="swatch" data-player="1" role="radio" aria-checked="true"  aria-label="Player 1 (blue)"><img src="/gif/assets/1.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="2" role="radio" aria-checked="false" aria-label="Player 2 (red)"><img src="/gif/assets/2.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="3" role="radio" aria-checked="false" aria-label="Player 3 (green)"><img src="/gif/assets/3.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="4" role="radio" aria-checked="false" aria-label="Player 4 (yellow)"><img src="/gif/assets/4.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="5" role="radio" aria-checked="false" aria-label="Player 5 (cyan)"><img src="/gif/assets/5.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="6" role="radio" aria-checked="false" aria-label="Player 6 (magenta)"><img src="/gif/assets/6.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="7" role="radio" aria-checked="false" aria-label="Player 7 (tan)"><img src="/gif/assets/7.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="8" role="radio" aria-checked="false" aria-label="Player 8 (orange)"><img src="/gif/assets/8.png" alt="" /></button>
+                  <span class="field-label">Frame options</span>
+                  <div class="cycle-row" id="slp-cycles" role="group" aria-label="Frame options">
+                    <button type="button" class="cycle-btn" id="slp-direction" data-cycle="direction" aria-label="Direction"></button>
+                    <button type="button" class="cycle-btn" id="slp-player" data-cycle="player" aria-label="Player color"></button>
                   </div>
                 </div>
 
@@ -200,15 +185,21 @@
               <div class="stack">
                 <div>
                   <label class="field-label" for="sld-unit">Unit</label>
-                  <input
-                    id="sld-unit"
-                    name="unit"
-                    type="search"
-                    list="sld-unit-list"
-                    placeholder="Start typing&hellip;"
-                    autocomplete="off"
-                  />
-                  <datalist id="sld-unit-list"></datalist>
+                  <div class="combo" data-combo>
+                    <input
+                      id="sld-unit"
+                      class="combo__input"
+                      name="unit"
+                      type="search"
+                      role="combobox"
+                      aria-expanded="false"
+                      aria-controls="sld-unit-list"
+                      aria-autocomplete="list"
+                      placeholder="Start typing&hellip;"
+                      autocomplete="off"
+                    />
+                    <ul id="sld-unit-list" class="combo__list" role="listbox" hidden></ul>
+                  </div>
                 </div>
 
                 <div>
@@ -219,46 +210,11 @@
                 </div>
 
                 <div>
-                  <span class="field-label">Zoom</span>
-                  <div class="segmented" id="sld-zoom" role="radiogroup" aria-label="Zoom">
-                    <button type="button" class="segmented__btn" data-zoom="x1" role="radio" aria-checked="false" disabled>x1</button>
-                    <button type="button" class="segmented__btn" data-zoom="x2" role="radio" aria-checked="true"  disabled>x2</button>
-                  </div>
-                </div>
-
-                <div>
-                  <label class="field-label" for="sld-direction">Direction</label>
-                  <select id="sld-direction" name="direction">
-                    <option value="4"  selected>S (south)</option>
-                    <option value="5" >SSW</option>
-                    <option value="6" >SW</option>
-                    <option value="7" >WSW</option>
-                    <option value="8" >W (west)</option>
-                    <option value="9" >WNW</option>
-                    <option value="10">NW</option>
-                    <option value="11">NNW</option>
-                    <option value="12">N (north)</option>
-                    <option value="13">NNE</option>
-                    <option value="14">NE</option>
-                    <option value="15">ENE</option>
-                    <option value="0" >E (east)</option>
-                    <option value="1" >ESE</option>
-                    <option value="2" >SE</option>
-                    <option value="3" >SSE</option>
-                  </select>
-                </div>
-
-                <div>
-                  <span class="field-label">Player color</span>
-                  <div class="swatches" id="sld-swatches" role="radiogroup" aria-label="Player color">
-                    <button type="button" class="swatch" data-player="1" role="radio" aria-checked="true"  aria-label="Player 1 (blue)"><img src="/gif/assets/1.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="2" role="radio" aria-checked="false" aria-label="Player 2 (red)"><img src="/gif/assets/2.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="3" role="radio" aria-checked="false" aria-label="Player 3 (green)"><img src="/gif/assets/3.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="4" role="radio" aria-checked="false" aria-label="Player 4 (yellow)"><img src="/gif/assets/4.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="5" role="radio" aria-checked="false" aria-label="Player 5 (cyan)"><img src="/gif/assets/5.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="6" role="radio" aria-checked="false" aria-label="Player 6 (magenta)"><img src="/gif/assets/6.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="7" role="radio" aria-checked="false" aria-label="Player 7 (tan)"><img src="/gif/assets/7.png" alt="" /></button>
-                    <button type="button" class="swatch" data-player="8" role="radio" aria-checked="false" aria-label="Player 8 (orange)"><img src="/gif/assets/8.png" alt="" /></button>
+                  <span class="field-label">Frame options</span>
+                  <div class="cycle-row" id="sld-cycles" role="group" aria-label="Frame options">
+                    <button type="button" class="cycle-btn" id="sld-zoom" data-cycle="zoom" aria-label="Zoom"></button>
+                    <button type="button" class="cycle-btn" id="sld-direction" data-cycle="direction" aria-label="Direction"></button>
+                    <button type="button" class="cycle-btn" id="sld-player" data-cycle="player" aria-label="Player color"></button>
                   </div>
                 </div>
 
@@ -293,8 +249,8 @@
               <div class="card advanced__card">
                 <label class="field-label">Frame delay (ms)</label>
                 <div class="row">
-                  <input id="sld-delay" name="delay" type="range" min="20" max="500" step="10" value="100" />
-                  <input id="sld-delay_num" type="number" min="20" max="500" step="10" value="100" />
+                  <input id="sld-delay" name="delay" type="range" min="20" max="500" step="10" value="50" />
+                  <input id="sld-delay_num" type="number" min="20" max="500" step="10" value="50" />
                 </div>
 
                 <label class="field-label">Scale (nearest-neighbor zoom)</label>
