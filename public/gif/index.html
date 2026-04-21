@@ -15,14 +15,31 @@
     <link rel="stylesheet" href="/gif/style.css" />
   </head>
   <body>
-    <nav class="site-nav">
+    <nav class="site-nav" aria-label="Site">
       <a class="site-nav__logo" href="/">AoE2 Museum</a>
-      <div class="site-nav__links">
-        <a href="/">Home</a>
-        <a href="/mcminimap/">McMinimap</a>
-        <a href="/scenarios/">Scenarios</a>
-        <a href="/gif/" aria-current="page">GIFs</a>
-        <a href="/contact.html">Contact</a>
+      <button
+        type="button"
+        class="site-nav__toggle"
+        id="site-nav-toggle"
+        aria-expanded="false"
+        aria-controls="site-nav-menu"
+        aria-label="Open menu"
+      >
+        <span class="site-nav__burger" aria-hidden="true">
+          <span class="site-nav__burger-line"></span>
+          <span class="site-nav__burger-line"></span>
+          <span class="site-nav__burger-line"></span>
+        </span>
+      </button>
+      <div class="site-nav__backdrop" aria-hidden="true"></div>
+      <div id="site-nav-menu" class="site-nav__drawer">
+        <div class="site-nav__links">
+          <a href="/">Home</a>
+          <a href="/mcminimap/">McMinimap</a>
+          <a href="/scenarios/">Scenarios</a>
+          <a href="/gif/" aria-current="page">GIFs</a>
+          <a href="/contact.html">Contact</a>
+        </div>
       </div>
     </nav>
 
@@ -130,7 +147,7 @@
               <div class="imgwrap" id="imgwrap">
                 <img
                   id="img"
-                  src="/assets/placeholder.gif"
+                  src="assets/placeholder.gif"
                   alt="Animation preview. A rainbow placeholder is shown until you generate."
                 />
               </div>
@@ -242,7 +259,7 @@
               <div class="imgwrap" id="sld-imgwrap">
                 <img
                   id="sld-img"
-                  src="/assets/placeholder.gif"
+                  src="assets/placeholder.gif"
                   alt="Animation preview. A rainbow placeholder is shown until you generate."
                 />
               </div>
@@ -296,7 +313,7 @@
     </main>
 
     <footer>AoE2 Museum</footer>
-
+    <script src="/js/museum-nav.js" defer></script>
     <script type="module" src="/gif/app.js"></script>
   </body>
 </html>

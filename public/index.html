@@ -14,14 +14,31 @@
     <link rel="stylesheet" href="/styles/museum.css" />
   </head>
   <body>
-    <nav class="site-nav">
+    <nav class="site-nav" aria-label="Site">
       <a class="site-nav__logo" href="/">AoE2 Museum</a>
-      <div class="site-nav__links">
-        <a href="/" aria-current="page">Home</a>
-        <a href="/mcminimap/">McMinimap</a>
-        <a href="/scenarios/">Scenarios</a>
-        <a href="/gif/">GIFs</a>
-        <a href="/contact.html">Contact</a>
+      <button
+        type="button"
+        class="site-nav__toggle"
+        id="site-nav-toggle"
+        aria-expanded="false"
+        aria-controls="site-nav-menu"
+        aria-label="Open menu"
+      >
+        <span class="site-nav__burger" aria-hidden="true">
+          <span class="site-nav__burger-line"></span>
+          <span class="site-nav__burger-line"></span>
+          <span class="site-nav__burger-line"></span>
+        </span>
+      </button>
+      <div class="site-nav__backdrop" aria-hidden="true"></div>
+      <div id="site-nav-menu" class="site-nav__drawer">
+        <div class="site-nav__links">
+          <a href="/" aria-current="page">Home</a>
+          <a href="/mcminimap/">McMinimap</a>
+          <a href="/scenarios/">Scenarios</a>
+          <a href="/gif/">GIFs</a>
+          <a href="/contact.html">Contact</a>
+        </div>
       </div>
     </nav>
 
@@ -37,44 +54,51 @@
       </div>
 
       <section class="home-grid" aria-label="Apps">
-        <a class="home-card" href="/mcminimap/">
-          <span class="home-card__title">McMinimap</span>
-          <span class="home-card__desc">
+        <article class="home-card">
+          <h2 class="home-card__title">
+            <a href="/mcminimap/">McMinimap</a>
+          </h2>
+          <div class="home-card__desc">
             Render isometric minimap PNGs from recorded games and scenarios. Runs the
             <a href="https://github.com/UnluckyForSome/AOE2-McMinimap" rel="noopener">AOE2-McMinimap</a>
             Python renderer in your browser via Pyodide.
-          </span>
+          </div>
           <span class="home-card__badge home-card__badge--live">Live</span>
-        </a>
+        </article>
 
-        <a class="home-card" href="/scenarios/">
-          <span class="home-card__title">Scenarios</span>
-          <span class="home-card__desc">
+        <article class="home-card">
+          <h2 class="home-card__title">
+            <a href="/scenarios/">Scenarios</a>
+          </h2>
+          <div class="home-card__desc">
             A community archive of Age of Empires II custom scenarios &mdash; browse, filter
             and download thousands of maps, and contribute your own saves.
-          </span>
+          </div>
           <span class="home-card__badge home-card__badge--live">Live</span>
-        </a>
+        </article>
 
-        <a class="home-card" href="/gif/">
-          <span class="home-card__title">Unit GIFs</span>
-          <span class="home-card__desc">
+        <article class="home-card">
+          <h2 class="home-card__title">
+            <a href="/gif/">Unit GIFs</a>
+          </h2>
+          <div class="home-card__desc">
             Render animated GIFs of any AoE2 unit, action and facing straight from the
             original <code>.slp</code> graphics or Definitive Edition <code>.sld</code>
             sprites &mdash; both decoded in your browser with a pure-JS parser and
             <a href="https://github.com/mattdesl/gifenc" rel="noopener">gifenc</a>.
-          </span>
+          </div>
           <span class="home-card__badge home-card__badge--live">Live</span>
-        </a>
+        </article>
 
-        <div class="home-card home-card--disabled" aria-disabled="true">
-          <span class="home-card__title">More soon</span>
-          <span class="home-card__desc">Additional AoE2 tools will land here as the museum grows.</span>
+        <article class="home-card home-card--disabled">
+          <h2 class="home-card__title">More soon</h2>
+          <div class="home-card__desc">Additional AoE2 tools will land here as the museum grows.</div>
           <span class="home-card__badge">Planned</span>
-        </div>
+        </article>
       </section>
     </main>
 
     <footer>AoE2 Museum</footer>
+    <script src="/js/museum-nav.js" defer></script>
   </body>
 </html>
