@@ -284,9 +284,12 @@ export function framesToApngBytes(frames, sel, onProgress) {
   acv.setUint32(4, 0, false);
   parts.push(chunk("acTL", ac));
 
+  // Shared fcTL/fdAT sequence numbers (Mozilla APNG spec): acTL has none; first
+  // fcTL is 0; IDAT has none; second fcTL is 1; first fdAT is 2; then strictly
+  // increasing with no gaps or duplicates.
   for (let i = 0; i < n; i++) {
     if (onProgress) onProgress(i + 1, n);
-    const fcSeq = i * 2;
+    const fcSeq = i === 0 ? 0 : (i * 2 - 1);
     parts.push(chunk("fcTL", fcTLData(fcSeq, cw, ch, delay)));
     const scan = rgbaToScanlines(rgbaFrames[i], cw, ch);
     const zlibbed = zlibSync(scan, { level: 6 });
@@ -295,7 +298,7 @@ export function framesToApngBytes(frames, sel, onProgress) {
         parts.push(chunk("IDAT", piece));
       }
     } else {
-      const fdSeq = i * 2 - 1;
+      const fdSeq = i * 2;
       const payload = new Uint8Array(4 + zlibbed.length);
       new DataView(payload.buffer).setUint32(0, fdSeq, false);
       payload.set(zlibbed, 4);
