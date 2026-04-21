@@ -212,6 +212,32 @@ function prepareAnimationFrames(frames, sel) {
   return { rgbaFrames: scaled, width: w, height: h };
 }
 
+// ---- GIF: DE-style shadows (black RGB + partial A) -----------------------------
+//
+// gifenc’s `oneBitAlpha: true` uses threshold 127: alpha ≤127 → treated as
+// transparent in the palette. DXT4 shadows are black (0,0,0) with alpha
+// often below that, so they disappear. We (1) nudge alpha up on near-black
+// pixels only (matches SLD composeFrameRGBA shadow output) and (2) pass a
+// lower numeric threshold so more semi-transparent pixels snap to “opaque”
+// in the 256-colour GIF.
+
+const GIF_SHADOW_RGB_CAP = 12;
+const GIF_SHADOW_ALPHA_BOOST = 48;
+/** Alpha ≤ this (after boost) tends toward transparent in quantize; lower = more opaque. Default true → 127. */
+const GIF_ONE_BIT_ALPHA_THRESHOLD = 76;
+
+function boostNearBlackShadowForGif(rgba) {
+  for (let i = 0; i < rgba.length; i += 4) {
+    const a = rgba[i + 3];
+    if (a === 0 || a === 255) continue;
+    if (rgba[i] <= GIF_SHADOW_RGB_CAP
+      && rgba[i + 1] <= GIF_SHADOW_RGB_CAP
+      && rgba[i + 2] <= GIF_SHADOW_RGB_CAP) {
+      rgba[i + 3] = Math.min(255, a + GIF_SHADOW_ALPHA_BOOST);
+    }
+  }
+}
+
 // ---- GIF --------------------------------------------------------------------
 
 export function framesToGifBytes(frames, sel, onProgress) {
@@ -225,6 +251,10 @@ export function framesToGifBytes(frames, sel, onProgress) {
     working = working.map(function (rgba) {
       return flattenOnWhite(rgba, cw, ch);
     });
+  } else {
+    for (let j = 0; j < working.length; j++) {
+      boostNearBlackShadowForGif(working[j]);
+    }
   }
 
   const n = working.length;
@@ -232,7 +262,7 @@ export function framesToGifBytes(frames, sel, onProgress) {
 
   const palette = quantize(working[0], 256, {
     format: "rgba4444",
-    oneBitAlpha: transparent,
+    oneBitAlpha: transparent ? GIF_ONE_BIT_ALPHA_THRESHOLD : false,
   });
   let transparentIndex = 0;
   if (transparent) {
