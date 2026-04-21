@@ -100,7 +100,7 @@
                   </select>
                 </div>
 
-                <div class="cycle-row" id="slp-cycles" role="group" aria-label="Frame options">
+                <div class="cycle-row cycle-row--grid4" id="slp-cycles" role="group" aria-label="Frame options">
                   <div class="cycle-cell">
                     <span class="cycle-cell__label">Direction</span>
                     <button type="button" class="cycle-btn cycle-btn--text" id="slp-direction" aria-label="Direction"></button>
@@ -108,6 +108,14 @@
                   <div class="cycle-cell">
                     <span class="cycle-cell__label">Color</span>
                     <button type="button" class="cycle-btn cycle-btn--text" id="slp-player" aria-label="Player color"></button>
+                  </div>
+                  <div class="cycle-cell">
+                    <span class="cycle-cell__label">Format</span>
+                    <button type="button" class="cycle-btn cycle-btn--text" id="slp-format" aria-label="Output format"></button>
+                  </div>
+                  <div class="cycle-cell cycle-cell--spacer" aria-hidden="true">
+                    <span class="cycle-cell__label">&nbsp;</span>
+                    <span class="cycle-btn cycle-btn--text cycle-btn--spacer" tabindex="-1"></span>
                   </div>
                 </div>
 
@@ -120,7 +128,7 @@
                 <img
                   id="img"
                   src="/gif/assets/placeholder.png"
-                  alt="GIF preview. A rainbow placeholder is shown until you generate."
+                  alt="Animation preview. A rainbow placeholder is shown until you generate."
                 />
               </div>
               <p class="preview-caption" id="preview-caption" aria-live="polite"></p>
@@ -204,7 +212,7 @@
                   </select>
                 </div>
 
-                <div class="cycle-row" id="sld-cycles" role="group" aria-label="Frame options">
+                <div class="cycle-row cycle-row--grid4" id="sld-cycles" role="group" aria-label="Frame options">
                   <div class="cycle-cell">
                     <span class="cycle-cell__label">Zoom</span>
                     <button type="button" class="cycle-btn cycle-btn--text" id="sld-zoom" aria-label="Zoom"></button>
@@ -217,6 +225,10 @@
                     <span class="cycle-cell__label">Color</span>
                     <button type="button" class="cycle-btn cycle-btn--text" id="sld-player" aria-label="Player color"></button>
                   </div>
+                  <div class="cycle-cell">
+                    <span class="cycle-cell__label">Format</span>
+                    <button type="button" class="cycle-btn cycle-btn--text" id="sld-format" aria-label="Output format"></button>
+                  </div>
                 </div>
 
                 <button id="sld-submit" class="btn btn--submit" type="submit" disabled>Generate GIF</button>
@@ -228,7 +240,7 @@
                 <img
                   id="sld-img"
                   src="/gif/assets/placeholder.png"
-                  alt="GIF preview. A rainbow placeholder is shown until you generate."
+                  alt="Animation preview. A rainbow placeholder is shown until you generate."
                 />
               </div>
               <p class="preview-caption" id="sld-preview-caption" aria-live="polite"></p>

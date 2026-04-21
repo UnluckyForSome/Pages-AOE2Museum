@@ -3,15 +3,15 @@
 // tab (Definitive Edition).
 //
 // Shared pipeline:
-//   bytes -> worker (RGBA frames + hotspots) -> canvas normalise -> optional
-//   NN upscale -> gifenc quantize + writeFrame -> Blob URL preview.
+//   bytes -> worker (RGBA frames + hotspots) -> align + optional NN upscale ->
+//   GIF (gifenc) or APNG (RGBA + zlib) -> Blob URL preview.
 //
 // Each tab owns its own form state, fingerprint/dirty button, worker handle
 // and cache, but they share the status bar, the encode stage and the utility
 // helpers so adding the SLD mode did not duplicate the critical path.
 // =============================================================================
 
-import { GIFEncoder, quantize, applyPalette } from "/gif/vendor/gifenc.esm.js";
+import { framesToGifBytes, framesToApngBytes } from "/gif/gif-pipeline.js";
 import { STANDARD_PALETTE } from "/gif/palette.js";
 import { TEAM_COLORS } from "/gif/team-colors.js";
 import { buildIndex, listActions, listZooms, resolveKey } from "/gif/sld-index.js";
@@ -21,6 +21,11 @@ import { buildIndex, listActions, listZooms, resolveKey } from "/gif/sld-index.j
 // Player color options render as plain text cycle buttons: the label is the
 // player number, inked in an approximation of that player's AoE2 team color
 // so the button itself identifies which player it points at.
+const FORMAT_OPTIONS = [
+  { value: "gif", label: "GIF", ariaLabel: "GIF (256 colors)" },
+  { value: "apng", label: "APNG", ariaLabel: "APNG (full alpha)" },
+];
+
 const PLAYER_COLOR_OPTIONS = [
   { value: 1, label: "1", ariaLabel: "Player 1 (blue)",   color: "#3f7fff" },
   { value: 2, label: "2", ariaLabel: "Player 2 (red)",    color: "#ff4d4d" },
@@ -136,109 +141,31 @@ function formatBytes(n) {
   return (n / (1024 * 1024)).toFixed(1) + " MB";
 }
 
-// ---------- shared encode pipeline -----------------------------------------
+// ---------- shared encode pipeline (see /gif/gif-pipeline.js) --------------
 
-function computeCanvas(frames) {
-  let maxLeft = 0, maxRight = 0, maxTop = 0, maxBottom = 0;
-  for (const f of frames) {
-    maxLeft = Math.max(maxLeft, f.hotspotX);
-    maxTop = Math.max(maxTop, f.hotspotY);
-    maxRight = Math.max(maxRight, f.width - f.hotspotX);
-    maxBottom = Math.max(maxBottom, f.height - f.hotspotY);
-  }
-  const width = Math.max(1, maxLeft + maxRight);
-  const height = Math.max(1, maxTop + maxBottom);
-  return { width, height, pivotX: maxLeft, pivotY: maxTop };
+function encodeProgress(done, total) {
+  const pct = 95 + Math.round(done / total * 4);
+  setProgress(pct, { autoHide: false });
 }
 
-function blitFrame(frame, canvas) {
-  const out = new Uint8ClampedArray(canvas.width * canvas.height * 4);
-  const dx = canvas.pivotX - frame.hotspotX;
-  const dy = canvas.pivotY - frame.hotspotY;
-  const src = frame.rgba;
-  for (let y = 0; y < frame.height; y++) {
-    const sy = (y * frame.width) * 4;
-    const dyRow = ((dy + y) * canvas.width + dx) * 4;
-    if (dy + y < 0 || dy + y >= canvas.height) continue;
-    out.set(src.subarray(sy, sy + frame.width * 4), dyRow);
+function framesToOutputBlob(frames, opts) {
+  const fmt = opts.format === "apng" ? "apng" : "gif";
+  if (fmt === "apng") {
+    const { bytes, width: outW, height: outH } = framesToApngBytes(frames, opts, encodeProgress);
+    return {
+      blob: new Blob([bytes], { type: "image/png" }),
+      width: outW, height: outH,
+    };
   }
-  return out;
-}
-
-function scaleNN(rgba, width, height, factor) {
-  if (factor <= 1) return { rgba, width, height };
-  const w2 = width * factor;
-  const h2 = height * factor;
-  const out = new Uint8ClampedArray(w2 * h2 * 4);
-  for (let y = 0; y < h2; y++) {
-    const sy = Math.floor(y / factor);
-    for (let x = 0; x < w2; x++) {
-      const sx = Math.floor(x / factor);
-      const srcOff = (sy * width + sx) * 4;
-      const dstOff = (y * w2 + x) * 4;
-      out[dstOff + 0] = rgba[srcOff + 0];
-      out[dstOff + 1] = rgba[srcOff + 1];
-      out[dstOff + 2] = rgba[srcOff + 2];
-      out[dstOff + 3] = rgba[srcOff + 3];
-    }
-  }
-  return { rgba: out, width: w2, height: h2 };
-}
-
-function encodeGif(framesOnCanvas, width, height, opts) {
-  const transparent = !!opts.transparent;
-  const format = transparent ? "rgba4444" : "rgb565";
-  const palette = quantize(framesOnCanvas[0], 256, {
-    format,
-    oneBitAlpha: transparent,
-    clearAlpha: true,
-    clearAlphaThreshold: 0,
-    clearAlphaColor: 0x00,
-  });
-
-  let transparentIndex = 0;
-  if (transparent) {
-    for (let i = 0; i < palette.length; i++) {
-      if (palette[i].length >= 4 && palette[i][3] === 0) { transparentIndex = i; break; }
-    }
-  }
-
-  const gif = GIFEncoder();
-  const total = framesOnCanvas.length;
-  for (let i = 0; i < total; i++) {
-    const idx = applyPalette(framesOnCanvas[i], palette, format);
-    gif.writeFrame(idx, width, height, {
-      palette: i === 0 ? palette : undefined,
-      first: i === 0,
-      transparent,
-      transparentIndex,
-      delay: opts.delay,
-      repeat: 0,
-    });
-    const pct = 95 + Math.round((i + 1) / total * 4);
-    setProgress(pct, { autoHide: false });
-  }
-  gif.finish();
-  return gif.bytes();
-}
-
-function framesToBlob(frames, opts) {
-  const canvas = computeCanvas(frames);
-  const blitted = frames.map(function (f) { return blitFrame(f, canvas); });
-  let outW = canvas.width, outH = canvas.height;
-  let blittedScaled = blitted;
-  if (opts.scale > 1) {
-    blittedScaled = blitted.map(function (rgba) {
-      const r = scaleNN(rgba, canvas.width, canvas.height, opts.scale);
-      outW = r.width; outH = r.height;
-      return r.rgba;
-    });
-  }
-  const bytes = encodeGif(blittedScaled, outW, outH, opts);
+  const { bytes, width: outW, height: outH } = framesToGifBytes(frames, opts, encodeProgress);
   return {
     blob: new Blob([bytes], { type: "image/gif" }),
     width: outW, height: outH,
   };
+}
+
+function primaryGenerateLabel(format) {
+  return format === "apng" ? "Generate APNG" : "Generate GIF";
 }
 
 // ---------- worker wiring (shared pattern) ---------------------------------
@@ -577,6 +504,7 @@ const slp = (function () {
   const actionSelect = document.getElementById("action-select");
   const directionBtn = document.getElementById("slp-direction");
   const playerBtn = document.getElementById("slp-player");
+  const formatBtn = document.getElementById("slp-format");
   const submitBtn = document.getElementById("submit");
   const imgEl = document.getElementById("img");
   const captionEl = document.getElementById("preview-caption");
@@ -668,6 +596,11 @@ const slp = (function () {
     initial: 1,
     onChange: function () { refresh(); },
   });
+  const formatCycle = createCycleButton(formatBtn, FORMAT_OPTIONS, {
+    tag: "Format",
+    initial: "gif",
+    onChange: function () { refresh(); },
+  });
 
   const picker = createPicker({
     root: document.getElementById("slp-unit-picker"),
@@ -700,6 +633,7 @@ const slp = (function () {
       action: actionSelect.value,
       direction: directionCycle.value || "S",
       player: Number(playerCycle.value || 1),
+      format: formatCycle.value || "gif",
       delay: Number(delayRange.value),
       scale: Number(scaleRange.value),
       transparent: !!transparentCb.checked,
@@ -730,10 +664,11 @@ const slp = (function () {
 
   function applyButtonState() {
     if (m.busy) return;
+    const gen = primaryGenerateLabel(formatCycle.value || "gif");
     switch (buttonState()) {
-      case "no-selection": submitBtn.disabled = true;  submitBtn.textContent = "Generate GIF"; break;
-      case "ready":        submitBtn.disabled = false; submitBtn.textContent = "Generate GIF"; break;
-      case "rendered":     submitBtn.disabled = true;  submitBtn.textContent = "Generated";    break;
+      case "no-selection": submitBtn.disabled = true;  submitBtn.textContent = gen; break;
+      case "ready":        submitBtn.disabled = false; submitBtn.textContent = gen; break;
+      case "rendered":     submitBtn.disabled = true;  submitBtn.textContent = "Generated"; break;
       case "dirty":        submitBtn.disabled = false; submitBtn.textContent = "Generate again"; break;
     }
   }
@@ -815,7 +750,7 @@ const slp = (function () {
       const { frames, meta } = await renderFrames(slpBytes, sel);
 
       setStatus("Aligning frames\u2026", "loading");
-      const out = framesToBlob(frames, sel);
+      const out = framesToOutputBlob(frames, sel);
 
       setImageFromBlob(out.blob);
       setCaption(sel, meta);
@@ -866,6 +801,7 @@ const sld = (function () {
   const zoomBtn = document.getElementById("sld-zoom");
   const directionBtn = document.getElementById("sld-direction");
   const playerBtn = document.getElementById("sld-player");
+  const formatBtn = document.getElementById("sld-format");
   const submitBtn = document.getElementById("sld-submit");
   const imgEl = document.getElementById("sld-img");
   const captionEl = document.getElementById("sld-preview-caption");
@@ -995,6 +931,11 @@ const sld = (function () {
     initial: 1,
     onChange: function () { refresh(); },
   });
+  const formatCycle = createCycleButton(formatBtn, FORMAT_OPTIONS, {
+    tag: "Format",
+    initial: "gif",
+    onChange: function () { refresh(); },
+  });
 
   const picker = createPicker({
     root: document.getElementById("sld-unit-picker"),
@@ -1032,6 +973,7 @@ const sld = (function () {
       zoom: zoomCycle.value || "",
       directionIndex: Number(directionCycle.value != null ? directionCycle.value : 0),
       player: Number(playerCycle.value || 1),
+      format: formatCycle.value || "gif",
       delay: Number(delayRange.value),
       scale: Number(scaleRange.value),
       transparent: !!transparentCb.checked,
@@ -1060,10 +1002,11 @@ const sld = (function () {
 
   function applyButtonState() {
     if (m.busy) return;
+    const gen = primaryGenerateLabel(formatCycle.value || "gif");
     switch (buttonState()) {
-      case "no-selection": submitBtn.disabled = true;  submitBtn.textContent = "Generate GIF"; break;
-      case "ready":        submitBtn.disabled = false; submitBtn.textContent = "Generate GIF"; break;
-      case "rendered":     submitBtn.disabled = true;  submitBtn.textContent = "Generated";    break;
+      case "no-selection": submitBtn.disabled = true;  submitBtn.textContent = gen; break;
+      case "ready":        submitBtn.disabled = false; submitBtn.textContent = gen; break;
+      case "rendered":     submitBtn.disabled = true;  submitBtn.textContent = "Generated"; break;
       case "dirty":        submitBtn.disabled = false; submitBtn.textContent = "Generate again"; break;
     }
   }
@@ -1158,7 +1101,7 @@ const sld = (function () {
       const { frames, meta } = await renderFrames(sldBytes, sel);
 
       setStatus("Aligning frames\u2026", "loading");
-      const out = framesToBlob(frames, sel);
+      const out = framesToOutputBlob(frames, sel);
 
       setImageFromBlob(out.blob);
       setCaption(sel, meta, key);

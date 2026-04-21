@@ -227,6 +227,39 @@
   border-color: var(--gold-dim);
 }
 
+/* Four equal columns (SLD: zoom/direction/color/format; SLP: three + spacer). */
+.cycle-row--grid4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+  align-items: end;
+  gap: var(--s-2);
+}
+.cycle-row--grid4 .cycle-cell {
+  align-items: stretch;
+}
+.cycle-row--grid4 .cycle-cell__label {
+  text-align: center;
+}
+.cycle-row--grid4 .cycle-btn--text {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 56px;
+  font-size: 1.05rem;
+}
+.cycle-cell--spacer {
+  visibility: hidden;
+  pointer-events: none;
+}
+.cycle-btn--spacer {
+  visibility: hidden;
+  border-color: transparent;
+  background: transparent;
+  cursor: default;
+  min-height: 56px;
+}
+
 /* ---- toggle row (shared shape with mcminimap) --------------------- */
 
 .toggle {
