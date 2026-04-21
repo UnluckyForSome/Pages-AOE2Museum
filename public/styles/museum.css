@@ -205,14 +205,15 @@ code, kbd { font-family: var(--font-mono); font-size: 0.9em; }
   display: block;
 }
 
+/* Start below the bar so logo + hamburger stay clickable (second tap closes). */
 .site-nav__drawer {
   position: fixed;
-  top: 0;
+  top: var(--site-nav-h);
   right: 0;
   bottom: 0;
   z-index: 290;
   width: min(19rem, 88vw);
-  padding: calc(var(--site-nav-h) + 1.25rem) 1.25rem 1.5rem;
+  padding: 1.25rem 1.25rem 1.5rem;
   background: linear-gradient(165deg, var(--bg-panel) 0%, #14142a 100%);
   border-left: 1px solid var(--gold-dim);
   box-shadow: -12px 0 40px rgba(0, 0, 0, 0.45);
@@ -314,6 +315,12 @@ code, kbd { font-family: var(--font-mono); font-size: 0.9em; }
 @media (max-width: 899px) {
   .site-nav__toggle {
     display: flex;
+  }
+  /* Bar stays above fixed backdrop/drawer so the toggle receives the second tap to close. */
+  .site-nav__logo,
+  .site-nav__toggle {
+    position: relative;
+    z-index: 310;
   }
 }
 

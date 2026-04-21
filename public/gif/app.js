@@ -89,7 +89,7 @@ const SLP_URL = (id) => "/api/gif/slp/" + id + ".slp";
 const SLD_MANIFEST_URL = "/api/gif/sld/manifest";
 const SLD_URL = (key) => "/api/gif/sld/" + key + ".sld";
 
-const PLACEHOLDER_URL = "/assets/placeholder.gif";
+const PLACEHOLDER_URL = "/gif/assets/placeholder.gif";
 
 // ---------- shared DOM ------------------------------------------------------
 
