@@ -222,9 +222,9 @@ function prepareAnimationFrames(frames, sel) {
 // in the 256-colour GIF.
 
 const GIF_SHADOW_RGB_CAP = 12;
-const GIF_SHADOW_ALPHA_BOOST = 48;
-/** Alpha ≤ this (after boost) tends toward transparent in quantize; lower = more opaque. Default true → 127. */
-const GIF_ONE_BIT_ALPHA_THRESHOLD = 76;
+const GIF_SHADOW_ALPHA_BOOST = 72;
+/** Alpha ≤ this (after boost) tends toward transparent in quantize; lower = stronger shadow. Default true → 127. */
+const GIF_ONE_BIT_ALPHA_THRESHOLD = 38;
 
 function boostNearBlackShadowForGif(rgba) {
   for (let i = 0; i < rgba.length; i += 4) {
