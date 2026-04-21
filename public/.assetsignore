@@ -8,6 +8,6 @@ gif/newexamples/
 
 # Raw sprite bytes now live in the Garage S3 buckets (slp/ and sld/) and are
 # proxied through the Worker at /api/gif/{slp,sld}/. Anything that shows up
-# locally under sourcefiles/ during development should never be deployed.
-gif/sourcefiles/slp/
-gif/sourcefiles/sld/*.sld
+# locally under testgraphics/ during development should never be deployed.
+gif/testgraphics/slp/
+gif/testgraphics/sld/*.sld

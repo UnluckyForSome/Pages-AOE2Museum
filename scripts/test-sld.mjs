@@ -14,7 +14,7 @@ import {
   applyPalette,
 } from "../public/gif/vendor/gifenc.esm.js";
 
-const sldPath = process.argv[2] || "public/gif/sourcefiles/sld/u_cav_warwagon_elite_walkA_x2.sld";
+const sldPath = process.argv[2] || "public/gif/testgraphics/sld/u_cav_warwagon_elite_walkA_x2.sld";
 const directionIndex = Number(process.argv[3] || "0");
 const player = Number(process.argv[4] || "1");
 

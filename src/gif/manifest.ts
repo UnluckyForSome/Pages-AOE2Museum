@@ -60,7 +60,7 @@ async function fetchAsset<T>(assets: Fetcher, path: string): Promise<T> {
 export function loadSlpMapping(env: GifEnv): Promise<SlpMapping> {
   const m = memo();
   if (!m.slpMapping) {
-    m.slpMapping = fetchAsset<SlpMapping>(env.ASSETS, "/gif/sourcefiles/slp_mapping.json");
+    m.slpMapping = fetchAsset<SlpMapping>(env.ASSETS, "/gif/mapping/slp_mapping.json");
   }
   return m.slpMapping;
 }
@@ -68,7 +68,7 @@ export function loadSlpMapping(env: GifEnv): Promise<SlpMapping> {
 export function loadSldMapping(env: GifEnv): Promise<SldMapping> {
   const m = memo();
   if (!m.sldMapping) {
-    m.sldMapping = fetchAsset<SldMapping>(env.ASSETS, "/gif/sourcefiles/sld/sld_mapping.json");
+    m.sldMapping = fetchAsset<SldMapping>(env.ASSETS, "/gif/mapping/sld_mapping.json");
   }
   return m.sldMapping;
 }

@@ -1,6 +1,6 @@
 // Thin index helper for the SLD mapping file.
 //
-// Input shape (from /gif/sourcefiles/sld/sld_mapping.json):
+// Input shape (from /gif/mapping/sld_mapping.json):
 //   { "a_alfred_deathA_x2": { "unit": "alfred", "action": "deathA", "zoom": "x2" }, ... }
 //
 // We flip it into Map<unit, Map<action, Set<zoom>>> for fast cascading

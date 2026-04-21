@@ -174,7 +174,7 @@ function renderRGBA(frame, parsed, palette, player, drawOutline) {
 
 // ---- run ----------------------------------------------------------------
 
-const slpPath = process.argv[2] || "public/gif/sourcefiles/slp/5207.slp";
+const slpPath = process.argv[2] || "public/gif/testgraphics/slp/5207.slp";
 const buf = readFileSync(slpPath);
 const bytes = new Uint8Array(buf);
 const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);

@@ -18,7 +18,7 @@ vendor/pylibs/
 public/gif/oldexamples
 
 # Raw SLP/SLD bytes are served from the self-hosted Garage S3 buckets via the
-# Worker. Keeping local sample files under sourcefiles/ during development is
+# Worker. Keeping local sample files under testgraphics/ during development is
 # fine; committing them is not.
-public/gif/sourcefiles/slp/*.slp
-public/gif/sourcefiles/sld/*.sld
+public/gif/testgraphics/slp/*.slp
+public/gif/testgraphics/sld/*.sld

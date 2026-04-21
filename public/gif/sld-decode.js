@@ -532,6 +532,38 @@ export function parseSld(bytes) {
   return { bytes, cursor: c, version, numFrames };
 }
 
+// Decode one on-disk frame by index (0-based). All earlier frames are still
+// parsed so previous-layer inheritance (DXT reuse flags) matches the worker.
+export function decodeFrameAtIndex(bytes, frameIndex, opts) {
+  const parsed = parseSld(bytes);
+  const n = parsed.numFrames;
+  if (frameIndex < 0 || frameIndex >= n) {
+    throw new Error(`decodeFrameAtIndex: frameIndex ${frameIndex} out of range 0..${n - 1}`);
+  }
+  const previousLayers = { normal: null, shadow: null, player: null };
+  const o = opts || {};
+  const composeOpts = {
+    teamRgb: o.teamRgb || [80, 110, 210],
+    drawShadow: o.drawShadow !== false,
+  };
+  const c = parsed.cursor;
+  for (let i = 0; i < frameIndex; i++) {
+    decodeFrame(c, false, previousLayers, composeOpts);
+  }
+  const frame = decodeFrame(c, true, previousLayers, composeOpts);
+  if (!frame) {
+    throw new Error(`decodeFrameAtIndex: frame ${frameIndex} produced no output`);
+  }
+  return {
+    frame,
+    meta: {
+      version: parsed.version,
+      numFrames: parsed.numFrames,
+      frameIndex,
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // High-level entry: "render one direction's worth of frames".
 // ---------------------------------------------------------------------------

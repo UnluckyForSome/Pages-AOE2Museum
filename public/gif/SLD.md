@@ -19,7 +19,7 @@ are looked up by a composite filename key:
 e.g. `a_alfred_deathA_x2.sld` for Unit=`alfred`, Action=`deathA`, Zoom=`x2`
 with prefix `a_`. The prefix encodes the entity family (`a_`, `u_cav_`,
 `b_`, ...) and is stored as part of the original key in
-[`sourcefiles/sld/sld_mapping.json`](sourcefiles/sld/sld_mapping.json).
+[`mapping/sld_mapping.json`](mapping/sld_mapping.json).
 
 The `/gif/` UI presents `unit -> action -> zoom` as a cascading picker; only
 zoom levels that exist for the selected `{unit, action}` pair are enabled.
