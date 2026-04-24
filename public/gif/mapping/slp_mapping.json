@@ -115,26 +115,6 @@
         "SLP": 75
     },
     {
-        "Unit": "Shadow of North European Blacksmith II",
-        "Action": "Shadow of North European Blacksmith II",
-        "SLP": 82
-    },
-    {
-        "Unit": "Shadow of Far East Blacksmith II",
-        "Action": "Shadow of Far East Blacksmith II",
-        "SLP": 83
-    },
-    {
-        "Unit": "Shadow of Middle East Blacksmith II",
-        "Action": "Shadow of Middle East Blacksmith II",
-        "SLP": 84
-    },
-    {
-        "Unit": "Shadow of West European Blacksmith II",
-        "Action": "Shadow of West European Blacksmith II",
-        "SLP": 85
-    },
-    {
         "Unit": "North European Blacksmith II",
         "Action": "North European Blacksmith II",
         "SLP": 90
@@ -153,26 +133,6 @@
         "Unit": "West European Blacksmith II",
         "Action": "West European Blacksmith II",
         "SLP": 93
-    },
-    {
-        "Unit": "Shadow of North European Blacksmith III",
-        "Action": "Shadow of North European Blacksmith III",
-        "SLP": 94
-    },
-    {
-        "Unit": "Shadow of Far East Blacksmith III",
-        "Action": "Shadow of Far East Blacksmith III",
-        "SLP": 95
-    },
-    {
-        "Unit": "Shadow of Middle East Blacksmith III",
-        "Action": "Shadow of Middle East Blacksmith III",
-        "SLP": 96
-    },
-    {
-        "Unit": "Shadow of West European Blacksmith III",
-        "Action": "Shadow of West European Blacksmith III",
-        "SLP": 97
     },
     {
         "Unit": "Smoke of North European Blacksmith III",
@@ -420,14 +380,44 @@
         "SLP": 226
     },
     {
-        "Unit": "Reverse Cliff tops",
-        "Action": "Reverse Cliff tops",
+        "Unit": "Reverse Cliff tops A",
+        "Action": "Reverse Cliff tops A",
         "SLP": 227
     },
     {
-        "Unit": "Cliff section",
-        "Action": "Cliff section",
+        "Unit": "Reverse Cliff tops B",
+        "Action": "Reverse Cliff tops B",
+        "SLP": 228
+    },
+    {
+        "Unit": "Cliff section A",
+        "Action": "Cliff section A",
         "SLP": 229
+    },
+    {
+        "Unit": "Cliff section B",
+        "Action": "Cliff section B",
+        "SLP": 230
+    },
+    {
+        "Unit": "Cliff section C",
+        "Action": "Cliff section C",
+        "SLP": 231
+    },
+    {
+        "Unit": "Cliff section D",
+        "Action": "Cliff section D",
+        "SLP": 232
+    },
+    {
+        "Unit": "Cliff section E",
+        "Action": "Cliff section E",
+        "SLP": 233
+    },
+    {
+        "Unit": "Cliff section F",
+        "Action": "Cliff section F",
+        "SLP": 234
     },
     {
         "Unit": "Cliff section (Lighter color)",
@@ -465,16 +455,6 @@
         "SLP": 243
     },
     {
-        "Unit": "Shadow of North European Monastery",
-        "Action": "Shadow of North European Monastery",
-        "SLP": 270
-    },
-    {
-        "Unit": "Shadow of Far East Monastery",
-        "Action": "Shadow of Far East Monastery",
-        "SLP": 271
-    },
-    {
         "Unit": "Shadow of Middle East Monastery",
         "Action": "Shadow of Middle East Monastery",
         "SLP": 272
@@ -483,11 +463,6 @@
         "Unit": "Shadow of West European Monastery",
         "Action": "Shadow of West European Monastery",
         "SLP": 273
-    },
-    {
-        "Unit": "Shadow of Mediterranean Monastery",
-        "Action": "Shadow of Mediterranean Monastery",
-        "SLP": 276
     },
     {
         "Unit": "North European Monastery",
@@ -528,11 +503,6 @@
         "Unit": "Shadow of West European Castle",
         "Action": "Shadow of West European Castle",
         "SLP": 297
-    },
-    {
-        "Unit": "Shadow of Mediterranean Castle",
-        "Action": "Shadow of Mediterranean Castle",
-        "SLP": 298
     },
     {
         "Unit": "North European Castle",
@@ -965,7 +935,7 @@
         "SLP": 640
     },
     {
-        "Unit": "[Royal] Janissary",
+        "Unit": "Royal Janissary",
         "Action": "Decaying",
         "SLP": 641
     },
@@ -975,8 +945,8 @@
         "SLP": 644
     },
     {
-        "Unit": "Junk Ship /Idle",
-        "Action": "Attacking",
+        "Unit": "Junk Ship",
+        "Action": "Idle",
         "SLP": 653
     },
     {
@@ -1120,11 +1090,6 @@
         "SLP": 730
     },
     {
-        "Unit": "Shadow of Far East Mill II",
-        "Action": "Shadow of Far East Mill II",
-        "SLP": 731
-    },
-    {
         "Unit": "Shadow of Middle East Mill II",
         "Action": "Shadow of Middle East Mill II",
         "SLP": 732
@@ -1133,11 +1098,6 @@
         "Unit": "Shadow of West European Mill II",
         "Action": "Shadow of West European Mill II",
         "SLP": 733
-    },
-    {
-        "Unit": "Shadow of Mediterranean Mill II",
-        "Action": "Shadow of Mediterranean Mill II",
-        "SLP": 744
     },
     {
         "Unit": "Animation of North European Mill II",
@@ -1185,9 +1145,9 @@
         "SLP": 742
     },
     {
-        "Unit": "Shadow of Far East Mill III",
-        "Action": "Shadow of Far East Mill III",
-        "SLP": 743
+        "Unit": "Shadow of Mediterranean Mill II",
+        "Action": "Shadow of Mediterranean Mill II",
+        "SLP": 744
     },
     {
         "Unit": "Shadow of Middle East Mill III",
@@ -1603,26 +1563,6 @@
         "Unit": "Scorpion  (Wheels)",
         "Action": "Walking",
         "SLP": 946
-    },
-    {
-        "Unit": "Shadow of North European Siege Workshop",
-        "Action": "Shadow of North European Siege Workshop",
-        "SLP": 947
-    },
-    {
-        "Unit": "Shadow of Far East Siege Workshop",
-        "Action": "Shadow of Far East Siege Workshop",
-        "SLP": 948
-    },
-    {
-        "Unit": "Shadow of Middle East Siege Workshop",
-        "Action": "Shadow of Middle East Siege Workshop",
-        "SLP": 949
-    },
-    {
-        "Unit": "Shadow of West European Siege Workshop",
-        "Action": "Shadow of West European Siege Workshop",
-        "SLP": 950
     },
     {
         "Unit": "North European Siege Workshop",
@@ -2060,26 +2000,6 @@
         "SLP": 1355
     },
     {
-        "Unit": "Shadow of North European University III",
-        "Action": "Shadow of North European University III",
-        "SLP": 1356
-    },
-    {
-        "Unit": "Shadow of Far East University III",
-        "Action": "Shadow of Far East University III",
-        "SLP": 1357
-    },
-    {
-        "Unit": "Shadow of Middle East University III",
-        "Action": "Shadow of Middle East University III",
-        "SLP": 1358
-    },
-    {
-        "Unit": "Shadow of West European University III",
-        "Action": "Shadow of West European University III",
-        "SLP": 1359
-    },
-    {
         "Unit": "North European University Banner III",
         "Action": "North European University Banner III",
         "SLP": 1360
@@ -2103,26 +2023,6 @@
         "Unit": "West European University Banner III",
         "Action": "West European University Banner III",
         "SLP": 1363
-    },
-    {
-        "Unit": "Shadow of North European University IV",
-        "Action": "Shadow of North European University IV",
-        "SLP": 1368
-    },
-    {
-        "Unit": "Shadow of Far East University IV",
-        "Action": "Shadow of Far East University IV",
-        "SLP": 1369
-    },
-    {
-        "Unit": "Shadow of Middle East University IV",
-        "Action": "Shadow of Middle East University IV",
-        "SLP": 1370
-    },
-    {
-        "Unit": "Shadow of West European University IV",
-        "Action": "Shadow of West European University IV",
-        "SLP": 1371
     },
     {
         "Unit": "North European University Banner IV",
@@ -2745,9 +2645,14 @@
         "SLP": 1900
     },
     {
-        "Unit": "Marlin (Fish)",
-        "Action": "Marlin (Fish)",
+        "Unit": "Marlin (Fish) A",
+        "Action": "Marlin (Fish) A",
         "SLP": 1905
+    },
+    {
+        "Unit": "Marlin (Fish) B",
+        "Action": "Marlin (Fish) B",
+        "SLP": 1906
     },
     {
         "Unit": "Dorado (Fish)",
@@ -2967,7 +2872,7 @@
     {
         "Unit": "Female Miner  (Gold)",
         "Action": "Walking",
-        "SLP": 2118
+        "SLP": 2218
     },
     {
         "Unit": "House I",
@@ -3445,9 +3350,19 @@
         "SLP": 2478
     },
     {
-        "Unit": "Beta Mill Shadow",
-        "Action": "Beta Mill Shadow",
+        "Unit": "Beta Mill Shadow A",
+        "Action": "Beta Mill Shadow A",
         "SLP": 2515
+    },
+    {
+        "Unit": "Beta Mill Shadow B",
+        "Action": "Beta Mill Shadow B",
+        "SLP": 2517
+    },
+    {
+        "Unit": "Beta Mill Shadow C",
+        "Action": "Beta Mill Shadow C",
+        "SLP": 2518
     },
     {
         "Unit": "Flowers 1",
@@ -3725,9 +3640,19 @@
         "SLP": 2659
     },
     {
-        "Unit": "Flag (Unused?)",
-        "Action": "Flag (Unused?)",
+        "Unit": "Flag (Unused?) A",
+        "Action": "Flag (Unused?) A",
         "SLP": 2660
+    },
+    {
+        "Unit": "Flag (Unused?) B",
+        "Action": "Flag (Unused?) B",
+        "SLP": 2662
+    },
+    {
+        "Unit": "Flag (Unused?) C",
+        "Action": "Flag (Unused?) C",
+        "SLP": 2663
     },
     {
         "Unit": "North European Guard Tower",
@@ -4165,11 +4090,6 @@
         "SLP": 3479
     },
     {
-        "Unit": "Shadow of Mill I",
-        "Action": "Shadow of Mill I",
-        "SLP": 3481
-    },
-    {
         "Unit": "Animation of Mill I",
         "Action": "Animation of Mill I",
         "SLP": 3482
@@ -4218,11 +4138,6 @@
         "Unit": "West European Lumber Camp",
         "Action": "West European Lumber Camp",
         "SLP": 3507
-    },
-    {
-        "Unit": "Shadow of Briton & Incan Wonder",
-        "Action": "Shadow of Briton & Incan Wonder",
-        "SLP": 3508
     },
     {
         "Unit": "Shadow of Gothic Wonder",
@@ -4278,11 +4193,6 @@
         "Unit": "Shadow of Byzantine Wonder",
         "Action": "Shadow of Byzantine Wonder",
         "SLP": 3519
-    },
-    {
-        "Unit": "Shadow of Chinese Wonder",
-        "Action": "Shadow of Chinese Wonder",
-        "SLP": 3520
     },
     {
         "Unit": "Briton Wonder",
@@ -4965,8 +4875,8 @@
         "SLP": 3753
     },
     {
-        "Unit": "???",
-        "Action": "???",
+        "Unit": "Unknown Object",
+        "Action": "Unknown Object",
         "SLP": 3754
     },
     {
@@ -5095,13 +5005,13 @@
         "SLP": 3803
     },
     {
-        "Unit": "Shadow of 3803.",
-        "Action": "Shadow of 3803.",
+        "Unit": "Catapult Boulder Shadow A",
+        "Action": "Catapult Boulder Shadow A",
         "SLP": 3804
     },
     {
-        "Unit": "Catapult Boulder Shadow (Same as 3803?)",
-        "Action": "Catapult Boulder Shadow (Same as 3803?)",
+        "Unit": "Catapult Boulder Shadow B",
+        "Action": "Catapult Boulder Shadow B",
         "SLP": 3807
     },
     {
@@ -5230,53 +5140,53 @@
         "SLP": 3843
     },
     {
-        "Unit": "Knight Hero",
+        "Unit": "Knight Hero A",
         "Action": "Attacking",
         "SLP": 3846
     },
     {
-        "Unit": "Knight Hero",
+        "Unit": "Knight Hero A",
         "Action": "Dying",
         "SLP": 3849
     },
     {
-        "Unit": "Knight Hero",
+        "Unit": "Knight Hero A",
         "Action": "Idle",
         "SLP": 3852
     },
     {
-        "Unit": "Knight Hero",
+        "Unit": "Knight Hero A",
         "Action": "Decaying",
         "SLP": 3853
     },
     {
-        "Unit": "Knight Hero",
+        "Unit": "Knight Hero A",
         "Action": "Walking",
         "SLP": 3856
     },
     {
-        "Unit": "Same as 3846.",
-        "Action": "Same as 3846.",
+        "Unit": "Knight Hero B",
+        "Action": "Attacking",
         "SLP": 3885
     },
     {
-        "Unit": "Same as 3849.",
-        "Action": "Same as 3849.",
+        "Unit": "Knight Hero B",
+        "Action": "Dying",
         "SLP": 3888
     },
     {
-        "Unit": "Same as 3852.",
-        "Action": "Same as 3852.",
+        "Unit": "Knight Hero B",
+        "Action": "Idle",
         "SLP": 3891
     },
     {
-        "Unit": "Same as 3853.",
-        "Action": "Same as 3853.",
+        "Unit": "Knight Hero B",
+        "Action": "Decaying",
         "SLP": 3892
     },
     {
-        "Unit": "Same as 3856.",
-        "Action": "Same as 3856.",
+        "Unit": "Knight Hero B",
+        "Action": "Walking",
         "SLP": 3895
     },
     {
@@ -5305,28 +5215,28 @@
         "SLP": 3934
     },
     {
-        "Unit": "Same as 3846.",
-        "Action": "Same as 3846.",
+        "Unit": "Knight Hero C",
+        "Action": "Attacking",
         "SLP": 3963
     },
     {
-        "Unit": "Same as 3849.",
-        "Action": "Same as 3849.",
+        "Unit": "Knight Hero C",
+        "Action": "Dying",
         "SLP": 3966
     },
     {
-        "Unit": "Same as 3852.",
-        "Action": "Same as 3852.",
+        "Unit": "Knight Hero C",
+        "Action": "Idle",
         "SLP": 3969
     },
     {
-        "Unit": "Same as 3853.",
-        "Action": "Same as 3853.",
+        "Unit": "Knight Hero C",
+        "Action": "Decaying",
         "SLP": 3970
     },
     {
-        "Unit": "Same as 3856.",
-        "Action": "Same as 3856.",
+        "Unit": "Knight Hero C",
+        "Action": "Walking",
         "SLP": 3973
     },
     {
@@ -5340,8 +5250,8 @@
         "SLP": 3975
     },
     {
-        "Unit": "Unknown 135 Frame Sequence",
-        "Action": "Unknown 135 Frame Sequence",
+        "Unit": "Ripples in Corner",
+        "Action": "Ripples in Corner",
         "SLP": 3976
     },
     {
@@ -5370,9 +5280,14 @@
         "SLP": 3982
     },
     {
-        "Unit": "Fireball",
-        "Action": "Fireball",
+        "Unit": "Fireball A",
+        "Action": "Fireball A",
         "SLP": 3983
+    },
+    {
+        "Unit": "Fireball B",
+        "Action": "Fireball B",
+        "SLP": 3984
     },
     {
         "Unit": "Wrecked Fishing Trap",
@@ -6005,9 +5920,24 @@
         "SLP": 4194
     },
     {
-        "Unit": "Lion Head Sail Sequence (Unused)",
-        "Action": "Lion Head Sail Sequence (Unused)",
+        "Unit": "Lion Head Sail Sequence (Unused) A",
+        "Action": "Lion Head Sail Sequence (Unused) A",
         "SLP": 4195
+    },
+    {
+        "Unit": "Lion Head Sail Sequence (Unused) B",
+        "Action": "Lion Head Sail Sequence (Unused) B",
+        "SLP": 4196
+    },
+    {
+        "Unit": "Lion Head Sail Sequence (Unused) C",
+        "Action": "Lion Head Sail Sequence (Unused) C",
+        "SLP": 4197
+    },
+    {
+        "Unit": "Lion Head Sail Sequence (Unused) D",
+        "Action": "Lion Head Sail Sequence (Unused) D",
+        "SLP": 4198
     },
     {
         "Unit": "Galleon Hull",
@@ -6115,8 +6045,8 @@
         "SLP": 4243
     },
     {
-        "Unit": "[Elite] Cannon Galleon Hull",
-        "Action": "[Elite] Cannon Galleon Hull",
+        "Unit": "Elite Cannon Galleon Hull",
+        "Action": "Elite Cannon Galleon Hull",
         "SLP": 4244
     },
     {
@@ -6210,28 +6140,28 @@
         "SLP": 4280
     },
     {
-        "Unit": "Same as 4273",
-        "Action": "Same as 4273",
+        "Unit": "Knight Hero D",
+        "Action": "Attacking",
         "SLP": 4281
     },
     {
-        "Unit": "Same as 4274",
-        "Action": "Same as 4274",
+        "Unit": "Knight Hero D",
+        "Action": "Dying",
         "SLP": 4282
     },
     {
-        "Unit": "Same as 4275",
-        "Action": "Same as 4275",
+        "Unit": "Knight Hero D",
+        "Action": "Idle",
         "SLP": 4283
     },
     {
-        "Unit": "Same as 4276",
-        "Action": "Same as 4276",
+        "Unit": "Knight Hero D",
+        "Action": "Decaying",
         "SLP": 4284
     },
     {
-        "Unit": "Same as 4277",
-        "Action": "Same as 4277",
+        "Unit": "Knight Hero D",
+        "Action": "Walking",
         "SLP": 4285
     },
     {
@@ -6410,8 +6340,8 @@
         "SLP": 4331
     },
     {
-        "Unit": "Shadow of [Elite] Cannon Galleon",
-        "Action": "Shadow of [Elite] Cannon Galleon",
+        "Unit": "Shadow of Elite Cannon Galleon",
+        "Action": "Shadow of Elite Cannon Galleon",
         "SLP": 4336
     },
     {
@@ -6445,9 +6375,34 @@
         "SLP": 4351
     },
     {
-        "Unit": "Flag",
-        "Action": "Flag",
+        "Unit": "Flag A",
+        "Action": "Flag A",
         "SLP": 4356
+    },
+    {
+        "Unit": "Flag B A",
+        "Action": "Flag B A",
+        "SLP": 4358
+    },
+    {
+        "Unit": "Flag C",
+        "Action": "Flag C",
+        "SLP": 4359
+    },
+    {
+        "Unit": "Flag D",
+        "Action": "Flag D",
+        "SLP": 4360
+    },
+    {
+        "Unit": "Flag E",
+        "Action": "Flag E",
+        "SLP": 4362
+    },
+    {
+        "Unit": "Flag F",
+        "Action": "Flag F",
+        "SLP": 4363
     },
     {
         "Unit": "Shadow of Outpost",
@@ -6505,7 +6460,7 @@
         "SLP": 4392
     },
     {
-        "Unit": "[Elite] Berserk",
+        "Unit": "Elite Berserk",
         "Action": "Decaying",
         "SLP": 4393
     },
@@ -6555,8 +6510,8 @@
         "SLP": 4476
     },
     {
-        "Unit": "Unknown 135 frame animated sequence",
-        "Action": "Unknown 135 frame animated sequence",
+        "Unit": "Ripples",
+        "Action": "Ripples",
         "SLP": 4477
     },
     {
@@ -6735,9 +6690,14 @@
         "SLP": 4521
     },
     {
-        "Unit": "Same as 4358?",
-        "Action": "Same as 4358?",
+        "Unit": "Flag B B",
+        "Action": "Flag B B",
         "SLP": 4522
+    },
+    {
+        "Unit": "Flag B C",
+        "Action": "Flag B C",
+        "SLP": 4523
     },
     {
         "Unit": "Flag of Palisade Wall (1828)",
@@ -7295,9 +7255,39 @@
         "SLP": 4685
     },
     {
-        "Unit": "Snow Patch (For Building?)",
-        "Action": "Snow Patch (For Building?)",
+        "Unit": "Snow Patch (For Building?) A",
+        "Action": "Snow Patch (For Building?) A",
         "SLP": 4699
+    },
+    {
+        "Unit": "Snow Patch (For Building?) B",
+        "Action": "Snow Patch (For Building?) B",
+        "SLP": 4700
+    },
+    {
+        "Unit": "Snow Patch (For Building?) C",
+        "Action": "Snow Patch (For Building?) C",
+        "SLP": 4701
+    },
+    {
+        "Unit": "Snow Patch (For Building?) D",
+        "Action": "Snow Patch (For Building?) D",
+        "SLP": 4702
+    },
+    {
+        "Unit": "Snow Patch (For Building?) E",
+        "Action": "Snow Patch (For Building?) E",
+        "SLP": 4703
+    },
+    {
+        "Unit": "Snow Patch (For Building?) F",
+        "Action": "Snow Patch (For Building?) F",
+        "SLP": 4704
+    },
+    {
+        "Unit": "Snow Patch (For Building?) G",
+        "Action": "Snow Patch (For Building?) G",
+        "SLP": 4705
     },
     {
         "Unit": "Wagon Tracks in Snow",
@@ -7385,9 +7375,19 @@
         "SLP": 4820
     },
     {
-        "Unit": "Arrow",
-        "Action": "Arrow",
+        "Unit": "Arrow A",
+        "Action": "Arrow A",
         "SLP": 4823
+    },
+    {
+        "Unit": "Arrow B",
+        "Action": "Arrow B",
+        "SLP": 4824
+    },
+    {
+        "Unit": "Arrow C",
+        "Action": "Arrow C",
+        "SLP": 4825
     },
     {
         "Unit": "Eagle Scout",
@@ -7770,19 +7770,9 @@
         "SLP": 4929
     },
     {
-        "Unit": "Shadow of Amerindian Blacksmith II",
-        "Action": "Shadow of Amerindian Blacksmith II",
-        "SLP": 4930
-    },
-    {
         "Unit": "Amerindian Blacksmith II",
         "Action": "Amerindian Blacksmith II",
         "SLP": 4931
-    },
-    {
-        "Unit": "Shadow of Amerindian Blacksmith III",
-        "Action": "Shadow of Amerindian Blacksmith III",
-        "SLP": 4932
     },
     {
         "Unit": "Smoke of Amerindian Blacksmith III",
@@ -7833,16 +7823,6 @@
         "Unit": "North European Style Sail (Unused?)",
         "Action": "North European Style Sail (Unused?)",
         "SLP": 4950
-    },
-    {
-        "Unit": "Shadow of Amerindian Monastery",
-        "Action": "Shadow of Amerindian Monastery",
-        "SLP": 4951
-    },
-    {
-        "Unit": "Shadow of East European Monastery",
-        "Action": "Shadow of East European Monastery",
-        "SLP": 4951
     },
     {
         "Unit": "Amerindian Monastery",
@@ -8460,11 +8440,6 @@
         "SLP": 5116
     },
     {
-        "Unit": "Shadow of Amerindian University III",
-        "Action": "Shadow of Amerindian University III",
-        "SLP": 5117
-    },
-    {
         "Unit": "Amerindian University Banner III",
         "Action": "Amerindian University Banner III",
         "SLP": 5118
@@ -8473,11 +8448,6 @@
         "Unit": "Amerindian University III",
         "Action": "Amerindian University III",
         "SLP": 5119
-    },
-    {
-        "Unit": "Shadow of Amerindian University IV",
-        "Action": "Shadow of Amerindian University IV",
-        "SLP": 5120
     },
     {
         "Unit": "Amerindian University Banner IV",
@@ -12030,14 +12000,29 @@
         "SLP": 8904
     },
     {
-        "Unit": "Shadow of 8910 & 8912",
-        "Action": "Shadow of 8910 & 8912",
+        "Unit": "Arrow (Dart-like) A",
+        "Action": "Arrow (Dart-like) A",
+        "SLP": 8910
+    },
+    {
+        "Unit": "Arrow (Dart-like) Shadow A",
+        "Action": "Arrow (Dart-like) Shadow A",
         "SLP": 8911
     },
     {
-        "Unit": "Arrow Shadow (Unused?)",
-        "Action": "Arrow Shadow (Unused?)",
+        "Unit": "Arrow (Dart-like) B",
+        "Action": "Arrow (Dart-like) B",
+        "SLP": 8912
+    },
+    {
+        "Unit": "Arrow (Dart-like) Shadow B",
+        "Action": "Arrow (Dart-like) Shadow B",
         "SLP": 8913
+    },
+    {
+        "Unit": "Arrow (Dart-like) C",
+        "Action": "Arrow (Dart-like) C",
+        "SLP": 8914
     },
     {
         "Unit": "Sunda Royal Fighter",
@@ -12435,19 +12420,9 @@
         "SLP": 15129
     },
     {
-        "Unit": "Shadow of East European Blacksmith II",
-        "Action": "Shadow of East European Blacksmith II",
-        "SLP": 15130
-    },
-    {
         "Unit": "East European Blacksmith II",
         "Action": "East European Blacksmith II",
         "SLP": 15131
-    },
-    {
-        "Unit": "Shadow of East European Blacksmith III",
-        "Action": "Shadow of East European Blacksmith III",
-        "SLP": 15132
     },
     {
         "Unit": "Smoke of East European Blacksmith III",
@@ -13025,11 +13000,6 @@
         "SLP": 15299
     },
     {
-        "Unit": "Shadow of East European Siege Workshop",
-        "Action": "Shadow of East European Siege Workshop",
-        "SLP": 15301
-    },
-    {
         "Unit": "East European Siege Workshop",
         "Action": "East European Siege Workshop",
         "SLP": 15303
@@ -13050,11 +13020,6 @@
         "SLP": 15313
     },
     {
-        "Unit": "Shadow of East European University III",
-        "Action": "Shadow of East European University III",
-        "SLP": 15317
-    },
-    {
         "Unit": "East European University Banner III",
         "Action": "East European University Banner III",
         "SLP": 15318
@@ -13063,11 +13028,6 @@
         "Unit": "East European University III",
         "Action": "East European University III",
         "SLP": 15319
-    },
-    {
-        "Unit": "Shadow of East European University IV",
-        "Action": "Shadow of East European University IV",
-        "SLP": 15320
     },
     {
         "Unit": "East European University Banner IV",
@@ -13118,11 +13078,6 @@
         "Unit": "East European Fortified Wall Construction",
         "Action": "East European Fortified Wall Construction",
         "SLP": 15331
-    },
-    {
-        "Unit": "Shadow of East European Watch Tower",
-        "Action": "Shadow of East European Watch Tower",
-        "SLP": 15332
     },
     {
         "Unit": "East European Watch Tower",
@@ -13230,19 +13185,9 @@
         "SLP": 16129
     },
     {
-        "Unit": "Shadow of Indian Blacksmith II",
-        "Action": "Shadow of Indian Blacksmith II",
-        "SLP": 16130
-    },
-    {
         "Unit": "Indian Blacksmith II",
         "Action": "Indian Blacksmith II",
         "SLP": 16131
-    },
-    {
-        "Unit": "Shadow of Indian Blacksmith III",
-        "Action": "Shadow of Indian Blacksmith III",
-        "SLP": 16132
     },
     {
         "Unit": "Smoke of Indian Blacksmith III",
@@ -13640,9 +13585,14 @@
         "SLP": 16251
     },
     {
-        "Unit": "Indian Mining Camp",
-        "Action": "Indian Mining Camp",
+        "Unit": "Indian Mining Camp A",
+        "Action": "Indian Mining Camp A",
         "SLP": 16254
+    },
+    {
+        "Unit": "Indian Mining Camp B",
+        "Action": "Indian Mining Camp B",
+        "SLP": 16255
     },
     {
         "Unit": "Indian Market II",
@@ -13845,11 +13795,6 @@
         "SLP": 16313
     },
     {
-        "Unit": "Shadow of Indian University III",
-        "Action": "Shadow of Indian University III",
-        "SLP": 16317
-    },
-    {
         "Unit": "Indian University Banner III",
         "Action": "Indian University Banner III",
         "SLP": 16318
@@ -13858,11 +13803,6 @@
         "Unit": "Indian University III",
         "Action": "Indian University III",
         "SLP": 16319
-    },
-    {
-        "Unit": "Shadow of Indian University IV",
-        "Action": "Shadow of Indian University IV",
-        "SLP": 16320
     },
     {
         "Unit": "Indian University Banner IV",
@@ -14025,19 +13965,9 @@
         "SLP": 17129
     },
     {
-        "Unit": "Shadow of African Blacksmith II",
-        "Action": "Shadow of African Blacksmith II",
-        "SLP": 17130
-    },
-    {
         "Unit": "African Blacksmith II",
         "Action": "African Blacksmith II",
         "SLP": 17131
-    },
-    {
-        "Unit": "Shadow of African Blacksmith III",
-        "Action": "Shadow of African Blacksmith III",
-        "SLP": 17132
     },
     {
         "Unit": "Smoke of African Blacksmith III",
@@ -14655,11 +14585,6 @@
         "SLP": 17316
     },
     {
-        "Unit": "Shadow of African University III",
-        "Action": "Shadow of African University III",
-        "SLP": 17317
-    },
-    {
         "Unit": "African University Banner III",
         "Action": "African University Banner III",
         "SLP": 17318
@@ -14668,11 +14593,6 @@
         "Unit": "African University III",
         "Action": "African University III",
         "SLP": 17319
-    },
-    {
-        "Unit": "Shadow of African University IV",
-        "Action": "Shadow of African University IV",
-        "SLP": 17320
     },
     {
         "Unit": "African University Banner IV",
@@ -14835,19 +14755,9 @@
         "SLP": 18129
     },
     {
-        "Unit": "Shadow of Southeast Asian Blacksmith II",
-        "Action": "Shadow of Southeast Asian Blacksmith II",
-        "SLP": 18130
-    },
-    {
         "Unit": "Southeast Asian Blacksmith II",
         "Action": "Southeast Asian Blacksmith II",
         "SLP": 18131
-    },
-    {
-        "Unit": "Shadow of Southeast Asian Blacksmith III",
-        "Action": "Shadow of Southeast Asian Blacksmith III",
-        "SLP": 18132
     },
     {
         "Unit": "Smoke of Southeast Asian Blacksmith III",
@@ -15245,9 +15155,14 @@
         "SLP": 18251
     },
     {
-        "Unit": "Southeast Asian Mining Camp",
-        "Action": "Southeast Asian Mining Camp",
+        "Unit": "Southeast Asian Mining Camp A",
+        "Action": "Southeast Asian Mining Camp A",
         "SLP": 18254
+    },
+    {
+        "Unit": "Southeast Asian Mining Camp B",
+        "Action": "Southeast Asian Mining Camp B",
+        "SLP": 18255
     },
     {
         "Unit": "Southeast Asian Market II",
@@ -15425,11 +15340,6 @@
         "SLP": 18299
     },
     {
-        "Unit": "Shadow of Southeast Asian Siege Workshop",
-        "Action": "Shadow of Southeast Asian Siege Workshop",
-        "SLP": 18301
-    },
-    {
         "Unit": "Southeast Asian Siege Workshop",
         "Action": "Southeast Asian Siege Workshop",
         "SLP": 18303
@@ -15450,11 +15360,6 @@
         "SLP": 18313
     },
     {
-        "Unit": "Shadow of Southeast Asian University III",
-        "Action": "Shadow of Southeast Asian University III",
-        "SLP": 18317
-    },
-    {
         "Unit": "Southeast Asian University Banner III",
         "Action": "Southeast Asian University Banner III",
         "SLP": 18318
@@ -15463,11 +15368,6 @@
         "Unit": "Southeast Asian University III",
         "Action": "Southeast Asian University III",
         "SLP": 18319
-    },
-    {
-        "Unit": "Shadow of Southeast Asian University IV",
-        "Action": "Shadow of Southeast Asian University IV",
-        "SLP": 18320
     },
     {
         "Unit": "Southeast Asian University Banner IV",
@@ -15645,8 +15545,8 @@
         "SLP": 18403
     },
     {
-        "Unit": "\"Age of Empires II\" Background",
-        "Action": "\"Age of Empires II\" Background",
+        "Unit": "Forgotten Empires Background",
+        "Action": "Forgotten Empires Background",
         "SLP": 50163
     },
     {
@@ -15655,9 +15555,24 @@
         "SLP": 50189
     },
     {
-        "Unit": "Building Icons",
-        "Action": "Building Icons",
+        "Unit": "Building Icons A",
+        "Action": "Building Icons A",
         "SLP": 50705
+    },
+    {
+        "Unit": "Building Icons B",
+        "Action": "Building Icons B",
+        "SLP": 50706
+    },
+    {
+        "Unit": "Building Icons C",
+        "Action": "Building Icons C",
+        "SLP": 50707
+    },
+    {
+        "Unit": "Building Icons D",
+        "Action": "Building Icons D",
+        "SLP": 50708
     },
     {
         "Unit": "Technology Icons",
@@ -15670,13 +15585,263 @@
         "SLP": 50730
     },
     {
-        "Unit": "In-Game Options/ Resource Bars",
-        "Action": "In-Game Options/ Resource Bars",
+        "Unit": "In-Game Options/ Resource Bars A",
+        "Action": "In-Game Options/ Resource Bars A",
         "SLP": 51119
     },
     {
-        "Unit": "\"Forgotten Empires\" Text",
-        "Action": "\"Forgotten Empires\" Text",
+        "Unit": "In-Game Options/ Resource Bars B",
+        "Action": "In-Game Options/ Resource Bars B",
+        "SLP": 51120
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars C",
+        "Action": "In-Game Options/ Resource Bars C",
+        "SLP": 51121
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars D",
+        "Action": "In-Game Options/ Resource Bars D",
+        "SLP": 51122
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars E",
+        "Action": "In-Game Options/ Resource Bars E",
+        "SLP": 51123
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars F",
+        "Action": "In-Game Options/ Resource Bars F",
+        "SLP": 51131
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars G",
+        "Action": "In-Game Options/ Resource Bars G",
+        "SLP": 51132
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars H",
+        "Action": "In-Game Options/ Resource Bars H",
+        "SLP": 51133
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars I",
+        "Action": "In-Game Options/ Resource Bars I",
+        "SLP": 51134
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars J",
+        "Action": "In-Game Options/ Resource Bars J",
+        "SLP": 51135
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars K",
+        "Action": "In-Game Options/ Resource Bars K",
+        "SLP": 51136
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars L",
+        "Action": "In-Game Options/ Resource Bars L",
+        "SLP": 51137
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars M",
+        "Action": "In-Game Options/ Resource Bars M",
+        "SLP": 51138
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars N",
+        "Action": "In-Game Options/ Resource Bars N",
+        "SLP": 51139
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars O",
+        "Action": "In-Game Options/ Resource Bars O",
+        "SLP": 51140
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars P",
+        "Action": "In-Game Options/ Resource Bars P",
+        "SLP": 51141
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars Q",
+        "Action": "In-Game Options/ Resource Bars Q",
+        "SLP": 51142
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars R",
+        "Action": "In-Game Options/ Resource Bars R",
+        "SLP": 51143
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars S",
+        "Action": "In-Game Options/ Resource Bars S",
+        "SLP": 51144
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars T",
+        "Action": "In-Game Options/ Resource Bars T",
+        "SLP": 51145
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars U",
+        "Action": "In-Game Options/ Resource Bars U",
+        "SLP": 51146
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars V",
+        "Action": "In-Game Options/ Resource Bars V",
+        "SLP": 51147
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars W",
+        "Action": "In-Game Options/ Resource Bars W",
+        "SLP": 51148
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars X",
+        "Action": "In-Game Options/ Resource Bars X",
+        "SLP": 51149
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars Y",
+        "Action": "In-Game Options/ Resource Bars Y",
+        "SLP": 51150
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars Z",
+        "Action": "In-Game Options/ Resource Bars Z",
+        "SLP": 51151
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AA",
+        "Action": "In-Game Options/ Resource Bars AA",
+        "SLP": 51152
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AB",
+        "Action": "In-Game Options/ Resource Bars AB",
+        "SLP": 51153
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AC",
+        "Action": "In-Game Options/ Resource Bars AC",
+        "SLP": 51161
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AD",
+        "Action": "In-Game Options/ Resource Bars AD",
+        "SLP": 51162
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AE",
+        "Action": "In-Game Options/ Resource Bars AE",
+        "SLP": 51163
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AF",
+        "Action": "In-Game Options/ Resource Bars AF",
+        "SLP": 51164
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AG",
+        "Action": "In-Game Options/ Resource Bars AG",
+        "SLP": 51165
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AH",
+        "Action": "In-Game Options/ Resource Bars AH",
+        "SLP": 51166
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AI",
+        "Action": "In-Game Options/ Resource Bars AI",
+        "SLP": 51167
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AJ",
+        "Action": "In-Game Options/ Resource Bars AJ",
+        "SLP": 51168
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AK",
+        "Action": "In-Game Options/ Resource Bars AK",
+        "SLP": 51169
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AL",
+        "Action": "In-Game Options/ Resource Bars AL",
+        "SLP": 51170
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AM",
+        "Action": "In-Game Options/ Resource Bars AM",
+        "SLP": 51171
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AN",
+        "Action": "In-Game Options/ Resource Bars AN",
+        "SLP": 51172
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AO",
+        "Action": "In-Game Options/ Resource Bars AO",
+        "SLP": 51173
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AP",
+        "Action": "In-Game Options/ Resource Bars AP",
+        "SLP": 51174
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AQ",
+        "Action": "In-Game Options/ Resource Bars AQ",
+        "SLP": 51175
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AR",
+        "Action": "In-Game Options/ Resource Bars AR",
+        "SLP": 51176
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AS",
+        "Action": "In-Game Options/ Resource Bars AS",
+        "SLP": 51177
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AT",
+        "Action": "In-Game Options/ Resource Bars AT",
+        "SLP": 51178
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AU",
+        "Action": "In-Game Options/ Resource Bars AU",
+        "SLP": 51179
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AV",
+        "Action": "In-Game Options/ Resource Bars AV",
+        "SLP": 51180
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AW",
+        "Action": "In-Game Options/ Resource Bars AW",
+        "SLP": 51181
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AX",
+        "Action": "In-Game Options/ Resource Bars AX",
+        "SLP": 51182
+    },
+    {
+        "Unit": "In-Game Options/ Resource Bars AY",
+        "Action": "In-Game Options/ Resource Bars AY",
+        "SLP": 51183
+    },
+    {
+        "Unit": "Forgotten Empires Text",
+        "Action": "Forgotten Empires Text",
         "SLP": 53207
     },
     {
@@ -15688,5 +15853,85 @@
         "Unit": "Color Inverted Background Portraits from the \"History\" Section.",
         "Action": "Color Inverted Background Portraits from the \"History\" Section.",
         "SLP": 53209
+    },
+    {
+        "Unit": "Archer (Alt)",
+        "Action": "Idle",
+        "SLP": 99901
+    },
+    {
+        "Unit": "Archer (Alt)",
+        "Action": "Idle",
+        "SLP": 99901
+    },
+    {
+        "Unit": "Shadow of Middle East Monastery (Alt)",
+        "Action": "Shadow of Middle East Monastery (Alt)",
+        "SLP": 99902
+    },
+    {
+        "Unit": "North European Trade Workshop (Alt)",
+        "Action": "North European Trade Workshop (Alt)",
+        "SLP": 99903
+    },
+    {
+        "Unit": "Far East Trade Workshop (Alt)",
+        "Action": "Far East Trade Workshop (Alt)",
+        "SLP": 99904
+    },
+    {
+        "Unit": "Middle East Trade Workshop (Alt)",
+        "Action": "Middle East Trade Workshop (Alt)",
+        "SLP": 99905
+    },
+    {
+        "Unit": "West European Trade Workshop (Alt)",
+        "Action": "West European Trade Workshop (Alt)",
+        "SLP": 99906
+    },
+    {
+        "Unit": "Cobra Car (Alt)",
+        "Action": "Cobra Car (Alt)",
+        "SLP": 99907
+    },
+    {
+        "Unit": "Sea Tower (Alt)",
+        "Action": "Sea Tower (Alt)",
+        "SLP": 99908
+    },
+    {
+        "Unit": "Amerindian Trade Workshop (Alt)",
+        "Action": "Amerindian Trade Workshop (Alt)",
+        "SLP": 99909
+    },
+    {
+        "Unit": "Shadow of 5218 (Alt)",
+        "Action": "Shadow of 5218 (Alt)",
+        "SLP": 99910
+    },
+    {
+        "Unit": "Shadow of 5219 (Alt)",
+        "Action": "Shadow of 5219 (Alt)",
+        "SLP": 99911
+    },
+    {
+        "Unit": "Shadow of 5220 (Alt)",
+        "Action": "Shadow of 5220 (Alt)",
+        "SLP": 99912
+    },
+    {
+        "Unit": "Turtle Ship (Alt)",
+        "Action": "Attacking",
+        "SLP": 99913
+    },
+    {
+        "Unit": "Turtle Ship (Alt)",
+        "Action": "Idle",
+        "SLP": 99914
+    },
+    {
+        "Unit": "Turtle Ship (Alt)",
+        "Action": "Walking",
+        "SLP": 99915
     }
 ]

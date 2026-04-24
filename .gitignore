@@ -1,7 +1,3 @@
-remotebucket/
-examples/
-oldexamples/
-newexamples/
 node_modules/
 .wrangler/
 .dev.vars
@@ -22,3 +18,5 @@ public/gif/oldexamples
 # fine; committing them is not.
 public/gif/testgraphics/slp/*.slp
 public/gif/testgraphics/sld/*.sld
+
+local/
