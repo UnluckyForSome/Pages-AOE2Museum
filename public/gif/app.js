@@ -776,10 +776,12 @@ const slp = (function () {
       await loadMapping();
       populateUnits();
       setProgress(100, { holdMs: 400 });
-      setStatus("Ready \u00b7 " + mapping.units.length + " units", "success");
+      setStatus("Ready", "success");
+      if (unitInput) unitInput.placeholder = "Search " + mapping.units.length + " units...";
     } catch (err) {
       setProgress(100, { holdMs: 1500 });
       setStatus((err && err.message) || "Failed to load unit index", "error");
+      if (unitInput) unitInput.placeholder = "Search units...";
     }
     refresh();
   }
@@ -860,13 +862,15 @@ const sld = (function () {
         index = buildIndex(flat);
         populateUnits();
         setProgress(100, { holdMs: 400 });
-        setStatus("Ready \u00b7 " + index.units.length + " DE units", "success");
+        setStatus("Ready", "success");
+        if (unitInput) unitInput.placeholder = "Search " + index.units.length + " units...";
         refresh();
         return index;
       })
       .catch(function (err) {
         setProgress(100, { holdMs: 1500 });
         setStatus((err && err.message) || "Failed to load SLD catalogue", "error");
+        if (unitInput) unitInput.placeholder = "Search units...";
         indexPromise = null; // allow retry
         throw err;
       });

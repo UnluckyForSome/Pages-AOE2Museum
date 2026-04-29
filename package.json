@@ -11,10 +11,12 @@
     "deploy": "wrangler deploy",
     "check": "wrangler check",
     "check:garage": "node scripts/check-garage.mjs",
-    "db:migrate:scenarios": "wrangler d1 execute scenarios --file=src/scenarios/db/schema.sql --remote"
+    "db:migrate:scenarios": "wrangler d1 execute scenarios --file=src/scenarios/db/schema.sql --remote",
+    "db:migrate:scenarios:local": "wrangler d1 execute scenarios --file=src/scenarios/db/schema.sql --local"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250419.0",
+    "esbuild": "^0.28.0",
     "gifuct-js": "^2.1.2",
     "typescript": "^5.8.3",
     "wrangler": "^4.83.0"

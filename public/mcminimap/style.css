@@ -19,6 +19,11 @@
 
 .stack { display: flex; flex-direction: column; gap: var(--s-3); }
 
+/* Make the control card fill the grid row so the scenario picker can scroll
+   internally on desktop (matching the GIF control panel behavior). */
+.gen-grid > .card { display: flex; flex-direction: column; min-height: 0; }
+.gen-grid > .card > .stack { flex: 1 1 auto; min-height: 0; }
+
 /* ---- square preview ------------------------------------------------- */
 
 .imgwrap {
@@ -88,6 +93,300 @@
   font-family: var(--font-mono);
 }
 .dz-browse { margin-top: 6px; }
+
+/* ---- picker (always-open filterable listbox; shared shape with /gif/) ---- */
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+.picker__label { margin-bottom: 0; }
+.picker__search { width: 100%; flex: 0 0 auto; }
+.picker__list {
+  flex: 1 1 0;          /* basis 0 so list content never forces parent growth */
+  min-height: 0;        /* allow shrinking below content so overflow kicks in */
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+@media (max-width: 899px) {
+  .picker__list {
+    flex: none;
+    height: 200px;
+  }
+}
+.picker__option {
+  padding: 6px 10px;
+  border-radius: calc(var(--r-md) - 3px);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.picker__option:hover,
+.picker__option[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--gold-glow);
+}
+.picker__option[aria-current="true"] {
+  background: var(--accent-soft);
+  color: var(--gold-glow);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+.picker__option--empty {
+  color: var(--text-muted);
+  font-style: italic;
+  cursor: default;
+}
+.picker__option--empty:hover { background: transparent; color: var(--text-muted); }
+
+.picker__list[aria-disabled="true"] {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.ms-suggest {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ms-suggest__platform {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  display: inline-block;
+  background: currentColor;
+  opacity: 0.95;
+  /* mask-based icons: fast + local, no extra requests */
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  -webkit-mask-size: 16px 16px;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  mask-size: 16px 16px;
+}
+
+/* Simple, recognizable glyph icons (inline SVG masks) */
+.ms-suggest__platform--steam {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 2C15.4 2 2 15.4 2 32s13.4 30 30 30 30-13.4 30-30S48.6 2 32 2zm14.9 21.2a9.8 9.8 0 0 1-9.8 9.8c-.8 0-1.6-.1-2.3-.3l-6.9 10a8.7 8.7 0 1 1-7.2-3.8c.8 0 1.6.1 2.3.3l6.9-10a9.8 9.8 0 1 1 17-5.7zm-9.8-6.2a6.2 6.2 0 1 0 0 12.4 6.2 6.2 0 0 0 0-12.4zM20.7 41a5.1 5.1 0 1 0 0 10.2 5.1 5.1 0 0 0 0-10.2z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 2C15.4 2 2 15.4 2 32s13.4 30 30 30 30-13.4 30-30S48.6 2 32 2zm14.9 21.2a9.8 9.8 0 0 1-9.8 9.8c-.8 0-1.6-.1-2.3-.3l-6.9 10a8.7 8.7 0 1 1-7.2-3.8c.8 0 1.6.1 2.3.3l6.9-10a9.8 9.8 0 1 1 17-5.7zm-9.8-6.2a6.2 6.2 0 1 0 0 12.4 6.2 6.2 0 0 0 0-12.4zM20.7 41a5.1 5.1 0 1 0 0 10.2 5.1 5.1 0 0 0 0-10.2z'/%3E%3C/svg%3E");
+}
+.ms-suggest__platform--xbox {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 2C15.4 2 2 15.4 2 32s13.4 30 30 30 30-13.4 30-30S48.6 2 32 2zm0 8.3c6.2 0 11.9 2.5 16 6.6-2.7-1.2-5.5-.8-8.2.2-2.7 1-5.2 2.7-7.8 5.2-2.6-2.5-5.1-4.2-7.8-5.2-2.7-1-5.5-1.4-8.2-.2 4.1-4.1 9.8-6.6 16-6.6zm-18.2 13c1.8-2.6 5.3-2.4 8.7-.9 3.1 1.4 6.3 4 9.5 7.7-4.6 5.3-9 11.6-12.5 19.4-1.9-1.2-3.6-2.8-5-4.6A21.7 21.7 0 0 1 13.8 23.3zm36.4 0A21.7 21.7 0 0 1 49.5 45c-1.4 1.8-3.1 3.4-5 4.6-3.5-7.8-7.9-14.1-12.5-19.4 3.2-3.7 6.4-6.3 9.5-7.7 3.4-1.5 6.9-1.7 8.7.9z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 2C15.4 2 2 15.4 2 32s13.4 30 30 30 30-13.4 30-30S48.6 2 32 2zm0 8.3c6.2 0 11.9 2.5 16 6.6-2.7-1.2-5.5-.8-8.2.2-2.7 1-5.2 2.7-7.8 5.2-2.6-2.5-5.1-4.2-7.8-5.2-2.7-1-5.5-1.4-8.2-.2 4.1-4.1 9.8-6.6 16-6.6zm-18.2 13c1.8-2.6 5.3-2.4 8.7-.9 3.1 1.4 6.3 4 9.5 7.7-4.6 5.3-9 11.6-12.5 19.4-1.9-1.2-3.6-2.8-5-4.6A21.7 21.7 0 0 1 13.8 23.3zm36.4 0A21.7 21.7 0 0 1 49.5 45c-1.4 1.8-3.1 3.4-5 4.6-3.5-7.8-7.9-14.1-12.5-19.4 3.2-3.7 6.4-6.3 9.5-7.7 3.4-1.5 6.9-1.7 8.7.9z'/%3E%3C/svg%3E");
+}
+.ms-suggest__platform--playstation {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M24 6c7.6 1.2 13.3 4.6 17.1 10.2 2.3 3.4 3.4 7.2 3.4 11.3 0 5.8-2.3 10.7-6.9 14.7-1.8 1.5-4.1 2.9-6.9 4.1V22.6c0-2.2-.7-4-2.2-5.5-1.4-1.4-3.1-2.1-5.1-2.1H24V6zm6.7 50.7-8.4 2.2c-3 .8-6.1-.8-6.9-3.7-.8-3 .8-6.1 3.7-6.9l11.6-3V39l-15 3.8c-1.4.4-2.4 1.8-2.4 3.2 0 1.7 1.4 3 3.1 3 .3 0 .5 0 .8-.1L30.7 46v10.7zm10.1-3.7-8.6 2.3V50l8.5-2.2c2.4-.6 5 .8 5.7 3.2.7 2.4-.8 5-3.2 5.7z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M24 6c7.6 1.2 13.3 4.6 17.1 10.2 2.3 3.4 3.4 7.2 3.4 11.3 0 5.8-2.3 10.7-6.9 14.7-1.8 1.5-4.1 2.9-6.9 4.1V22.6c0-2.2-.7-4-2.2-5.5-1.4-1.4-3.1-2.1-5.1-2.1H24V6zm6.7 50.7-8.4 2.2c-3 .8-6.1-.8-6.9-3.7-.8-3 .8-6.1 3.7-6.9l11.6-3V39l-15 3.8c-1.4.4-2.4 1.8-2.4 3.2 0 1.7 1.4 3 3.1 3 .3 0 .5 0 .8-.1L30.7 46v10.7zm10.1-3.7-8.6 2.3V50l8.5-2.2c2.4-.6 5 .8 5.7 3.2.7 2.4-.8 5-3.2 5.7z'/%3E%3C/svg%3E");
+}
+.ms-suggest__platform--other {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 6a26 26 0 1 0 0 52 26 26 0 0 0 0-52zm0 10a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm6 34H26v-4h4v-8h-4v-4h10v12h2v4z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M32 6a26 26 0 1 0 0 52 26 26 0 0 0 0-52zm0 10a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm6 34H26v-4h4v-8h-4v-4h10v12h2v4z'/%3E%3C/svg%3E");
+}
+
+.ms-suggest__flag {
+  width: 18px;
+  flex: 0 0 18px;
+  text-align: center;
+  font-size: 1rem;
+  line-height: 1; /* avoid changing row height */
+}
+
+.ms-suggest__alias {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker__divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 0;
+  flex: 0 0 auto;
+}
+
+/* Listbox shells: border lives on the shell so the loading overlay never obscures the outline */
+.picker__list-shell {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-sizing: border-box;
+  background: var(--bg-panel);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.picker__list-shell > .picker__list {
+  flex: 1 1 0;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.picker__list-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  /* Dim only the inner area; shell border stays fully opaque */
+  background: rgba(8, 8, 16, 0.42);
+  pointer-events: none;
+}
+
+.picker__list-loading[hidden] {
+  display: none !important;
+}
+
+.picker__spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2.5px solid color-mix(in srgb, var(--gold-dim) 55%, var(--border));
+  border-top-color: var(--gold);
+  animation: picker-spinner-rotate 0.65s linear infinite;
+}
+
+@keyframes picker-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Primary render action at bottom of control stack (same idea as /gif/) */
+.gen-grid > .card > .stack > .btn--submit {
+  margin-top: auto;
+  width: 100%;
+  font-weight: 700;
+}
+
+/* ---- or section ----------------------------------------------------- */
+
+.or {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.or__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  text-align: center;
+  margin-top: -2px;
+}
+
+/* ---- modal popups --------------------------------------------------- */
+
+.modal-backdrop[hidden] { display: none; }
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 500; /* above page content + nav */
+  background: rgba(8, 8, 16, 0.62);
+  backdrop-filter: blur(2px);
+  display: grid;
+  place-items: center;
+  padding: var(--s-4);
+}
+
+.modal {
+  width: min(720px, calc(100vw - 2 * var(--s-4)));
+  height: min(80vh, 900px);
+  max-height: 88vh;
+  display: flex;
+  align-items: stretch;
+}
+
+.modal__card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-height: 0;
+}
+
+.modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  padding-bottom: var(--s-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.modal__title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--gold-glow);
+}
+
+.modal__close {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text);
+  border-radius: var(--r-md);
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+.modal__close:hover {
+  border-color: var(--gold-dim);
+  color: var(--gold-glow);
+}
+.modal__close:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s-2);
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--border);
+}
+
+.modal__footer .btn {
+  min-width: 110px;
+}
+
+/* Make picker scroll inside the modal card */
+.modal .picker { flex: 1 1 auto; min-height: 0; }
+.modal .picker__list-shell,
+.modal .picker__list { flex: 1 1 0; min-height: 0; }
+
+@media (max-width: 520px) {
+  .modal-backdrop { padding: var(--s-3); }
+  .modal { width: 100%; height: 84vh; max-height: 90vh; }
+}
 
 /* ---- field labels + sections ---------------------------------------- */
 

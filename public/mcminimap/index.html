@@ -107,7 +107,7 @@
                   tabindex="0"
                   aria-label="Upload scenario or recording. Drop a file, or press Enter to browse."
                 >
-                  <div class="dz-title">Drop file here</div>
+                  <div class="dz-title">Drop a file here</div>
                   <div id="file-meta" class="dz-meta">No file selected</div>
                   <div class="dz-hint">
                     .aoe2scenario &middot; .scx &middot; .scn &middot; .mgz &middot; .mgx &middot; .mgl &middot; .aoe2record
@@ -119,6 +119,25 @@
                   >Browse&hellip;</button>
                 </div>
 
+                <div class="or">
+                  <div class="or__label" aria-hidden="true">Or&hellip;</div>
+                  <button
+                    type="button"
+                    class="btn btn--small btn--ghost"
+                    id="open-scenario-modal"
+                  >Use a Scenario from our Archive</button>
+                  <button
+                    type="button"
+                    class="btn btn--small btn--ghost"
+                    id="open-aocrec-modal"
+                  >Use a recording from aocrec.com</button>
+                  <button
+                    type="button"
+                    class="btn btn--small btn--ghost"
+                    id="open-microsoft-modal"
+                  >Use a recording from Microsoft</button>
+                </div>
+
                 <div>
                   <span id="preset-label" class="field-label">Preset</span>
                   <div class="segmented" role="radiogroup" aria-labelledby="preset-label">
@@ -128,7 +147,7 @@
                   </div>
                 </div>
 
-                <button id="submit" class="btn" type="submit">Render minimap</button>
+                <button id="submit" class="btn btn--submit" type="submit">Render Minimap</button>
               </div>
             </div>
 
@@ -275,6 +294,112 @@
         </form>
       </section>
 
+      <!-- Popups --------------------------------------------------------- -->
+      <div class="modal-backdrop" id="scenario-modal" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="scenario-modal-title">
+          <div class="card modal__card">
+            <div class="modal__head">
+              <div class="modal__title" id="scenario-modal-title">Archived Scenario</div>
+              <button type="button" class="modal__close" data-modal-close aria-label="Close">×</button>
+            </div>
+            <div class="picker" id="scenario-picker-modal">
+              <label class="visually-hidden" for="scenario-search">Search scenarios</label>
+              <input
+                id="scenario-search"
+                class="picker__search"
+                type="search"
+                role="searchbox"
+                aria-controls="scenario-list"
+                placeholder="Search scenarios..."
+                autocomplete="off"
+              />
+              <div class="picker__list-shell">
+                <div id="scenario-loading" class="picker__list-loading" hidden>
+                  <span class="picker__spinner" aria-hidden="true"></span>
+                  <span class="visually-hidden">Loading scenarios…</span>
+                </div>
+                <ul id="scenario-list" class="picker__list" role="listbox"></ul>
+              </div>
+            </div>
+            <div class="modal__footer">
+              <button type="button" class="btn btn--small btn--ghost" id="scenario-cancel-btn" data-modal-close>Cancel</button>
+              <button type="button" class="btn btn--small" id="scenario-select-btn" disabled>Select</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-backdrop" id="aocrec-modal" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="aocrec-modal-title">
+          <div class="card modal__card">
+            <div class="modal__head">
+              <div class="modal__title" id="aocrec-modal-title">aocrec.com recordings</div>
+              <button type="button" class="modal__close" data-modal-close aria-label="Close">×</button>
+            </div>
+            <div class="picker" id="aocrec-picker">
+              <p class="hint">
+                Only fetching the last 20 matches uploaded to AOCRec.com.
+                Find their full archive
+                <a href="https://aocrec.com/" target="_blank" rel="noreferrer">here</a>.
+              </p>
+              <div class="picker__list-shell">
+                <div id="aocrec-loading" class="picker__list-loading" hidden>
+                  <span class="picker__spinner" aria-hidden="true"></span>
+                  <span class="visually-hidden">Loading recordings…</span>
+                </div>
+                <ul id="aocrec-list" class="picker__list" role="listbox"></ul>
+              </div>
+            </div>
+            <div class="modal__footer">
+              <button type="button" class="btn btn--small btn--ghost" id="aocrec-cancel-btn" data-modal-close>Cancel</button>
+              <button type="button" class="btn btn--small" id="aocrec-select-btn" disabled>Select</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-backdrop" id="microsoft-modal" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="microsoft-modal-title">
+          <div class="card modal__card">
+            <div class="modal__head">
+              <div class="modal__title" id="microsoft-modal-title">Microsoft recordings</div>
+              <button type="button" class="modal__close" data-modal-close aria-label="Close">×</button>
+            </div>
+            <div class="picker" id="microsoft-picker">
+              <label class="visually-hidden" for="ms-profile-search">Search usernames</label>
+              <input
+                id="ms-profile-search"
+                class="picker__search"
+                type="search"
+                role="searchbox"
+                aria-controls="ms-profile-list"
+                placeholder="Search usernames..."
+                autocomplete="off"
+              />
+              <div class="picker__list-shell">
+                <div id="ms-profile-loading" class="picker__list-loading" hidden>
+                  <span class="picker__spinner" aria-hidden="true"></span>
+                  <span class="visually-hidden">Searching players…</span>
+                </div>
+                <ul id="ms-profile-list" class="picker__list" role="listbox"></ul>
+              </div>
+              <div class="picker__divider"></div>
+              <div class="picker__list-shell">
+                <div id="ms-match-loading" class="picker__list-loading" hidden>
+                  <span class="picker__spinner" aria-hidden="true"></span>
+                  <span class="visually-hidden">Loading matches…</span>
+                </div>
+                <ul id="ms-match-list" class="picker__list" role="listbox" aria-label="Recent matches"></ul>
+              </div>
+            </div>
+            <div class="modal__footer">
+              <button type="button" class="btn btn--small btn--ghost" id="ms-cancel-btn" data-modal-close>Cancel</button>
+              <button type="button" class="btn btn--small" id="ms-select-btn" disabled>Select</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Gallery tab --------------------------------------------------- -->
       <section
         class="panel"
@@ -297,6 +422,7 @@
     <footer>AoE2 Museum</footer>
 
     <script src="/js/museum-nav.js" defer></script>
+    <script type="module" src="/mcminimap/vendor/fflate-shim.js"></script>
     <script src="/mcminimap/app.js" defer></script>
   </body>
 </html>

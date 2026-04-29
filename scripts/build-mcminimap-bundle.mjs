@@ -30,10 +30,13 @@ const outDir = resolve(repoRoot, "public/mcminimap/vendor");
 const tarPath = join(outDir, "aoe2mcminimap.tar");
 const manifestPath = join(outDir, "manifest.json");
 
+// Bump when packaging rules change (submodule SHA alone is not enough to invalidate).
+const BUNDLE_SPEC_VERSION = 2;
+
 // Submodule top-level entries to ship to the browser.
 const SUBMODULE_INCLUDE = ["McMinimap.py", "data", "emblems", "legacy"];
-// Inside `legacy`, only the mgz_legacy tree is needed at runtime.
-const LEGACY_KEEP = new Set(["mgz_legacy"]);
+// Inside `legacy`, ship mgz_legacy (recordings) plus agescx_legacy (.scn / .scx classic scenarios).
+const LEGACY_KEEP = new Set(["mgz_legacy", "agescx_legacy.py"]);
 
 const SKIP_DIRS = new Set(["__pycache__", ".git", "examples", "tests"]);
 
@@ -187,6 +190,7 @@ function main() {
   const prev = readManifest();
   if (
     prev &&
+    prev.specVersion === BUNDLE_SPEC_VERSION &&
     prev.sourceSha === sha &&
     shallowEqual(prev.pylibs, pylibs) &&
     existsSync(tarPath)
@@ -206,6 +210,7 @@ function main() {
   const bytes = statSync(tarPath).size;
 
   const manifest = {
+    specVersion: BUNDLE_SPEC_VERSION,
     sourceSha: sha,
     pylibs,
     builtAt: new Date().toISOString(),

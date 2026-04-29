@@ -15,7 +15,10 @@
     },
     {
       "binding": "BUCKET",
-      "bucket_name": "scenarios"
+      "bucket_name": "scenarios",
+      // During `wrangler dev`, use the deployed bucket so scenario downloads
+      // match rows returned from remote D1 (local Miniflare R2 has no objects).
+      "remote": true
     }
   ],
   "kv_namespaces": [
@@ -28,7 +31,9 @@
     {
       "binding": "DB",
       "database_name": "scenarios",
-      "database_id": "94e77071-f016-4073-9c1a-c9012424b48d"
+      "database_id": "94e77071-f016-4073-9c1a-c9012424b48d",
+      // During `wrangler dev`, query the real D1 (local DB is empty / unmigrated → 500 on /api/scenarios).
+      "remote": true
     }
   ],
   // Non-secret config for the Garage S3 backend that hosts the raw SLP/SLD
