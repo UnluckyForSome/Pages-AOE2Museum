@@ -4,22 +4,27 @@
   "scripts": {
     "sync:mcminimap": "node scripts/sync-mcminimap.mjs",
     "fetch:pylibs": "node scripts/fetch-pylibs.mjs",
-    "build:mcminimap": "npm run sync:mcminimap && npm run fetch:pylibs && node scripts/build-mcminimap-bundle.mjs",
+    "build:genie-scx-wasm": "node scripts/build-genie-scx-wasm.mjs",
+    "build:mcminimap": "npm run sync:mcminimap && npm run fetch:pylibs && npm run build:genie-scx-wasm && node scripts/build-mcminimap-bundle.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "predev": "npm run build:mcminimap",
     "dev": "wrangler dev",
     "predeploy": "npm run build:mcminimap",
     "deploy": "wrangler deploy",
-    "check": "wrangler check",
+    "check": "npm run typecheck",
     "check:garage": "node scripts/check-garage.mjs",
-    "db:migrate:scenarios": "wrangler d1 execute scenarios --file=src/scenarios/db/schema.sql --remote",
-    "db:migrate:scenarios:local": "wrangler d1 execute scenarios --file=src/scenarios/db/schema.sql --local"
+    "db:migrate:scenarios": "wrangler d1 execute scenarios --file=server/scenarios/db/schema.sql --remote",
+    "db:migrate:scenarios:local": "wrangler d1 execute scenarios --file=server/scenarios/db/schema.sql --local"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250419.0",
+    "aoe2-rms-parser": "^2.0.1",
     "esbuild": "^0.28.0",
+    "genie-rms": "github:genie-js/genie-rms",
     "gifuct-js": "^2.1.2",
+    "patch-package": "^8.0.1",
     "typescript": "^5.8.3",
-    "wrangler": "^4.83.0"
+    "wrangler": "^4.87.0"
   },
   "dependencies": {
     "aws4fetch": "^1.0.20",

@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "aoe2museum",
-  "main": "src/index.ts",
+  "main": "server/worker/index.ts",
   "compatibility_date": "2026-04-19",
   "assets": {
     "directory": "./public",
@@ -37,7 +37,7 @@
     }
   ],
   // Non-secret config for the Garage S3 backend that hosts the raw SLP/SLD
-  // sprites consumed by the /gif/ app. Credentials are stored as Wrangler
+  // sprites consumed by the /pages/gif/ app. Credentials are stored as Wrangler
   // secrets, not here:
   //   wrangler secret put GARAGE_ACCESS_KEY_ID
   //   wrangler secret put GARAGE_SECRET_ACCESS_KEY

@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/assets/favicon/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon/favicon-16x16.png" />
+    <title>Campaign Extractor - AoE2 Museum</title>
+    <meta
+      name="description"
+      content="Unpack and pack Genie engine campaign files (.cpn, .cpx, .aoecpn, .aoe2campaign) entirely in your browser. Pure-JS port of withmorten/rge_campaign."
+    />
+    <link rel="stylesheet" href="/assets/css/museum.css" />
+    <link rel="stylesheet" href="/pages/scenarios/css/style.css" />
+    <link rel="stylesheet" href="/pages/campaignmanager/style.css" />
+  </head>
+  <body>
+    <nav class="site-nav" aria-label="Site">
+      <div class="site-nav__bar">
+        <a class="site-nav__logo" href="/">AoE2 Museum</a>
+        <button
+          type="button"
+          class="site-nav__toggle"
+          id="site-nav-toggle"
+          aria-expanded="false"
+          aria-controls="site-nav-menu"
+          aria-label="Open menu"
+        >
+          <span class="site-nav__burger" aria-hidden="true">
+            <span class="site-nav__burger-line"></span>
+            <span class="site-nav__burger-line"></span>
+            <span class="site-nav__burger-line"></span>
+          </span>
+        </button>
+      </div>
+      <div class="site-nav__backdrop" aria-hidden="true"></div>
+      <div id="site-nav-menu" class="site-nav__drawer">
+        <div class="site-nav__links">
+          <a href="/">Home</a>
+          <a href="/pages/minimap/">McMinimap</a>
+          <a href="/pages/scenarios/">Scenarios</a>
+          <a href="/pages/gif/">GIFs</a>
+          <a href="/pages/campaignmanager/" aria-current="page">Campaigns</a>
+          <a href="/pages/contact/">Contact</a>
+        </div>
+      </div>
+    </nav>
+
+    <main>
+      <h1 class="page-title">Campaign Extractor</h1>
+
+      <div class="tabs-bar">
+        <nav class="tabs" role="tablist" aria-label="Campaign tools">
+          <button
+            class="tab"
+            role="tab"
+            id="tab-extract"
+            aria-selected="true"
+            aria-controls="panel-extract"
+            data-tab="extract"
+          >Extract</button>
+          <button
+            class="tab"
+            role="tab"
+            id="tab-pack"
+            aria-selected="false"
+            aria-controls="panel-pack"
+            data-tab="pack"
+          >Pack</button>
+        </nav>
+      </div>
+
+      <!-- Extract tab ----------------------------------------------------- -->
+      <section
+        class="panel"
+        id="panel-extract"
+        role="tabpanel"
+        aria-labelledby="tab-extract"
+      >
+        <div class="page-intro">
+          <p>
+            Drop a campaign file to inspect and extract its scenarios. The Genie engine
+            packs multiple <code>.scn</code>/<code>.scx</code>/<code>.aoescn</code>/<code>.aoe2scenario</code>
+            files into a single archive &mdash; this tool reads <code>.cpn</code>, <code>.cpx</code>
+            (AoE1&nbsp;&rarr;&nbsp;AoC), <code>.aoecpn</code> (AoE1: DE) and
+            <code>.aoe2campaign</code> (AoE2: DE).
+          </p>
+          <p>
+            Everything runs in your browser. No file ever leaves your machine.
+          </p>
+        </div>
+
+        <form class="card card--narrow upload-form" id="extract-form">
+          <div class="drop-zone" id="extract-drop">
+            <p class="drop-zone-text">Drag a campaign file here</p>
+            <p class="drop-zone-hint">or</p>
+            <label class="btn btn--small btn--ghost" for="extract-file">Browse&hellip;</label>
+            <input
+              type="file"
+              id="extract-file"
+              accept=".cpn,.cpx,.aoecpn,.aoe2campaign"
+            />
+          </div>
+        </form>
+
+        <div class="statusbar statusbar--idle" id="extract-status" hidden>
+          <div class="statusbar__fill"></div>
+          <div class="statusbar__text" id="extract-status-text"></div>
+        </div>
+
+        <section class="card extract-result" id="extract-result" hidden>
+          <header class="extract-result__head">
+            <div>
+              <h2 class="extract-result__title" id="extract-campaign-name">&mdash;</h2>
+              <p class="extract-result__meta" id="extract-campaign-meta"></p>
+            </div>
+            <div class="extract-result__actions">
+              <button type="button" class="btn" id="extract-zip-btn">
+                Download all (.zip)
+              </button>
+            </div>
+          </header>
+
+          <table class="campaign-table" id="campaign-table">
+            <thead>
+              <tr>
+                <th class="col-num">#</th>
+                <th class="col-name">Name</th>
+                <th class="col-file">Filename</th>
+                <th class="col-size">Size</th>
+                <th class="col-dl"></th>
+              </tr>
+            </thead>
+            <tbody id="campaign-tbody"></tbody>
+          </table>
+        </section>
+      </section>
+
+      <!-- Pack tab -------------------------------------------------------- -->
+      <section
+        class="panel"
+        id="panel-pack"
+        role="tabpanel"
+        aria-labelledby="tab-pack"
+        hidden
+      >
+        <div class="page-intro">
+          <p>
+            Build a campaign file from a set of scenarios. Pick a target format,
+            give the campaign a name, then drop scenario files in the order you
+            want them to appear in-game. Output is byte-compatible with
+            withmorten's
+            <a href="https://github.com/withmorten/rge_campaign" rel="noopener">rge_campaign</a>
+            tool.
+          </p>
+        </div>
+
+        <form class="card card--narrow upload-form" id="pack-form">
+          <div class="pack-meta">
+            <label class="pack-field">
+              <span>Campaign name</span>
+              <input
+                type="text"
+                id="pack-name"
+                placeholder="My Campaign"
+                maxlength="255"
+                required
+              />
+            </label>
+            <label class="pack-field">
+              <span>Format</span>
+              <select id="pack-ext">
+                <option value="aoe2campaign">.aoe2campaign &mdash; AoE2 DE</option>
+                <option value="aoecpn">.aoecpn &mdash; AoE1 DE</option>
+                <option value="cpn">.cpn &mdash; AoE1 / AoC</option>
+                <option value="cpx">.cpx &mdash; AoE1 / AoC</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="drop-zone" id="pack-drop">
+            <p class="drop-zone-text">Drag scenario files here</p>
+            <p class="drop-zone-hint">or</p>
+            <label class="btn btn--small btn--ghost" for="pack-file">Browse&hellip;</label>
+            <input
+              type="file"
+              id="pack-file"
+              accept=".scn,.scx,.aoescn,.aoe2scenario"
+              multiple
+            />
+          </div>
+
+          <div class="file-list pack-list hidden" id="pack-list">
+            <p class="file-list-title">Scenarios (drag to reorder):</p>
+            <ul id="pack-list-items"></ul>
+          </div>
+
+          <p class="pack-warning hidden" id="pack-warning"></p>
+
+          <button type="submit" class="btn" id="pack-btn" disabled>
+            Build campaign
+          </button>
+        </form>
+      </section>
+    </main>
+
+    <footer>AoE2 Museum</footer>
+
+    <script src="/modules/site/museum-nav.js" defer></script>
+    <script type="module" src="/pages/campaignmanager/app.js"></script>
+  </body>
+</html>

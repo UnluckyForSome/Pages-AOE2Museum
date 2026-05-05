@@ -1,0 +1,15 @@
+[package]
+name = "genie-scx-wasm"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+genie-scx = { path = "../genie-scx" }
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+

@@ -3,12 +3,12 @@
 //   node scripts/test-slp.mjs [path/to/file.slp]
 
 import { readFileSync, writeFileSync } from "fs";
-import { STANDARD_PALETTE } from "../public/gif/palette.js";
+import { STANDARD_PALETTE } from "../public/modules/unit-gifs/palette.js";
 import {
   GIFEncoder,
   quantize,
   applyPalette,
-} from "../public/gif/vendor/gifenc.esm.js";
+} from "../public/modules/gifenc/gifenc.esm.js";
 
 const SLP_END_OF_ROW = 0x0f;
 const SLP_COLOR_LIST = 0x00;
@@ -174,7 +174,7 @@ function renderRGBA(frame, parsed, palette, player, drawOutline) {
 
 // ---- run ----------------------------------------------------------------
 
-const slpPath = process.argv[2] || "public/gif/testgraphics/slp/5207.slp";
+const slpPath = process.argv[2] || "public/pages/gif/testgraphics/slp/5207.slp";
 const buf = readFileSync(slpPath);
 const bytes = new Uint8Array(buf);
 const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);

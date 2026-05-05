@@ -2,7 +2,7 @@
 // Smoke test for the Garage S3 integration. Reads credentials and config from
 // the environment, lists the first few keys of each bucket, and prints a
 // short summary. Intended to be run manually before deploying a change to the
-// /gif/ backend.
+// /pages/gif/ backend (Garage proxy via Worker).
 //
 // Required env vars:
 //   AWS_ACCESS_KEY_ID

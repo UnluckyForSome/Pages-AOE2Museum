@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Packs the runtime-needed slice of the AOE2-McMinimap submodule (repo-root
-// vendor/aoe2mcminimap) plus vendor/pylibs into a single tar at
-// public/mcminimap/vendor/aoe2mcminimap.tar, plus a manifest.json describing
+// sourcemodules/aoe2mcminimap) plus sourcemodules/construct + sourcemodules/aocref into a single tar at
+// public/modules/aoe2mcminimap/aoe2mcminimap.tar, plus a manifest.json describing
 // the source SHAs and contents.
 //
 // Cache-gated: if the submodule HEAD SHA and every vendored pylib version
@@ -24,19 +24,21 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
-const submoduleDir = resolve(repoRoot, "vendor/aoe2mcminimap");
-const pylibsDir = resolve(repoRoot, "vendor/pylibs");
-const outDir = resolve(repoRoot, "public/mcminimap/vendor");
+const submoduleDir = resolve(repoRoot, "sourcemodules/aoe2mcminimap");
+const constructDir = resolve(repoRoot, "sourcemodules/construct");
+const aocrefDir = resolve(repoRoot, "sourcemodules/aocref");
+const outDir = resolve(repoRoot, "public/modules/aoe2mcminimap");
 const tarPath = join(outDir, "aoe2mcminimap.tar");
 const manifestPath = join(outDir, "manifest.json");
 
 // Bump when packaging rules change (submodule SHA alone is not enough to invalidate).
-const BUNDLE_SPEC_VERSION = 2;
+const BUNDLE_SPEC_VERSION = 6;
 
 // Submodule top-level entries to ship to the browser.
 const SUBMODULE_INCLUDE = ["McMinimap.py", "data", "emblems", "legacy"];
-// Inside `legacy`, ship mgz_legacy (recordings) plus agescx_legacy (.scn / .scx classic scenarios).
-const LEGACY_KEEP = new Set(["mgz_legacy", "agescx_legacy.py"]);
+// Inside `legacy`, ship mgz_legacy (recordings), scenario parsing (geniescx_legacy),
+// plus campaign parsing helpers.
+const LEGACY_KEEP = new Set(["mgz_legacy", "geniescx_legacy.py", "aoe2campaignparser.py"]);
 
 const SKIP_DIRS = new Set(["__pycache__", ".git", "examples", "tests"]);
 
@@ -47,11 +49,13 @@ function getSubmoduleSha() {
 }
 
 function readPylibVersions() {
-  // Map each pylib to its version marker (written by fetch-pylibs.mjs).
-  if (!existsSync(pylibsDir)) return {};
+  const roots = [
+    { name: "construct", dir: constructDir },
+    { name: "aocref", dir: aocrefDir },
+  ];
   const out = {};
-  for (const name of readdirSync(pylibsDir)) {
-    const marker = join(pylibsDir, name, ".version");
+  for (const { name, dir } of roots) {
+    const marker = join(dir, ".version");
     if (!existsSync(marker)) continue;
     try {
       out[name] = readFileSync(marker, "utf8").trim();
@@ -85,12 +89,14 @@ function collectFiles() {
     }
   }
 
-  if (existsSync(pylibsDir)) {
-    for (const name of readdirSync(pylibsDir)) {
-      const abs = join(pylibsDir, name);
-      if (!statSync(abs).isDirectory()) continue;
-      walk(abs, posix.join("pylibs", name), files, null);
-    }
+  const pyPack = [
+    { abs: constructDir, rel: "pylibs/construct" },
+    { abs: aocrefDir, rel: "pylibs/aocref" },
+  ];
+  for (const { abs, rel } of pyPack) {
+    if (!existsSync(abs)) continue;
+    if (!statSync(abs).isDirectory()) continue;
+    walk(abs, rel, files, null);
   }
 
   return files;

@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // Downloads pinned pure-Python packages that micropip cannot resolve as
-// wheels and vendors their source into vendor/pylibs/. The bundle
-// script then ships them alongside the renderer and bootstrap.py adds
-// `pylibs/` to sys.path so `import construct` Just Works.
+// wheels and vendors their source into sourcemodules/construct and
+// sourcemodules/aocref. The bundle script ships them as pylibs/* in the tar.
 //
 // Why: `construct==2.8.16` (pinned by the vendored happyleaves mgz tree)
 // was only ever published as an sdist on PyPI, so
@@ -30,25 +29,20 @@ const PYLIBS = [
     name: "construct",
     version: "2.8.16",
     url: "https://files.pythonhosted.org/packages/source/c/construct/construct-2.8.16.tar.gz",
-    // Path of the package directory *inside* the extracted sdist.
     subpath: "construct-2.8.16/construct",
+    destParent: join(repoRoot, "sourcemodules"),
   },
   {
-    // aocref ships only sdists on PyPI, so micropip can't install it. The
-    // vendored legacy/mgz_legacy/reference.py calls
-    // `pkgutil.get_data('aocref', 'data/datasets/<id>.json')`, which requires
-    // the whole `aocref/data/**` tree to be on sys.path as a package.
     name: "aocref",
     version: "2.0.37",
     url: "https://files.pythonhosted.org/packages/0a/89/d5984391ce282fbc33f0584917f26b924b9e4a522c37a6323a033cdc4d79/aocref-2.0.37.tar.gz",
     subpath: "aocref-2.0.37/aocref",
+    destParent: join(repoRoot, "sourcemodules"),
   },
 ];
 
-const pylibsRoot = join(repoRoot, "vendor/pylibs");
-
 function versionMarkerPath(pkg) {
-  return join(pylibsRoot, pkg.name, ".version");
+  return join(pkg.destParent, pkg.name, ".version");
 }
 
 function isUpToDate(pkg) {
@@ -94,9 +88,9 @@ async function fetchOne(pkg) {
       throw new Error(`expected package dir missing after extract: ${extracted}`);
     }
 
-    const out = join(pylibsRoot, pkg.name);
+    const out = join(pkg.destParent, pkg.name);
     if (existsSync(out)) rmSync(out, { recursive: true, force: true });
-    mkdirSync(pylibsRoot, { recursive: true });
+    mkdirSync(pkg.destParent, { recursive: true });
     renameSync(extracted, out);
     writeFileSync(versionMarkerPath(pkg), pkg.version + "\n");
 

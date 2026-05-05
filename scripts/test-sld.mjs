@@ -6,15 +6,15 @@
 
 import { readFileSync, writeFileSync } from "fs";
 import { performance } from "perf_hooks";
-import { renderDirection } from "../public/gif/sld-decode.js";
-import { TEAM_COLORS } from "../public/gif/team-colors.js";
+import { renderDirection } from "../public/pages/gif/sld-decode.js";
+import { TEAM_COLORS } from "../public/modules/unit-gifs/team-colors.js";
 import {
   GIFEncoder,
   quantize,
   applyPalette,
-} from "../public/gif/vendor/gifenc.esm.js";
+} from "../public/modules/gifenc/gifenc.esm.js";
 
-const sldPath = process.argv[2] || "public/gif/testgraphics/sld/u_cav_warwagon_elite_walkA_x2.sld";
+const sldPath = process.argv[2] || "public/pages/gif/testgraphics/sld/u_cav_warwagon_elite_walkA_x2.sld";
 const directionIndex = Number(process.argv[3] || "0");
 const player = Number(process.argv[4] || "1");
 
