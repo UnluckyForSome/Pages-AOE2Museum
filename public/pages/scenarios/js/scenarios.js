@@ -102,7 +102,7 @@
 
   function typeIcons(filetype) {
     const icon = (src, alt) =>
-      '<img class="type-icon" src="/pages/scenarios/img/' + src + '" alt="' + alt + '" width="19" height="19">';
+      '<img class="type-icon" src="/scenarios/img/' + src + '" alt="' + alt + '" width="19" height="19">';
     switch (filetype) {
       case 'scx': return icon('aoc.png', 'AoC');
       case 'scn': return icon('aok.png', 'AoK');

@@ -155,7 +155,7 @@
     }
 
     if (accepted.length > 0) {
-      resultCta.innerHTML = 'Go check them out in the <a href="/pages/scenarios/">Archive</a>!';
+      resultCta.innerHTML = 'Go check them out in the <a href="/scenarios/">Archive</a>!';
     } else if (data.error) {
       resultCta.textContent = data.error;
     } else {

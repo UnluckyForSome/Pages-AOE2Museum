@@ -1,5 +1,5 @@
 // =============================================================================
-// /pages/gif/ UI controller - handles both the SLP tab (AoK / TC / HD) and the SLD
+// /gif/ UI controller - handles both the SLP tab (AoK / TC / HD) and the SLD
 // tab (Definitive Edition).
 //
 // Shared pipeline:
@@ -11,10 +11,11 @@
 // helpers so adding the SLD mode did not duplicate the critical path.
 // =============================================================================
 
-import { framesToGifBytes, framesToApngBytes } from "/pages/gif/gif-pipeline.js";
+import { framesToGifBytes, framesToApngBytes } from "/gif/gif-pipeline.js";
 import { STANDARD_PALETTE } from "/modules/unit-gifs/palette.js";
 import { TEAM_COLORS } from "/modules/unit-gifs/team-colors.js";
-import { buildIndex, listActions, listZooms, resolveKey } from "/pages/gif/sld-index.js";
+import { buildIndex as buildSlpIndex, listActions as listSlpActions, resolveId as resolveSlpId } from "/gif/slp-index.js";
+import { buildIndex, listActions, listZooms, resolveKey } from "/gif/sld-index.js";
 
 // ---------- reusable option sets (shared by SLP + SLD) ---------------------
 
@@ -89,7 +90,7 @@ const SLP_URL = (id) => "/api/gif/slp/" + id + ".slp";
 const SLD_MANIFEST_URL = "/api/gif/sld/manifest";
 const SLD_URL = (key) => "/api/gif/sld/" + key + ".sld";
 
-const PLACEHOLDER_URL = "/pages/gif/assets/placeholder.gif";
+const PLACEHOLDER_URL = "/gif/assets/placeholder.gif";
 
 // ---------- shared DOM ------------------------------------------------------
 
@@ -141,7 +142,7 @@ function formatBytes(n) {
   return (n / (1024 * 1024)).toFixed(1) + " MB";
 }
 
-// ---------- shared encode pipeline (see /pages/gif/gif-pipeline.js) --------------
+// ---------- shared encode pipeline (see /gif/gif-pipeline.js) --------------
 
 function encodeProgress(done, total) {
   const pct = 95 + Math.round(done / total * 4);
@@ -220,8 +221,8 @@ function workerProgressHandler(msg) {
   if (msg.message) setStatus(msg.message, "loading");
 }
 
-const slpWorker = makeWorkerHandle("/pages/gif/worker-slp.js", workerProgressHandler);
-const sldWorker = makeWorkerHandle("/pages/gif/worker-sld.js", workerProgressHandler, { type: "module" });
+const slpWorker = makeWorkerHandle("/gif/worker-slp.js", workerProgressHandler, { type: "module" });
+const sldWorker = makeWorkerHandle("/gif/worker-sld.js", workerProgressHandler, { type: "module" });
 
 // ---------- picker (always-open filterable listbox) ------------------------
 
@@ -534,8 +535,7 @@ const slp = (function () {
   function loadMapping() {
     if (mappingPromise) return mappingPromise;
     // Worker returns { units: { [unit]: { [action]: slpId } }, total }, already
-    // intersected with what Garage actually has. Normalise to the Map shape
-    // the rest of this module expects.
+    // intersected with what Garage actually has.
     mappingPromise = fetch(SLP_MANIFEST_URL, { cache: "default" })
       .then(function (res) {
         if (!res.ok) throw new Error("Failed to fetch SLP manifest: HTTP " + res.status);
@@ -543,20 +543,7 @@ const slp = (function () {
       })
       .then(function (manifest) {
         const units = (manifest && manifest.units) || {};
-        const byUnit = new Map();
-        Object.keys(units).forEach(function (unit) {
-          const actions = units[unit] || {};
-          const actionMap = new Map();
-          Object.keys(actions).forEach(function (action) {
-            const id = actions[action];
-            if (typeof id === "number") actionMap.set(action, id);
-          });
-          if (actionMap.size > 0) byUnit.set(unit, actionMap);
-        });
-        const unitList = Array.from(byUnit.keys()).sort(function (a, b) {
-          return a.localeCompare(b);
-        });
-        mapping = { byUnit, units: unitList };
+        mapping = buildSlpIndex(units);
         return mapping;
       });
     return mappingPromise;
@@ -568,8 +555,8 @@ const slp = (function () {
 
   function populateActions(unit) {
     actionSelect.textContent = "";
-    const actions = mapping.byUnit.get(unit);
-    if (!actions || actions.size === 0) {
+    const actions = listSlpActions(mapping, unit);
+    if (!actions || actions.length === 0) {
       const opt = document.createElement("option");
       opt.value = "";
       opt.textContent = "No actions";
@@ -578,8 +565,7 @@ const slp = (function () {
       return;
     }
     actionSelect.disabled = false;
-    const keys = Array.from(actions.keys()).sort(function (a, b) { return a.localeCompare(b); });
-    keys.forEach(function (a) {
+    actions.forEach(function (a) {
       const opt = document.createElement("option");
       opt.value = a; opt.textContent = a;
       actionSelect.appendChild(opt);
@@ -642,10 +628,7 @@ const slp = (function () {
   }
 
   function resolveId(sel) {
-    if (!mapping || !sel.unit || !sel.action) return null;
-    const actions = mapping.byUnit.get(sel.unit);
-    if (!actions) return null;
-    return actions.has(sel.action) ? actions.get(sel.action) : null;
+    return resolveSlpId(mapping, sel.unit, sel.action);
   }
 
   function fingerprint() { return JSON.stringify(selection()); }

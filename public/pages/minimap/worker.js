@@ -1,4 +1,4 @@
-// Pyodide-backed renderer for /mcminimap.
+// Pyodide-backed renderer for /pages/minimap.
 // Runs in a DedicatedWorker so the UI thread stays responsive during boot +
 // render. Pyodide itself and the stdlib wheels come from jsDelivr; the
 // AOE2-McMinimap source tree is served from this origin as a single tarball.
@@ -6,7 +6,7 @@
 const PYODIDE_VERSION = "0.28.3";
 const PYODIDE_BASE = "https://cdn.jsdelivr.net/pyodide/v" + PYODIDE_VERSION + "/full/";
 const VENDOR_TAR_URL = "/modules/aoe2mcminimap/aoe2mcminimap.tar";
-const BOOTSTRAP_URL = "/pages/minimap/py/bootstrap.py";
+const BOOTSTRAP_URL = "/minimap/py/bootstrap.py";
 const VENDOR_EXTRACT_DIR = "/home/pyodide/aoe2mcminimap";
 importScripts(PYODIDE_BASE + "pyodide.js");
 
@@ -31,14 +31,14 @@ function progress(message, opts) {
 let pyodideReady = null;
 
 async function boot() {
-  progress("Loading Python runtime\u2026");
+  progress("Loading Python runtime\u2026", { phase: "boot", pct: 6 });
   // eslint-disable-next-line no-undef
   const pyodide = await loadPyodide({ indexURL: PYODIDE_BASE });
 
-  progress("Loading Pillow + micropip\u2026");
+  progress("Loading Pillow + micropip\u2026", { phase: "boot", pct: 20 });
   await pyodide.loadPackage(["Pillow", "micropip"]);
 
-  progress("Installing Python packages\u2026");
+  progress("Installing Python packages\u2026", { phase: "boot", pct: 38 });
   // `construct==2.8.16` and `aocref` are vendored in the tarball because
   // PyPI only ships sdists for those (and micropip needs pure-Python
   // wheels). The remaining packages are pure-Python wheels on PyPI.
@@ -58,7 +58,7 @@ async function boot() {
     ].join("\n"),
   );
 
-  progress("Unpacking McMinimap source\u2026");
+  progress("Unpacking McMinimap source\u2026", { phase: "boot", pct: 56 });
   const tarRes = await fetch(VENDOR_TAR_URL);
   if (!tarRes.ok) throw new Error("Failed to fetch vendor tar: HTTP " + tarRes.status);
   const tar = new Uint8Array(await tarRes.arrayBuffer());
@@ -69,7 +69,7 @@ async function boot() {
   }
   pyodide.unpackArchive(tar, "tar", { extractDir: VENDOR_EXTRACT_DIR });
 
-  progress("Loading renderer\u2026");
+  progress("Loading renderer\u2026", { phase: "boot", pct: 74 });
   const bootstrapRes = await fetch(BOOTSTRAP_URL);
   if (!bootstrapRes.ok) {
     throw new Error("Failed to fetch bootstrap.py: HTTP " + bootstrapRes.status);
@@ -77,7 +77,7 @@ async function boot() {
   const bootstrap = await bootstrapRes.text();
   await pyodide.runPythonAsync(bootstrap);
 
-  progress("Ready.");
+  progress("Ready.", { phase: "boot", pct: 94 });
   return pyodide;
 }
 
@@ -109,7 +109,7 @@ async function handleRender(id, fileBytes, ext, settings) {
   let settingsProxy = null;
   let pngProxy = null;
   try {
-    progress("Rendering\u2026", { phase: "render", pct: 60 });
+    progress("Preparing render\u2026", { phase: "render", pct: 22 });
     bytesView = new Uint8Array(fileBytes);
 
     pyodide.globals.set("_bytes", bytesView);
@@ -118,7 +118,9 @@ async function handleRender(id, fileBytes, ext, settings) {
     pyodide.globals.set("_ext", ext);
     settingsProxy = pyodide.toPy(settings);
     pyodide.globals.set("_settings", settingsProxy);
+    progress("Rendering minimap\u2026", { phase: "render", pct: 42 });
     pngProxy = await pyodide.runPythonAsync("render(_bytes, _ext, _settings)");
+    progress("Packaging PNG\u2026", { phase: "render", pct: 84 });
     const pngBytes = pngProxy.toJs();
     // `toJs` returns a Uint8Array sharing WASM memory; copy into a
     // standalone ArrayBuffer so we can transfer it to the main thread.
@@ -166,10 +168,12 @@ async function handleParseCampaign(id, fileBytes) {
   let bytesView = null;
   let jsonStrProxy = null;
   try {
-    progress("Parsing campaign\u2026", { phase: "render", pct: 15 });
+    progress("Reading campaign\u2026", { phase: "campaignParse", pct: 12 });
     bytesView = new Uint8Array(fileBytes);
     pyodide.globals.set("_bytes", bytesView);
+    progress("Parsing campaign\u2026", { phase: "campaignParse", pct: 38 });
     jsonStrProxy = await pyodide.runPythonAsync("parse_campaign_index_json(_bytes)");
+    progress("Building scenario list\u2026", { phase: "campaignParse", pct: 78 });
     let s = jsonStrProxy;
     if (s && typeof s.toJs === "function") {
       s = s.toJs();
@@ -186,6 +190,7 @@ async function handleParseCampaign(id, fileBytes) {
       });
       return;
     }
+    progress("Finishing\u2026", { phase: "campaignParse", pct: 94 });
     self.postMessage({
       type: "campaignParseResult",
       id: id,

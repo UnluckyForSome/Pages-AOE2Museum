@@ -1,6 +1,6 @@
-// /pages/campaignmanager/app.js
+// /campaignmanager/app.js
 //
-// UI controller for the Campaign Extractor museum page. Wires the Extract
+// UI controller for the Campaign Manager museum page. Wires the Extract
 // and Pack tabs to the pure-JS rge-campaign library, with drag-drop,
 // scenario reordering, ZIP-all-extracted, and a single-file download.
 

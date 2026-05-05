@@ -1,7 +1,7 @@
 /* =============================================================================
-   /pages/campaignmanager/ - app-specific styles only.
+   /campaignmanager/ - app-specific styles only.
    Reuses /styles/museum.css tokens and the upload widgets from
-   /pages/scenarios/css/style.css (drop-zone, file-list).
+   /scenarios/css/style.css (drop-zone, file-list).
    ========================================================================== */
 
 .hidden { display: none !important; }

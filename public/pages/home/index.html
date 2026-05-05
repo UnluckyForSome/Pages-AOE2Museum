@@ -3,9 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="/assets/favicon/favicon.ico" sizes="any" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon/favicon-16x16.png" />
+    <link rel="icon" type="image/png" href="/assets/img/university.png" />
+    <link rel="apple-touch-icon" href="/assets/img/university.png" />
+    <meta name="apple-mobile-web-app-title" content="AOE2M" />
+    <link rel="manifest" href="/assets/favicon/site.webmanifest" />
     <title>AoE2 Museum</title>
     <meta
       name="description"
@@ -16,7 +17,10 @@
   <body>
     <nav class="site-nav" aria-label="Site">
       <div class="site-nav__bar">
-        <a class="site-nav__logo" href="/">AoE2 Museum</a>
+        <a class="site-nav__logo" href="/">
+          <img class="site-nav__logo-mark" src="/assets/img/university.png" width="36" height="36" alt="" decoding="async" />
+          <span class="site-nav__logo-text">AoE2 Museum</span>
+        </a>
         <button
           type="button"
           class="site-nav__toggle"
@@ -36,30 +40,36 @@
       <div id="site-nav-menu" class="site-nav__drawer">
         <div class="site-nav__links">
           <a href="/" aria-current="page">Home</a>
-          <a href="/pages/minimap/">McMinimap</a>
-          <a href="/pages/scenarios/">Scenarios</a>
-          <a href="/pages/gif/">GIFs</a>
-          <a href="/pages/campaignmanager/">Campaigns</a>
-          <a href="/pages/contact/">Contact</a>
+          <a href="/minimap/">McMinimap</a>
+          <a href="/scenarios/">Scenarios</a>
+          <a href="/gif/">GIFs</a>
+          <a href="/campaignmanager/">Campaigns</a>
+          <a href="/originalmods/">Original Mods</a>
+          <a href="/contact/">Contact</a>
         </div>
       </div>
     </nav>
 
     <main>
-      <h1 class="page-title">AoE2 Museum</h1>
+      <header class="page-header">
+        <div class="page-header__backdrop" aria-hidden="true"></div>
+        <div class="page-header__inner">
+          <h1 class="page-title">AoE2 Museum</h1>
 
-      <div class="page-intro">
-        <p>
-          A small collection of Age of Empires II tools and community archives. No accounts,
-          no tracking; most tools run entirely in your browser.
-        </p>
-        <p>Pick an exhibit.</p>
-      </div>
+          <div class="page-intro">
+            <p>
+              A small collection of Age of Empires II tools and community archives. No accounts,
+              no tracking; most tools run entirely in your browser.
+            </p>
+            <p>Pick an exhibit.</p>
+          </div>
+        </div>
+      </header>
 
       <section class="home-grid" aria-label="Apps">
         <article class="home-card">
           <h2 class="home-card__title">
-            <a href="/pages/minimap/">McMinimap</a>
+            <a href="/minimap/">McMinimap</a>
           </h2>
           <div class="home-card__desc">
             Render isometric minimap PNGs from recorded games and scenarios. Runs the
@@ -71,7 +81,19 @@
 
         <article class="home-card">
           <h2 class="home-card__title">
-            <a href="/pages/scenarios/">Scenarios</a>
+            <a href="/originalmods/">Original Mods</a>
+          </h2>
+          <div class="home-card__desc">
+            A visual gallery of the &ldquo;Original&rdquo; AoE2 DE workshop series by UnluckyForSome
+            &mdash; thumbnails and tags from <a href="https://mods.aoe2.se/" rel="noopener">mods.aoe2.se</a>
+            via the museum mods API.
+          </div>
+          <span class="home-card__badge home-card__badge--live">Live</span>
+        </article>
+
+        <article class="home-card">
+          <h2 class="home-card__title">
+            <a href="/scenarios/">Scenarios</a>
           </h2>
           <div class="home-card__desc">
             A community archive of Age of Empires II custom scenarios &mdash; browse, filter
@@ -82,7 +104,7 @@
 
         <article class="home-card">
           <h2 class="home-card__title">
-            <a href="/pages/gif/">Unit GIFs</a>
+            <a href="/gif/">Unit GIFs</a>
           </h2>
           <div class="home-card__desc">
             Render animated GIFs of any AoE2 unit, action and facing straight from the
@@ -95,7 +117,7 @@
 
         <article class="home-card">
           <h2 class="home-card__title">
-            <a href="/pages/campaignmanager/">Campaign Extractor</a>
+            <a href="/campaignmanager/">Campaign Manager</a>
           </h2>
           <div class="home-card__desc">
             Unpack and pack Genie engine campaign archives &mdash;

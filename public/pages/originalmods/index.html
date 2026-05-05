@@ -7,8 +7,13 @@
     <link rel="apple-touch-icon" href="/assets/img/university.png" />
     <meta name="apple-mobile-web-app-title" content="AOE2M" />
     <link rel="manifest" href="/assets/favicon/site.webmanifest" />
-    <title>Contact - AoE2 Museum</title>
+    <title>Original Mods - AoE2 Museum</title>
+    <meta
+      name="description"
+      content="Browse the &ldquo;Original&rdquo; mod series for Age of Empires II DE by UnluckyForSome, with workshop art and links to the official mod pages."
+    />
     <link rel="stylesheet" href="/assets/css/museum.css" />
+    <link rel="stylesheet" href="/originalmods/style.css" />
   </head>
   <body>
     <nav class="site-nav" aria-label="Site">
@@ -40,8 +45,8 @@
           <a href="/scenarios/">Scenarios</a>
           <a href="/gif/">GIFs</a>
           <a href="/campaignmanager/">Campaigns</a>
-          <a href="/originalmods/">Original Mods</a>
-          <a href="/contact/" aria-current="page">Contact</a>
+          <a href="/originalmods/" aria-current="page">Original Mods</a>
+          <a href="/contact/">Contact</a>
         </div>
       </div>
     </nav>
@@ -50,24 +55,29 @@
       <header class="page-header">
         <div class="page-header__backdrop" aria-hidden="true"></div>
         <div class="page-header__inner">
-          <h1 class="page-title">Contact</h1>
+          <h1 class="page-title">Original Mods</h1>
+          <div class="page-intro">
+            <p>
+              If you're interested, we've created many "Original Mods" which bring some epic nostalgia back to Definitive Edition! Search <strong>UnluckyForSome</strong> in the Mod Manager to find them all, or click through to them here. Have fun!
+            </p>
+          </div>
         </div>
       </header>
 
-      <div class="card contact-card">
-        <p>Have questions, feedback, or a scenario to share?</p>
-        <br />
-        <p><strong>Email:</strong> <a href="mailto:contact@example.com">contact@example.com</a></p>
-        <p><strong>GitHub:</strong> <a href="https://github.com" target="_blank" rel="noopener">github.com</a></p>
-        <br />
-        <p>
-          The museum is a community project for preserving and sharing Age of Empires II tools,
-          scenarios, and maps.
-        </p>
-      </div>
+      <section class="originalmods-panel" aria-labelledby="originalmods-status">
+        <p id="originalmods-status" class="originalmods-status visually-hidden" aria-live="polite">Loading mods.</p>
+        <div id="originalmods-summary" class="originalmods-meta-bar" hidden></div>
+        <div id="originalmods-loading" class="originalmods-loading" hidden>
+          <div class="originalmods-spinner" aria-hidden="true"></div>
+          <p>Fetching mods from the workshop mirror&hellip;</p>
+        </div>
+        <div id="originalmods-error" class="originalmods-error card" hidden></div>
+        <div id="originalmods-grid" class="originalmods-grid" aria-label="Mod cards"></div>
+      </section>
     </main>
 
     <footer>AoE2 Museum</footer>
     <script src="/modules/site/museum-nav.js" defer></script>
+    <script src="/originalmods/app.js" defer></script>
   </body>
 </html>

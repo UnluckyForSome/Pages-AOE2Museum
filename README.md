@@ -6,7 +6,7 @@ Each "app" lives under its own path and runs client-side where possible.
 | Path                            | Description                                                                                 |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
 | `/`                             | Museum landing page listing available apps.                                                 |
-| `/contact.html`                 | Contact page.                                                                               |
+| `/pages/contact/`               | Contact page.                                                                               |
 | `/pages/minimap/`             | Isometric minimap renderer (Generate + Gallery tabs). Runs [AOE2-McMinimap](https://github.com/UnluckyForSome/AOE2-McMinimap) in-browser via Pyodide &mdash; nothing is uploaded for rendering. |
 | `/pages/gif/`                   | Animated unit GIF / APNG from `.slp` / `.sld` sprites (Garage-backed assets via `/api/gif/*`). |
 | `/api/gallery`                  | `GET` returns the latest-20 index; `POST image/png` (with `X-Source-Name`) appends to the gallery. |
@@ -112,7 +112,6 @@ public/                             # served by the Cloudflare assets binding
     rge-campaign/rge-campaign.js
     fflate/fflate.browser.js
     gifenc/gifenc.esm.js
-    mcminimap/fflate-shim.js
     geniescx/                       # genie-scx wasm-bindgen output
     aoe2rec/                        # replay wasm (if present)
     aoe2mcminimap/                  # generated tar + manifest (gitignored)

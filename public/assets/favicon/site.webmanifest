@@ -1,0 +1,21 @@
+{
+  "name": "AOE2 Museum",
+  "short_name": "AOE2M",
+  "icons": [
+    {
+      "src": "/assets/img/university.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/img/university.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "theme_color": "#0f0f1a",
+  "background_color": "#0f0f1a",
+  "display": "standalone"
+}

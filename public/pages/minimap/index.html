@@ -3,21 +3,25 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="/assets/favicon/favicon.ico" sizes="any" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon/favicon-16x16.png" />
+    <link rel="icon" type="image/png" href="/assets/img/university.png" />
+    <link rel="apple-touch-icon" href="/assets/img/university.png" />
+    <meta name="apple-mobile-web-app-title" content="AOE2M" />
+    <link rel="manifest" href="/assets/favicon/site.webmanifest" />
     <title>McMinimap - AoE2 Museum</title>
     <meta
       name="description"
       content="Render Age of Empires II minimap PNGs entirely in your browser. No uploads for rendering: the AOE2-McMinimap Python renderer runs locally via Pyodide."
     />
     <link rel="stylesheet" href="/assets/css/museum.css" />
-    <link rel="stylesheet" href="/pages/minimap/style.css" />
+    <link rel="stylesheet" href="/minimap/style.css" />
   </head>
   <body>
     <nav class="site-nav" aria-label="Site">
       <div class="site-nav__bar">
-        <a class="site-nav__logo" href="/">AoE2 Museum</a>
+        <a class="site-nav__logo" href="/">
+          <img class="site-nav__logo-mark" src="/assets/img/university.png" width="36" height="36" alt="" decoding="async" />
+          <span class="site-nav__logo-text">AoE2 Museum</span>
+        </a>
         <button
           type="button"
           class="site-nav__toggle"
@@ -37,23 +41,30 @@
       <div id="site-nav-menu" class="site-nav__drawer">
         <div class="site-nav__links">
           <a href="/">Home</a>
-          <a href="/pages/minimap/" aria-current="page">McMinimap</a>
-          <a href="/pages/scenarios/">Scenarios</a>
-          <a href="/pages/gif/">GIFs</a>
-          <a href="/pages/contact/">Contact</a>
+          <a href="/minimap/" aria-current="page">McMinimap</a>
+          <a href="/scenarios/">Scenarios</a>
+          <a href="/gif/">GIFs</a>
+          <a href="/campaignmanager/">Campaigns</a>
+          <a href="/originalmods/">Original Mods</a>
+          <a href="/contact/">Contact</a>
         </div>
       </div>
     </nav>
 
     <main>
-      <h1 class="page-title">AoE2 McMinimap</h1>
+      <header class="page-header">
+        <div class="page-header__backdrop" aria-hidden="true"></div>
+        <div class="page-header__inner">
+          <h1 class="page-title">AoE2 McMinimap</h1>
 
-      <div class="page-intro">
-        <p>
-          Upload a scenario or recording, pick a preset, and render a minimap PNG. Rendering
-          runs entirely in your browser via Pyodide &mdash; nothing is uploaded for rendering.
-        </p>
-      </div>
+          <div class="page-intro">
+            <p>
+              Upload a scenario or recording, pick a preset, and render a minimap PNG. Rendering
+              runs entirely in your browser via Pyodide &mdash; nothing is uploaded for rendering.
+            </p>
+          </div>
+        </div>
+      </header>
 
       <div class="tabs-bar">
         <nav class="tabs" role="tablist" aria-label="McMinimap views">
@@ -131,7 +142,7 @@
                         id="open-scenario-modal"
                       >
                         <span class="fetch-btn__badges" aria-hidden="true">
-                          <img class="fetch-badge" src="/pages/scenarios/img/aoc.png" alt="" />
+                          <img class="fetch-badge" src="/scenarios/img/aoc.png" alt="" />
                         </span>
                         <span class="fetch-btn__label">AOE2Museum</span>
                       </button>
@@ -142,7 +153,7 @@
                         id="open-mods-modal"
                       >
                         <span class="fetch-btn__badges" aria-hidden="true">
-                          <img class="fetch-badge" src="/pages/scenarios/img/de.png" alt="" />
+                          <img class="fetch-badge" src="/scenarios/img/de.png" alt="" />
                         </span>
                         <span class="fetch-btn__label">Microsoft</span>
                       </button>
@@ -158,7 +169,7 @@
                         id="open-aocrec-modal"
                       >
                         <span class="fetch-btn__badges" aria-hidden="true">
-                          <img class="fetch-badge" src="/pages/scenarios/img/aoc.png" alt="" />
+                          <img class="fetch-badge" src="/scenarios/img/aoc.png" alt="" />
                         </span>
                         <span class="fetch-btn__label">AOCRec.com</span>
                       </button>
@@ -169,7 +180,7 @@
                         id="open-microsoft-modal"
                       >
                         <span class="fetch-btn__badges" aria-hidden="true">
-                          <img class="fetch-badge" src="/pages/scenarios/img/de.png" alt="" />
+                          <img class="fetch-badge" src="/scenarios/img/de.png" alt="" />
                         </span>
                         <span class="fetch-btn__label">Microsoft</span>
                       </button>
@@ -194,7 +205,7 @@
               <div class="imgwrap" id="imgwrap">
                 <img
                   id="img"
-                  src="/pages/minimap/assets/rainbow.png"
+                  src="/minimap/assets/rainbow.png"
                   alt="Minimap preview. A rainbow placeholder is shown until you render."
                 />
               </div>
@@ -341,6 +352,12 @@
               <div class="modal__title" id="scenario-modal-title">AOE2Museum Archived Scenarios</div>
               <button type="button" class="modal__close" data-modal-close aria-label="Close">×</button>
             </div>
+            <div id="scenario-modal-activity" class="modal-activity" hidden aria-hidden="true">
+              <div class="modal-activity__panel" role="status">
+                <div class="modal-activity__ring" aria-hidden="true"></div>
+                <p class="modal-activity__text" id="scenario-modal-activity-text"></p>
+              </div>
+            </div>
             <div class="picker" id="scenario-picker-modal">
               <label class="visually-hidden" for="scenario-search">Search scenarios</label>
               <input
@@ -355,11 +372,11 @@
               <div class="picker__hint-row">
                 <p class="hint">
                   Search by scenario name.
-                  <a href="/pages/scenarios/#contribute" target="_blank" rel="noreferrer"> Contribute here</a>.
+                  <a href="/scenarios/#contribute" target="_blank" rel="noreferrer"> Contribute here</a>.
                 </p>
                 <p class="picker__hint-aside">
                   Powered by
-                  <a href="/pages/scenarios/" target="_blank" rel="noreferrer">AOE2Museum</a>
+                  <a href="/scenarios/" target="_blank" rel="noreferrer">AOE2Museum</a>
                   ❤️
                 </p>
               </div>
@@ -384,85 +401,70 @@
           <div class="card modal__card">
             <div class="modal__head">
               <div class="modal__title" id="mods-modal-title">Scenarios From DE Mods</div>
-              <button type="button" class="modal__close" data-modal-close aria-label="Close">×</button>
+              <button type="button" class="modal__close" data-mods-modal-close aria-label="Close">×</button>
             </div>
-            <div class="picker" id="mods-picker">
-              <label class="visually-hidden" for="mods-search">Search mods</label>
-              <input
-                id="mods-search"
-                class="picker__search"
-                type="search"
-                role="searchbox"
-                aria-controls="mods-list"
-                placeholder="Search scenario mods..."
-                autocomplete="off"
-              />
-              <div class="picker__hint-row">
-                <p class="hint">Search by mod or username.</p>
-                <p class="picker__hint-aside">
-                  Powered by
-                  <a href="https://mods.aoe2.se/" target="_blank" rel="noreferrer">mods.aoe2.se</a>
-                  ❤️
-                </p>
+            <div id="mods-modal-activity" class="modal-activity" hidden aria-hidden="true">
+              <div class="modal-activity__panel" role="status">
+                <div class="modal-activity__ring" aria-hidden="true"></div>
+                <p class="modal-activity__text" id="mods-modal-activity-text"></p>
               </div>
-              <div class="picker__list-shell">
-                <div id="mods-loading" class="picker__list-loading" hidden>
-                  <span class="picker__spinner" aria-hidden="true"></span>
-                  <span class="visually-hidden">Loading mods…</span>
+            </div>
+            <div class="modal__body modal__body--mods-wizard">
+              <section id="mods-wizard-screen-mod" class="modal__screen mods-wizard-panel" data-mods-step="mod">
+                <div class="picker" id="mods-picker">
+                  <label class="visually-hidden" for="mods-search">Search mods</label>
+                  <input
+                    id="mods-search"
+                    class="picker__search"
+                    type="search"
+                    role="searchbox"
+                    aria-controls="mods-list"
+                    placeholder="Search scenario mods..."
+                    autocomplete="off"
+                  />
+                  <div class="picker__hint-row">
+                    <p class="hint">Search by mod or username.</p>
+                    <p class="picker__hint-aside">
+                      Powered by
+                      <a href="https://mods.aoe2.se/" target="_blank" rel="noreferrer">mods.aoe2.se</a>
+                      ❤️
+                    </p>
+                  </div>
+                  <div class="picker__list-shell">
+                    <div id="mods-loading" class="picker__list-loading" hidden>
+                      <span class="picker__spinner" aria-hidden="true"></span>
+                      <span class="visually-hidden">Loading mods…</span>
+                    </div>
+                    <ul id="mods-list" class="picker__list" role="listbox"></ul>
+                  </div>
                 </div>
-                <ul id="mods-list" class="picker__list" role="listbox"></ul>
+              </section>
+              <section id="mods-wizard-screen-zip" class="modal__screen mods-wizard-panel" data-mods-step="zip" hidden>
+                <div class="picker" id="mods-file-picker">
+                  <p class="hint" id="mods-wizard-zip-hint">
+                    This mod contains multiple scenario or campaign files (<code>.aoe2scenario</code>, <code>.scx</code>, <code>.scn</code>,
+                    <code>.aoe2campaign</code>, etc.). Select one to continue.
+                  </p>
+                  <div class="picker__list-shell">
+                    <ul id="mods-file-list" class="picker__list" role="listbox"></ul>
+                  </div>
+                </div>
+              </section>
+              <section id="mods-wizard-screen-campaign" class="modal__screen mods-wizard-panel" data-mods-step="campaign" hidden>
+                <div class="picker" id="campaign-file-picker">
+                  <p class="hint">This campaign contains multiple scenario files. Select one to load into McMinimap.</p>
+                  <div class="picker__list-shell">
+                    <ul id="campaign-file-list" class="picker__list" role="listbox"></ul>
+                  </div>
+                </div>
+              </section>
+            </div>
+            <div class="modal__footer modal__footer--mods-wizard" id="mods-wizard-footer">
+              <button type="button" class="btn btn--small btn--ghost" id="mods-wizard-back" hidden>Back</button>
+              <div class="modal__footer-actions">
+                <button type="button" class="btn btn--small btn--ghost" id="mods-wizard-cancel">Cancel</button>
+                <button type="button" class="btn btn--small" id="mods-wizard-select" disabled>Select</button>
               </div>
-            </div>
-            <div class="modal__footer">
-              <button type="button" class="btn btn--small btn--ghost" id="mods-cancel-btn" data-modal-close>Cancel</button>
-              <button type="button" class="btn btn--small" id="mods-select-btn" disabled>Select</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-backdrop" id="mods-file-modal" hidden>
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mods-file-modal-title">
-          <div class="card modal__card">
-            <div class="modal__head">
-              <div class="modal__title" id="mods-file-modal-title">Pick a scenario from the mod</div>
-              <button type="button" class="modal__close" data-modal-close aria-label="Close">×</button>
-            </div>
-            <div class="picker" id="mods-file-picker">
-              <p class="hint">
-                This mod contains multiple scenario files (<code>.aoe2scenario</code>, <code>.scx</code>, <code>.scn</code>).
-                Select one to load into McMinimap.
-              </p>
-              <div class="picker__list-shell">
-                <ul id="mods-file-list" class="picker__list" role="listbox"></ul>
-              </div>
-            </div>
-            <div class="modal__footer">
-              <button type="button" class="btn btn--small btn--ghost" id="mods-file-cancel-btn" data-modal-close>Cancel</button>
-              <button type="button" class="btn btn--small" id="mods-file-select-btn" disabled>Select</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-backdrop" id="campaign-file-modal" hidden>
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="campaign-file-modal-title">
-          <div class="card modal__card">
-            <div class="modal__head">
-              <div class="modal__title" id="campaign-file-modal-title">Pick a scenario from the campaign</div>
-              <button type="button" class="modal__close" data-modal-close aria-label="Close">×</button>
-            </div>
-            <div class="picker" id="campaign-file-picker">
-              <p class="hint">
-                This campaign contains multiple scenario files. Select one to load into McMinimap.
-              </p>
-              <div class="picker__list-shell">
-                <ul id="campaign-file-list" class="picker__list" role="listbox"></ul>
-              </div>
-            </div>
-            <div class="modal__footer">
-              <button type="button" class="btn btn--small btn--ghost" id="campaign-file-cancel-btn" data-modal-close>Cancel</button>
-              <button type="button" class="btn btn--small" id="campaign-file-select-btn" disabled>Select</button>
             </div>
           </div>
         </div>
@@ -474,6 +476,12 @@
             <div class="modal__head">
               <div class="modal__title" id="aocrec-modal-title">AOCRec.com Archived Recordings</div>
               <button type="button" class="modal__close" data-modal-close aria-label="Close">×</button>
+            </div>
+            <div id="aocrec-modal-activity" class="modal-activity" hidden aria-hidden="true">
+              <div class="modal-activity__panel" role="status">
+                <div class="modal-activity__ring" aria-hidden="true"></div>
+                <p class="modal-activity__text" id="aocrec-modal-activity-text"></p>
+              </div>
             </div>
             <div class="picker" id="aocrec-picker">
               <label class="visually-hidden" for="aocrec-search">Search recordings</label>
@@ -516,6 +524,12 @@
             <div class="modal__head">
               <div class="modal__title" id="microsoft-modal-title">Definitive Edition Microsoft Recordings</div>
               <button type="button" class="modal__close" data-modal-close aria-label="Close">×</button>
+            </div>
+            <div id="microsoft-modal-activity" class="modal-activity" hidden aria-hidden="true">
+              <div class="modal-activity__panel" role="status">
+                <div class="modal-activity__ring" aria-hidden="true"></div>
+                <p class="modal-activity__text" id="microsoft-modal-activity-text"></p>
+              </div>
             </div>
             <div class="picker" id="microsoft-picker">
               <label class="visually-hidden" for="ms-profile-search">Search usernames</label>
@@ -560,6 +574,34 @@
         </div>
       </div>
 
+      <!-- Standalone: file drop / browse when campaign has multiple scenarios (not DE Mods wizard) -->
+      <div class="modal-backdrop" id="campaign-standalone-modal" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="campaign-standalone-title">
+          <div class="card modal__card">
+            <div class="modal__head">
+              <div class="modal__title" id="campaign-standalone-title">Pick a scenario from the campaign</div>
+              <button type="button" class="modal__close" data-modal-close aria-label="Close">×</button>
+            </div>
+            <div id="campaign-standalone-activity" class="modal-activity" hidden aria-hidden="true">
+              <div class="modal-activity__panel" role="status">
+                <div class="modal-activity__ring" aria-hidden="true"></div>
+                <p class="modal-activity__text" id="campaign-standalone-activity-text"></p>
+              </div>
+            </div>
+            <div class="picker" id="campaign-standalone-picker">
+              <p class="hint">This campaign contains multiple scenario files. Select one to load into McMinimap.</p>
+              <div class="picker__list-shell">
+                <ul id="campaign-standalone-list" class="picker__list" role="listbox"></ul>
+              </div>
+            </div>
+            <div class="modal__footer">
+              <button type="button" class="btn btn--small btn--ghost" id="campaign-standalone-cancel-btn" data-modal-close>Cancel</button>
+              <button type="button" class="btn btn--small" id="campaign-standalone-select-btn" disabled>Select</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Gallery tab --------------------------------------------------- -->
       <section
         class="panel"
@@ -582,7 +624,6 @@
     <footer>AoE2 Museum</footer>
 
     <script src="/modules/site/museum-nav.js" defer></script>
-    <script type="module" src="/modules/mcminimap/fflate-shim.js"></script>
-    <script src="/pages/minimap/app.js" defer></script>
+    <script type="module" src="/minimap/app.js"></script>
   </body>
 </html>

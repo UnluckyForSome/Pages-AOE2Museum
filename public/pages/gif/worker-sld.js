@@ -4,7 +4,7 @@
 // the shared decoder module (also consumed by scripts/test-sld.mjs).
 // =============================================================================
 
-import { renderDirection } from "/pages/gif/sld-decode.js";
+import { renderDirection } from "/gif/sld-decode.js";
 
 function progress(id, pct, message) {
   self.postMessage({ type: "progress", id, pct, message });

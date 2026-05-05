@@ -1,4 +1,4 @@
-// Centre-pixel RGB samples from /pages/gif/assets/1.png ... /pages/gif/assets/8.png.
+// Centre-pixel RGB samples from /gif/assets/1.png ... /gif/assets/8.png.
 // Used as the "team tint" target for SLD player-color masks: each mask pixel
 // with grayscale value V blends the underlying main-graphic pixel towards a
 // luminance-scaled team RGB.

@@ -5,7 +5,8 @@ const MODS_SEARCH_TTL_S = 60;
 
 const MODS_CDN_HOST = "cdn.ageofempires.com";
 const MODS_ZIP_TTL_S = 6 * 60 * 60;
-const MODS_ZIP_MAX_BYTES = 35 * 1024 * 1024;
+/** Campaign / scenario mods can exceed 35 MB once assets are bundled; align with scenarios ZIP cap (100 MB). */
+const MODS_ZIP_MAX_BYTES = 100 * 1024 * 1024;
 const MODS_ZIP_PATH_RE = /^\/aoe-mods\/\d+\/\d+\/[a-f0-9]{32,}\.zip$/i;
 
 type ModsSearchRequest = {
@@ -43,9 +44,12 @@ export async function handleModsSearch(request: Request, ctx: ExecutionContext):
     page: clampInt(Number(incoming.page ?? 1), 1, 2000),
     sortColumn: typeof incoming.sortColumn === "string" ? incoming.sortColumn : "createDate",
     sortDirection: incoming.sortDirection === "ASC" ? "ASC" : "DESC",
-    modCategories: Array.isArray(incoming.modCategories)
-      ? incoming.modCategories.map((n) => Number(n)).filter((n) => Number.isFinite(n))
-      : [16],
+    // If the client omits modCategories, do not apply a category filter.
+    // (Some upstream APIs treat an empty array as "match nothing".)
+    modCategories:
+      Array.isArray(incoming.modCategories) && incoming.modCategories.length
+        ? incoming.modCategories.map((n) => Number(n)).filter((n) => Number.isFinite(n))
+        : undefined,
     searchTerm: cleanSearchTerm(incoming.searchTerm),
     civbuilder: Boolean(incoming.civbuilder),
   };

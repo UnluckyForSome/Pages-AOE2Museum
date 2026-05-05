@@ -3,21 +3,25 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="/assets/favicon/favicon.ico" sizes="any" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon/favicon-16x16.png" />
+    <link rel="icon" type="image/png" href="/assets/img/university.png" />
+    <link rel="apple-touch-icon" href="/assets/img/university.png" />
+    <meta name="apple-mobile-web-app-title" content="AOE2M" />
+    <link rel="manifest" href="/assets/favicon/site.webmanifest" />
     <title>Animated GIFs - AoE2 Museum</title>
     <meta
       name="description"
       content="Render animated GIFs of Age of Empires II unit sprites straight from the original SLP graphics, entirely in your browser."
     />
     <link rel="stylesheet" href="/assets/css/museum.css" />
-    <link rel="stylesheet" href="/pages/gif/style.css" />
+    <link rel="stylesheet" href="/gif/style.css" />
   </head>
   <body>
     <nav class="site-nav" aria-label="Site">
       <div class="site-nav__bar">
-        <a class="site-nav__logo" href="/">AoE2 Museum</a>
+        <a class="site-nav__logo" href="/">
+          <img class="site-nav__logo-mark" src="/assets/img/university.png" width="36" height="36" alt="" decoding="async" />
+          <span class="site-nav__logo-text">AoE2 Museum</span>
+        </a>
         <button
           type="button"
           class="site-nav__toggle"
@@ -37,26 +41,32 @@
       <div id="site-nav-menu" class="site-nav__drawer">
         <div class="site-nav__links">
           <a href="/">Home</a>
-          <a href="/pages/minimap/">McMinimap</a>
-          <a href="/pages/scenarios/">Scenarios</a>
-          <a href="/pages/gif/" aria-current="page">GIFs</a>
-          <a href="/pages/campaignmanager/">Campaigns</a>
-          <a href="/pages/contact/">Contact</a>
+          <a href="/minimap/">McMinimap</a>
+          <a href="/scenarios/">Scenarios</a>
+          <a href="/gif/" aria-current="page">GIFs</a>
+          <a href="/campaignmanager/">Campaigns</a>
+          <a href="/originalmods/">Original Mods</a>
+          <a href="/contact/">Contact</a>
         </div>
       </div>
     </nav>
 
     <main>
-      <h1 class="page-title">AoE2 Unit GIFs</h1>
+      <header class="page-header">
+        <div class="page-header__backdrop" aria-hidden="true"></div>
+        <div class="page-header__inner">
+          <h1 class="page-title">AoE2 Unit GIFs</h1>
 
-      <div class="page-intro">
-        <p>
-          Pick a unit and an action, choose a facing and player color, then render an
-          animated GIF right in your browser. Both the original game's <code>.slp</code>
-          graphics and the Definitive Edition <code>.sld</code> format are decoded
-          client-side &mdash; nothing is uploaded.
-        </p>
-      </div>
+          <div class="page-intro">
+            <p>
+              Pick a unit and an action, choose a facing and player color, then render an
+              animated GIF right in your browser. Both the original game's <code>.slp</code>
+              graphics and the Definitive Edition <code>.sld</code> format are decoded
+              client-side &mdash; nothing is uploaded.
+            </p>
+          </div>
+        </div>
+      </header>
 
       <div class="tabs-bar">
         <nav class="tabs" role="tablist" aria-label="GIF sources">
@@ -150,7 +160,7 @@
               <div class="imgwrap" id="imgwrap">
                 <img
                   id="img"
-                  src="/pages/gif/assets/placeholder.gif"
+                  src="/gif/assets/placeholder.gif"
                   alt="Animation preview. A rainbow placeholder is shown until you generate."
                 />
               </div>
@@ -262,7 +272,7 @@
               <div class="imgwrap" id="sld-imgwrap">
                 <img
                   id="sld-img"
-                  src="/pages/gif/assets/placeholder.gif"
+                  src="/gif/assets/placeholder.gif"
                   alt="Animation preview. A rainbow placeholder is shown until you generate."
                 />
               </div>
@@ -317,6 +327,6 @@
 
     <footer>AoE2 Museum</footer>
     <script src="/modules/site/museum-nav.js" defer></script>
-    <script type="module" src="/pages/gif/app.js"></script>
+    <script type="module" src="/gif/app.js"></script>
   </body>
 </html>

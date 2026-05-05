@@ -3,22 +3,26 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="/assets/favicon/favicon.ico" sizes="any" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon/favicon-32x32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon/favicon-16x16.png" />
-    <title>Campaign Extractor - AoE2 Museum</title>
+    <link rel="icon" type="image/png" href="/assets/img/university.png" />
+    <link rel="apple-touch-icon" href="/assets/img/university.png" />
+    <meta name="apple-mobile-web-app-title" content="AOE2M" />
+    <link rel="manifest" href="/assets/favicon/site.webmanifest" />
+    <title>Campaign Manager - AoE2 Museum</title>
     <meta
       name="description"
       content="Unpack and pack Genie engine campaign files (.cpn, .cpx, .aoecpn, .aoe2campaign) entirely in your browser. Pure-JS port of withmorten/rge_campaign."
     />
     <link rel="stylesheet" href="/assets/css/museum.css" />
-    <link rel="stylesheet" href="/pages/scenarios/css/style.css" />
-    <link rel="stylesheet" href="/pages/campaignmanager/style.css" />
+    <link rel="stylesheet" href="/scenarios/css/style.css" />
+    <link rel="stylesheet" href="/campaignmanager/style.css" />
   </head>
   <body>
     <nav class="site-nav" aria-label="Site">
       <div class="site-nav__bar">
-        <a class="site-nav__logo" href="/">AoE2 Museum</a>
+        <a class="site-nav__logo" href="/">
+          <img class="site-nav__logo-mark" src="/assets/img/university.png" width="36" height="36" alt="" decoding="async" />
+          <span class="site-nav__logo-text">AoE2 Museum</span>
+        </a>
         <button
           type="button"
           class="site-nav__toggle"
@@ -38,17 +42,23 @@
       <div id="site-nav-menu" class="site-nav__drawer">
         <div class="site-nav__links">
           <a href="/">Home</a>
-          <a href="/pages/minimap/">McMinimap</a>
-          <a href="/pages/scenarios/">Scenarios</a>
-          <a href="/pages/gif/">GIFs</a>
-          <a href="/pages/campaignmanager/" aria-current="page">Campaigns</a>
-          <a href="/pages/contact/">Contact</a>
+          <a href="/minimap/">McMinimap</a>
+          <a href="/scenarios/">Scenarios</a>
+          <a href="/gif/">GIFs</a>
+          <a href="/campaignmanager/" aria-current="page">Campaigns</a>
+          <a href="/originalmods/">Original Mods</a>
+          <a href="/contact/">Contact</a>
         </div>
       </div>
     </nav>
 
     <main>
-      <h1 class="page-title">Campaign Extractor</h1>
+      <header class="page-header">
+        <div class="page-header__backdrop" aria-hidden="true"></div>
+        <div class="page-header__inner">
+          <h1 class="page-title">Campaign Manager</h1>
+        </div>
+      </header>
 
       <div class="tabs-bar">
         <nav class="tabs" role="tablist" aria-label="Campaign tools">
@@ -208,6 +218,6 @@
     <footer>AoE2 Museum</footer>
 
     <script src="/modules/site/museum-nav.js" defer></script>
-    <script type="module" src="/pages/campaignmanager/app.js"></script>
+    <script type="module" src="/campaignmanager/app.js"></script>
   </body>
 </html>

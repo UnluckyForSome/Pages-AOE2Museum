@@ -1,5 +1,6 @@
+import * as fflate from "/modules/fflate/fflate.browser.js";
+
 (function () {
-  "use strict";
 
   const SUPPORTED_EXTENSIONS = [
     ".aoe2scenario",
@@ -60,7 +61,7 @@
     final_height: [64, 8192],
   };
 
-  const RAINBOW_URL = "/pages/minimap/assets/rainbow.png";
+  const RAINBOW_URL = "/minimap/assets/rainbow.png";
 
   // ---------- DOM references ----------------------------------------------
 
@@ -89,16 +90,27 @@
   const openMicrosoftModalBtn = document.getElementById("open-microsoft-modal");
   const scenarioModal = document.getElementById("scenario-modal");
   const modsModal = document.getElementById("mods-modal");
-  const modsFileModal = document.getElementById("mods-file-modal");
-  const campaignFileModal = document.getElementById("campaign-file-modal");
-  const campaignFileSelectBtn = document.getElementById("campaign-file-select-btn");
   const campaignFileList = document.getElementById("campaign-file-list");
+  const modsWizardBackBtn = document.getElementById("mods-wizard-back");
+  const modsWizardCancelBtn = document.getElementById("mods-wizard-cancel");
+  const modsWizardSelectBtn = document.getElementById("mods-wizard-select");
+  const modsWizardFooter = document.getElementById("mods-wizard-footer");
+  const modsWizardScreenMod = document.getElementById("mods-wizard-screen-mod");
+  const modsWizardScreenZip = document.getElementById("mods-wizard-screen-zip");
+  const modsWizardScreenCampaign = document.getElementById("mods-wizard-screen-campaign");
+  const scenarioModalCard = scenarioModal ? scenarioModal.querySelector(".modal__card") : null;
+  const modsModalCard = modsModal ? modsModal.querySelector(".modal__card") : null;
   const aocrecModal = document.getElementById("aocrec-modal");
   const microsoftModal = document.getElementById("microsoft-modal");
+  const campaignStandaloneModal = document.getElementById("campaign-standalone-modal");
+  const campaignStandaloneList = document.getElementById("campaign-standalone-list");
+  const campaignStandaloneSelectBtn = document.getElementById("campaign-standalone-select-btn");
+  const aocrecModalCard = aocrecModal ? aocrecModal.querySelector(".modal__card") : null;
+  const microsoftModalCard = microsoftModal ? microsoftModal.querySelector(".modal__card") : null;
+  const campaignStandaloneModalCard = campaignStandaloneModal
+    ? campaignStandaloneModal.querySelector(".modal__card")
+    : null;
   const scenarioSelectBtn = document.getElementById("scenario-select-btn");
-  const modsSelectBtn = document.getElementById("mods-select-btn");
-  const modsFileSelectBtn = document.getElementById("mods-file-select-btn");
-  const campaignFileCancelBtn = document.getElementById("campaign-file-cancel-btn");
   const aocrecSelectBtn = document.getElementById("aocrec-select-btn");
   const msSelectBtn = document.getElementById("ms-select-btn");
   const scenarioSearch = document.getElementById("scenario-search");
@@ -165,6 +177,14 @@
     return !!(backdrop && backdrop.hidden === false);
   }
 
+  const PICKER_FROZEN_STATUS = "Getting selections\u2026";
+  let pickerModalDepth = 0;
+  const pickerBackdropSet = new Set(
+    [scenarioModal, modsModal, aocrecModal, microsoftModal, campaignStandaloneModal].filter(function (b) {
+      return !!b;
+    }),
+  );
+
   function openModal(backdrop, focusEl) {
     if (!backdrop) return;
     backdrop.hidden = false;
@@ -178,10 +198,43 @@
     }
   }
 
+  function openPickerModal(backdrop, focusEl) {
+    if (!backdrop) return;
+    pickerModalDepth++;
+    if (pickerModalDepth === 1) {
+      statusText.textContent = PICKER_FROZEN_STATUS;
+      setStatusTone("loading");
+    }
+    openModal(backdrop, focusEl);
+  }
+
   function closeModal(backdrop) {
     if (!backdrop) return;
+    const wasOpen = !backdrop.hidden;
     backdrop.hidden = true;
     document.documentElement.classList.remove("modal-open");
+    if (wasOpen && pickerBackdropSet.has(backdrop)) {
+      pickerModalDepth = Math.max(0, pickerModalDepth - 1);
+      if (pickerModalDepth === 0) {
+        if (busy) {
+          applyMainStatus("Rendering\u2026", "loading");
+        } else {
+          applyMainStatus("Ready", "success");
+          applyMainProgress(100, { holdMs: 350 });
+        }
+      }
+    }
+    if (!wasOpen) return;
+    if (backdrop === scenarioModal) hideModalActivity(scenarioModalCard, { immediate: true });
+    if (backdrop === aocrecModal) hideModalActivity(aocrecModalCard, { immediate: true });
+    if (backdrop === microsoftModal) {
+      msProfileFetchSeq += 1;
+      hideModalActivity(microsoftModalCard, { immediate: true });
+    }
+    if (backdrop === campaignStandaloneModal) {
+      resetCampaignPickState();
+      hideModalActivity(campaignStandaloneModalCard, { immediate: true });
+    }
   }
 
   function wireModal(backdrop) {
@@ -210,6 +263,67 @@
     return plain[1].trim().replace(/^"(.*)"$/, "$1");
   }
 
+  function parseContentLengthHeader(headerVal) {
+    if (headerVal == null || headerVal === "") return null;
+    const n = parseInt(String(headerVal).trim(), 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  function concatChunksToArrayBuffer(chunks, totalLen) {
+    const out = new Uint8Array(totalLen);
+    let offset = 0;
+    for (let i = 0; i < chunks.length; i++) {
+      out.set(chunks[i], offset);
+      offset += chunks[i].byteLength;
+    }
+    return out.buffer;
+  }
+
+  /** Stream response body to ArrayBuffer; optional `onRatio` receives 0-1 download fraction. */
+  async function arrayBufferFromResponseWithProgress(res, onRatio) {
+    const total = parseContentLengthHeader(res.headers.get("content-length"));
+    const stream = res.body;
+    if (!stream || typeof stream.getReader !== "function") {
+      if (onRatio) onRatio(0);
+      const buf = await res.arrayBuffer();
+      if (onRatio) onRatio(1);
+      return buf;
+    }
+    const reader = stream.getReader();
+    let received = 0;
+    const chunks = [];
+    if (onRatio) onRatio(0);
+
+    if (total == null || total <= 0) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.byteLength;
+        if (onRatio) {
+          const est = 1 - Math.exp(-received / (768 * 1024));
+          onRatio(est * 0.94);
+        }
+      }
+      if (onRatio) onRatio(1);
+      return concatChunksToArrayBuffer(chunks, received);
+    }
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.byteLength;
+      if (onRatio) onRatio(Math.min(1, received / total));
+    }
+    if (onRatio) onRatio(1);
+    return concatChunksToArrayBuffer(chunks, received);
+  }
+
+  function lerpProgressPct(lo, hi, t) {
+    return Math.round(lo + (hi - lo) * Math.max(0, Math.min(1, t)));
+  }
+
   // ---------- status + progress ------------------------------------------
 
   const STATUS_TONES = ["idle", "loading", "success", "error"];
@@ -220,12 +334,12 @@
     });
   }
 
-  function setStatus(text, tone) {
+  function applyMainStatus(text, tone) {
     statusText.textContent = text || "";
     setStatusTone(tone || "idle");
   }
 
-  function setProgress(pct, opts) {
+  function applyMainProgress(pct, opts) {
     const options = opts || {};
     if (progressHideTimer) {
       clearTimeout(progressHideTimer);
@@ -241,6 +355,107 @@
         progressFill.style.width = "0%";
       }, hold);
     }
+  }
+
+  function setStatus(text, tone) {
+    if (pickerModalDepth > 0) return;
+    applyMainStatus(text, tone);
+  }
+
+  function setProgress(pct, opts) {
+    if (pickerModalDepth > 0) return;
+    applyMainProgress(pct, opts);
+  }
+
+  /** @type {WeakMap<object, number>} */
+  const modalActivityTimers = new WeakMap();
+
+  function getModalActivityParts(card) {
+    if (!card) return null;
+    const root = card.querySelector(".modal-activity");
+    if (!root) return null;
+    const ring = root.querySelector(".modal-activity__ring");
+    const textEl = root.querySelector(".modal-activity__text");
+    return { root: root, ring: ring, textEl: textEl };
+  }
+
+  function clearModalActivityTimer(card) {
+    const t = modalActivityTimers.get(card);
+    if (t) {
+      clearTimeout(t);
+      modalActivityTimers.delete(card);
+    }
+  }
+
+  function showModalActivity(card, opts) {
+    const parts = getModalActivityParts(card);
+    if (!parts) return;
+    clearModalActivityTimer(card);
+    const o = opts || {};
+    parts.root.hidden = false;
+    parts.root.setAttribute("aria-hidden", "false");
+    parts.root.classList.remove("is-error", "is-success");
+    parts.root.classList.add("is-loading");
+    if (o.indeterminate) {
+      parts.root.classList.add("is-indeterminate");
+      if (parts.ring) parts.ring.style.removeProperty("--p");
+    } else {
+      parts.root.classList.remove("is-indeterminate");
+      const p = Math.max(0, Math.min(100, typeof o.pct === "number" ? o.pct : 0));
+      if (parts.ring) parts.ring.style.setProperty("--p", p + "%");
+    }
+    if (parts.textEl) parts.textEl.textContent = o.message || "";
+  }
+
+  function setModalActivityProgress(card, pct, message) {
+    const parts = getModalActivityParts(card);
+    if (!parts || parts.root.hidden) return;
+    parts.root.classList.remove("is-indeterminate");
+    const p = Math.max(0, Math.min(100, pct));
+    if (parts.ring) parts.ring.style.setProperty("--p", p + "%");
+    if (message != null && parts.textEl) parts.textEl.textContent = message;
+  }
+
+  function showModalActivityError(card, message) {
+    const parts = getModalActivityParts(card);
+    if (!parts) return;
+    clearModalActivityTimer(card);
+    parts.root.hidden = false;
+    parts.root.setAttribute("aria-hidden", "false");
+    parts.root.classList.remove("is-loading", "is-indeterminate", "is-success");
+    parts.root.classList.add("is-error");
+    if (parts.ring) parts.ring.style.setProperty("--p", "100%");
+    if (parts.textEl) parts.textEl.textContent = message || "Something went wrong.";
+  }
+
+  function hideModalActivity(card, opts) {
+    const parts = getModalActivityParts(card);
+    if (!parts) return;
+    const o = opts || {};
+    clearModalActivityTimer(card);
+    function finish() {
+      parts.root.hidden = true;
+      parts.root.setAttribute("aria-hidden", "true");
+      parts.root.classList.remove("is-loading", "is-error", "is-success", "is-indeterminate");
+      if (parts.ring) parts.ring.style.removeProperty("--p");
+      if (parts.textEl) parts.textEl.textContent = "";
+    }
+    if (o.immediate) {
+      finish();
+      return;
+    }
+    if (typeof o.pct === "number") {
+      setModalActivityProgress(card, o.pct, o.message);
+    } else if (parts.ring) {
+      parts.ring.style.setProperty("--p", "100%");
+    }
+    parts.root.classList.remove("is-error");
+    parts.root.classList.add("is-success");
+    const ms = o.afterMs != null ? o.afterMs : 280;
+    modalActivityTimers.set(
+      card,
+      setTimeout(finish, ms),
+    );
   }
 
   // ---------- render-button state ----------------------------------------
@@ -474,36 +689,48 @@
     const id = scenarioPickerSelectedId;
     if (!id) return;
     if (busy) {
-      setStatus("Busy rendering \u2014 wait for it to finish.", "error");
+      if (scenarioModalCard) {
+        showModalActivityError(scenarioModalCard, "Busy rendering \u2014 wait for it to finish.");
+      } else {
+        setStatus("Busy rendering \u2014 wait for it to finish.", "error");
+      }
       return;
     }
     const entry = scenarioById.get(id);
     if (!entry) return;
 
-    setStatus("Downloading scenario\u2026", "loading");
-    setProgress(10, { autoHide: false });
+    showModalActivity(scenarioModalCard, { pct: 4, message: "Downloading scenario\u2026" });
 
     try {
       const res = await fetch("/api/scenarios/download/" + encodeURIComponent(id), { cache: "no-store" });
       if (!res.ok) throw new Error("Download failed (HTTP " + res.status + ")");
-      setProgress(35, { autoHide: false });
-      const blob = await res.blob();
-      setProgress(70, { autoHide: false });
+      const buf = await arrayBufferFromResponseWithProgress(res, function (ratio) {
+        setModalActivityProgress(
+          scenarioModalCard,
+          lerpProgressPct(10, 82, ratio),
+          "Downloading scenario\u2026",
+        );
+      });
+      setModalActivityProgress(scenarioModalCard, 90, "Preparing file\u2026");
 
       const cd = res.headers.get("content-disposition");
       const fromHeader = parseFilenameFromContentDisposition(cd);
       const filename = fromHeader || entry.filename || "scenario";
-      const file = new File([blob], filename, {
-        type: blob.type || "application/octet-stream",
+      const mime = res.headers.get("content-type") || "application/octet-stream";
+      const file = new File([buf], filename, {
+        type: mime,
         lastModified: Date.now(),
       });
       assignFile(file, "museum");
+      hideModalActivity(scenarioModalCard, { afterMs: 200 });
       closeModal(scenarioModal);
-      setProgress(100, { holdMs: 350 });
-      setStatus("Ready", "success");
+      applyMainStatus("Ready", "success");
+      applyMainProgress(100, { holdMs: 350 });
     } catch (err) {
-      setProgress(100, { holdMs: 1200 });
-      setStatus(err && err.message ? err.message : String(err), "error");
+      showModalActivityError(
+        scenarioModalCard,
+        err && err.message ? err.message : String(err),
+      );
     }
   }
 
@@ -628,9 +855,12 @@
       scenarioIndex = [];
       scenarioById = new Map();
       updateScenarioSearchPlaceholder();
-      // Do not block dropzone usage; just show status quietly.
       console.warn("[scenarios] index load failed:", err);
       if (scenarioPicker) scenarioPicker.render();
+      showModalActivityError(
+        scenarioModalCard,
+        err && err.message ? err.message : String(err),
+      );
     } finally {
       scenarioLoadingIndex = false;
       setPickerShellLoading(scenarioLoading, scenarioList, false);
@@ -642,15 +872,25 @@
   let modsLoaded = false;
   let modsFetchInFlight = false;
   let modsFetchSeq = 0;
-  let modsRows = []; // { modId, modName, creatorName, fileUrl, scenarioCount }[]
+  let modsRows = []; // { modId, modName, creatorName, fileUrl, scenarioCount, campaignCount }[]
   let modsPickerSelectedId = "";
   let modsSearchTimer = 0;
+
+  function formatModsAssetSuffix(nCampaign, nScenario) {
+    const c = Number(nCampaign || 0);
+    const s = Number(nScenario || 0);
+    const parts = [];
+    if (c > 1) parts.push(c + " campaigns");
+    else if (c === 1) parts.push("1 campaign");
+    if (s > 1) parts.push(s + " scenarios");
+    else if (s === 1) parts.push("1 scenario");
+    return parts.length ? (" \u00b7 " + parts.join(", ")) : "";
+  }
 
   function formatModsRow(r) {
     const name = r.modName || String(r.modId);
     const who = r.creatorName ? (" by " + r.creatorName) : "";
-    const n = Number(r.scenarioCount || 0);
-    const suffix = n > 1 ? (" \u00b7 " + n + " scenarios") : (n === 1 ? " \u00b7 1 scenario" : "");
+    const suffix = formatModsAssetSuffix(r.campaignCount, r.scenarioCount);
     const created = Number.isFinite(r.createdAt) ? (msFormatMatchStartDDMMYYYY(r.createdAt) + " - ") : "";
     return created + name + who + suffix;
   }
@@ -704,7 +944,7 @@
       const idx = current.findIndex(function (r) { return String(r.modId) === String(id); });
       if (idx >= 0) activeIdx = idx;
       paintModsPicker(current, activeIdx, selectedId);
-      if (modsSelectBtn) modsSelectBtn.disabled = !selectedId;
+      if (modsWizardSelectBtn) modsWizardSelectBtn.disabled = !selectedId;
     }
 
     modsSearch.addEventListener("input", function () {
@@ -718,7 +958,7 @@
           modsRows = [];
           modsPickerSelectedId = "";
           setPickerShellLoading(modsLoading, modsList, false);
-          if (modsSelectBtn) modsSelectBtn.disabled = true;
+          if (modsWizardSelectBtn) modsWizardSelectBtn.disabled = true;
           if (modsPicker) modsPicker.render();
           return;
         }
@@ -772,6 +1012,15 @@
     return lower.endsWith(".aoe2scenario") || lower.endsWith(".scx") || lower.endsWith(".scn");
   }
 
+  function isCampaignPath(p) {
+    const lower = String(p || "").toLowerCase();
+    return lower.endsWith(".cpn") || lower.endsWith(".cpx") || lower.endsWith(".aoe2campaign");
+  }
+
+  function isSupportedModPath(p) {
+    return isScenarioPath(p) || isCampaignPath(p);
+  }
+
   function parseFileList(raw) {
     if (!raw) return [];
     if (Array.isArray(raw)) return raw.map(String);
@@ -791,16 +1040,20 @@
     modsFetchInFlight = true;
     modsRows = [];
     modsPickerSelectedId = "";
-    if (modsSelectBtn) modsSelectBtn.disabled = true;
+    if (modsWizardSelectBtn) modsWizardSelectBtn.disabled = true;
     if (modsPicker) modsPicker.render();
 
     setPickerShellLoading(modsLoading, modsList, true);
+    let modsSearchHadError = false;
     try {
       const body = {
         page: 1,
         sortColumn: "createDate",
         sortDirection: "DESC",
-        modCategories: [16],
+        // Hard-filter by category:
+        // - 16: scenarios
+        // - 10: campaigns (contains "The Maid of Orleans CN")
+        modCategories: [16, 10],
         searchTerm: q,
         civbuilder: false,
       };
@@ -819,9 +1072,8 @@
           try { parsed = JSON.parse(String(e && e.json_str ? e.json_str : "{}")); } catch (_) {}
           const fileListRaw = e && e.fileList ? e.fileList : (parsed && parsed.fileList ? parsed.fileList : "");
           const fileList = parseFileList(fileListRaw);
-          const scenarioCount = fileList.filter(function (p) {
-            return isScenarioPath(p);
-          }).length;
+          const scenarioCount = fileList.filter(isScenarioPath).length;
+          const campaignCount = fileList.filter(isCampaignPath).length;
           return {
             modId: e && e.modId != null ? Number(e.modId) : 0,
             modName: e && e.modName ? String(e.modName) : "",
@@ -829,6 +1081,7 @@
             fileUrl: parsed && parsed.fileUrl ? String(parsed.fileUrl) : "",
             createdAt: scenarioUploadedAtMs(e && e.createDate),
             scenarioCount: scenarioCount,
+            campaignCount: campaignCount,
           };
         })
         .filter(function (r) {
@@ -837,18 +1090,23 @@
             r.modId > 0 &&
             r.modName &&
             r.fileUrl &&
-            Number(r.scenarioCount || 0) > 0
+            Number(r.scenarioCount || 0) + Number(r.campaignCount || 0) > 0
           );
         })
         .slice(0, PICKER_PAGE_SIZE);
       modsPickerSelectedId = modsRows.length ? String(modsRows[0].modId) : "";
-      if (modsSelectBtn) modsSelectBtn.disabled = !modsPickerSelectedId;
+      if (modsWizardSelectBtn) modsWizardSelectBtn.disabled = !modsPickerSelectedId;
     } catch (err) {
       if (mySeq !== modsFetchSeq) return;
       modsRows = [];
       modsPickerSelectedId = "";
-      if (modsSelectBtn) modsSelectBtn.disabled = true;
+      if (modsWizardSelectBtn) modsWizardSelectBtn.disabled = true;
       console.warn("[mods] search failed:", err);
+      modsSearchHadError = true;
+      showModalActivityError(
+        modsModalCard,
+        err && err.message ? err.message : String(err),
+      );
     } finally {
       if (mySeq !== modsFetchSeq) return;
       modsFetchInFlight = false;
@@ -863,6 +1121,60 @@
   let modsZipFiles = null; // output of fflate.unzipSync
   let modsZipScenarioNames = [];
   let modsZipSelectedName = "";
+  /** @type {"mod"|"zip"|"campaign"} */
+  let modsWizardStep = "mod";
+
+  function syncModsWizardChrome() {
+    if (modsWizardScreenMod) modsWizardScreenMod.hidden = modsWizardStep !== "mod";
+    if (modsWizardScreenZip) modsWizardScreenZip.hidden = modsWizardStep !== "zip";
+    if (modsWizardScreenCampaign) modsWizardScreenCampaign.hidden = modsWizardStep !== "campaign";
+    if (modsWizardFooter) modsWizardFooter.classList.toggle("is-step-mod", modsWizardStep === "mod");
+    if (modsWizardBackBtn) modsWizardBackBtn.hidden = modsWizardStep === "mod";
+    if (modsWizardCancelBtn) modsWizardCancelBtn.hidden = modsWizardStep !== "mod";
+    const titleEl = document.getElementById("mods-modal-title");
+    if (titleEl) {
+      if (modsWizardStep === "mod") titleEl.textContent = "Scenarios From DE Mods";
+      else if (modsWizardStep === "zip") titleEl.textContent = "Pick a file from the mod";
+      else titleEl.textContent = "Pick a scenario from the campaign";
+    }
+  }
+
+  function resetModsWizard() {
+    modsWizardStep = "mod";
+    modsZipFiles = null;
+    modsZipScenarioNames = [];
+    modsZipSelectedName = "";
+    resetCampaignPickState();
+    hideModalActivity(modsModalCard, { immediate: true });
+    syncModsWizardChrome();
+  }
+
+  function closeModsModalFully() {
+    resetModsWizard();
+    closeModal(modsModal);
+  }
+
+  function modsWizardGoBack() {
+    hideModalActivity(modsModalCard, { immediate: true });
+    if (modsWizardStep === "zip") {
+      modsZipFiles = null;
+      modsZipScenarioNames = [];
+      modsZipSelectedName = "";
+      modsWizardStep = "mod";
+      syncModsWizardChrome();
+      if (modsWizardSelectBtn) modsWizardSelectBtn.disabled = !modsPickerSelectedId;
+    } else if (modsWizardStep === "campaign") {
+      resetCampaignPickState();
+      modsWizardStep = "zip";
+      paintModsFilePicker(
+        modsZipScenarioNames,
+        modsZipScenarioNames.length ? 0 : -1,
+        modsZipSelectedName,
+      );
+      syncModsWizardChrome();
+      if (modsWizardSelectBtn) modsWizardSelectBtn.disabled = !modsZipSelectedName;
+    }
+  }
 
   function paintModsFilePicker(options, activeIdx, selectedName) {
     if (!modsFileList) return;
@@ -870,7 +1182,7 @@
     if (!options || options.length === 0) {
       const li = document.createElement("li");
       li.className = "picker__option picker__option--empty";
-      li.textContent = "No scenarios";
+      li.textContent = "No files";
       li.setAttribute("role", "presentation");
       modsFileList.appendChild(li);
       return;
@@ -891,15 +1203,6 @@
     modsFileList.appendChild(frag);
   }
 
-  function openModsFileModal(names) {
-    if (!modsFileModal || !modsFileList) return;
-    modsZipScenarioNames = (names || []).slice();
-    modsZipSelectedName = modsZipScenarioNames.length ? String(modsZipScenarioNames[0]) : "";
-    if (modsFileSelectBtn) modsFileSelectBtn.disabled = !modsZipSelectedName;
-    paintModsFilePicker(modsZipScenarioNames, modsZipScenarioNames.length ? 0 : -1, modsZipSelectedName);
-    openModal(modsFileModal, modsFileList);
-  }
-
   if (modsFileList) {
     modsFileList.addEventListener("click", function (ev) {
       const li = ev.target.closest(".picker__option[role='option']");
@@ -907,7 +1210,7 @@
       const name = li.getAttribute("data-name") || "";
       if (!name) return;
       modsZipSelectedName = name;
-      if (modsFileSelectBtn) modsFileSelectBtn.disabled = false;
+      if (modsWizardSelectBtn) modsWizardSelectBtn.disabled = false;
       paintModsFilePicker(modsZipScenarioNames, -1, modsZipSelectedName);
     });
   }
@@ -920,46 +1223,53 @@
       type: "application/octet-stream",
       lastModified: Date.now(),
     });
+    if (isCampaignFile(file)) {
+      showModalActivity(modsModalCard, { pct: 12, message: "Parsing campaign\u2026" });
+      await resolveCampaignToScenario(file);
+      return;
+    }
     assignFile(file, "mods");
-    closeModal(modsFileModal);
-    closeModal(modsModal);
-    setProgress(100, { holdMs: 350 });
-    setStatus("Ready", "success");
+    hideModalActivity(modsModalCard, { afterMs: 200 });
+    closeModsModalFully();
+    applyMainStatus("Ready", "success");
+    applyMainProgress(100, { holdMs: 350 });
   }
 
   async function importSelectedModScenario() {
     const id = modsPickerSelectedId;
     if (!id) return;
     if (busy) {
-      setStatus("Busy rendering \u2014 wait for it to finish.", "error");
+      if (modsModalCard) showModalActivityError(modsModalCard, "Busy rendering \u2014 wait for it to finish.");
+      else setStatus("Busy rendering \u2014 wait for it to finish.", "error");
       return;
     }
     const row = (modsRows || []).find(function (r) { return String(r.modId) === String(id); });
     if (!row || !row.fileUrl) return;
 
-    setStatus("Downloading mod\u2026", "loading");
-    setProgress(10, { autoHide: false });
+    showModalActivity(modsModalCard, { pct: 4, message: "Downloading mod\u2026" });
 
     try {
       const res = await fetch("/api/mods/zip?url=" + encodeURIComponent(row.fileUrl), { cache: "no-store" });
       if (!res.ok) throw new Error("Download failed (HTTP " + res.status + ")");
-      const buf = await res.arrayBuffer();
-      setProgress(55, { autoHide: false });
+      const buf = await arrayBufferFromResponseWithProgress(res, function (ratio) {
+        setModalActivityProgress(
+          modsModalCard,
+          lerpProgressPct(10, 74, ratio),
+          "Downloading mod\u2026",
+        );
+      });
+      setModalActivityProgress(modsModalCard, 78, "Extracting\u2026");
 
       const u8 = new Uint8Array(buf);
-      const z = globalThis.fflate;
-      if (!z || typeof z.unzipSync !== "function") {
-        throw new Error("ZIP support not loaded.");
-      }
-
-      const files = z.unzipSync(u8);
+      const files = fflate.unzipSync(u8);
+      setModalActivityProgress(modsModalCard, 92, "Scanning files\u2026");
       const names = Object.keys(files || {});
       const scenarios = names
-        .filter(function (n) { return isScenarioPath(n); })
+        .filter(function (n) { return isSupportedModPath(n); })
         .sort(function (a, b) { return a.localeCompare(b); });
 
       if (!scenarios.length) {
-        throw new Error("Zip did not contain a scenario file.");
+        throw new Error("Zip did not contain a scenario or campaign file.");
       }
 
       modsZipFiles = files;
@@ -969,12 +1279,18 @@
         return;
       }
 
-      setProgress(90, { autoHide: false });
-      setStatus("Pick a scenario from the mod\u2026", "loading");
-      openModsFileModal(scenarios);
+      modsZipScenarioNames = scenarios.slice();
+      modsZipSelectedName = modsZipScenarioNames.length ? String(modsZipScenarioNames[0]) : "";
+      modsWizardStep = "zip";
+      paintModsFilePicker(modsZipScenarioNames, modsZipScenarioNames.length ? 0 : -1, modsZipSelectedName);
+      syncModsWizardChrome();
+      hideModalActivity(modsModalCard, { afterMs: 240 });
+      if (modsWizardSelectBtn) modsWizardSelectBtn.disabled = !modsZipSelectedName;
     } catch (err) {
-      setProgress(100, { holdMs: 1200 });
-      setStatus(err && err.message ? err.message : String(err), "error");
+      showModalActivityError(
+        modsModalCard,
+        err && err.message ? err.message : String(err),
+      );
     }
   }
 
@@ -1004,14 +1320,18 @@
   }
 
   function paintCampaignFilePicker(rows, activeIdx, selectedIdx) {
-    if (!campaignFileList) return;
-    campaignFileList.textContent = "";
+    paintCampaignRowsIntoList(campaignFileList, rows, activeIdx, selectedIdx);
+  }
+
+  function paintCampaignRowsIntoList(ul, rows, activeIdx, selectedIdx) {
+    if (!ul) return;
+    ul.textContent = "";
     if (!rows || rows.length === 0) {
       const li = document.createElement("li");
       li.className = "picker__option picker__option--empty";
       li.textContent = "No scenarios";
       li.setAttribute("role", "presentation");
-      campaignFileList.appendChild(li);
+      ul.appendChild(li);
       return;
     }
     const frag = document.createDocumentFragment();
@@ -1026,22 +1346,7 @@
       if (i === selectedIdx) li.setAttribute("aria-current", "true");
       frag.appendChild(li);
     }
-    campaignFileList.appendChild(frag);
-  }
-
-  function openCampaignFileModal(rows) {
-    if (!campaignFileModal || !campaignFileList) return;
-    lastCampaignRows = (rows || []).slice();
-    campaignSelectedIdx = lastCampaignRows.length ? 0 : -1;
-    if (campaignFileSelectBtn) {
-      campaignFileSelectBtn.disabled = campaignSelectedIdx < 0;
-    }
-    paintCampaignFilePicker(
-      lastCampaignRows,
-      lastCampaignRows.length ? 0 : -1,
-      campaignSelectedIdx,
-    );
-    openModal(campaignFileModal, campaignFileList);
+    ul.appendChild(frag);
   }
 
   function fileFromCampaignSlice(buffer, row) {
@@ -1074,31 +1379,44 @@
     try {
       const file = fileFromCampaignSlice(lastCampaignBuffer, row);
       assignFile(file, "");
-      closeModal(campaignFileModal);
+      hideModalActivity(modsModalCard, { immediate: true });
+      hideModalActivity(campaignStandaloneModalCard, { immediate: true });
+      if (isModalOpen(modsModal)) closeModsModalFully();
+      if (campaignStandaloneModal && isModalOpen(campaignStandaloneModal)) {
+        closeModal(campaignStandaloneModal);
+      }
       lastCampaignBuffer = null;
       lastCampaignRows = [];
       campaignSelectedIdx = -1;
-      setProgress(100, { holdMs: 350 });
-      setStatus("Ready", "success");
+      applyMainStatus("Ready", "success");
+      applyMainProgress(100, { holdMs: 350 });
     } catch (err) {
-      setStatus(err && err.message ? err.message : String(err), "error");
+      const msg = err && err.message ? err.message : String(err);
+      if (isModalOpen(modsModal) && modsModalCard) showModalActivityError(modsModalCard, msg);
+      else if (campaignStandaloneModalCard) showModalActivityError(campaignStandaloneModalCard, msg);
+      else applyMainStatus(msg, "error");
     }
   }
 
   async function resolveCampaignToScenario(file) {
     if (!file || !isCampaignFile(file)) return;
     if (campaignBusy || busy) {
-      setStatus("Busy \u2014 wait for the current operation to finish.", "error");
+      const msg = "Busy \u2014 wait for the current operation to finish.";
+      if (isModalOpen(modsModal) && modsModalCard) showModalActivityError(modsModalCard, msg);
+      else setStatus(msg, "error");
       return;
     }
+    const inModsFlow = isModalOpen(modsModal);
     campaignBusy = true;
-    setStatus("Parsing campaign\u2026", "loading");
-    setProgress(8, { autoHide: false });
+    if (inModsFlow) {
+      showModalActivity(modsModalCard, { pct: 10, message: "Parsing campaign\u2026" });
+    } else {
+      openPickerModal(campaignStandaloneModal, campaignStandaloneList);
+      showModalActivity(campaignStandaloneModalCard, { pct: 10, message: "Parsing campaign\u2026" });
+    }
     try {
       const buf = await file.arrayBuffer();
-      setProgress(22, { autoHide: false });
       const parsed = await callParseCampaign(buf);
-      setProgress(75, { autoHide: false });
       const scenarios = parsed && Array.isArray(parsed.scenarios) ? parsed.scenarios : [];
       if (!scenarios.length) {
         throw new Error("Campaign contains no scenarios.");
@@ -1113,14 +1431,27 @@
       lastCampaignBuffer = buf;
       lastCampaignRows = scenarios;
       campaignSelectedIdx = 0;
-      if (campaignFileSelectBtn) campaignFileSelectBtn.disabled = false;
-      setProgress(90, { autoHide: false });
-      setStatus("Pick a scenario from the campaign\u2026", "loading");
-      openCampaignFileModal(scenarios);
+      if (inModsFlow) {
+        modsWizardStep = "campaign";
+        paintCampaignFilePicker(lastCampaignRows, 0, campaignSelectedIdx);
+        hideModalActivity(modsModalCard, { afterMs: 220 });
+        syncModsWizardChrome();
+        if (modsWizardSelectBtn) modsWizardSelectBtn.disabled = false;
+      } else {
+        paintCampaignRowsIntoList(
+          campaignStandaloneList,
+          lastCampaignRows,
+          0,
+          campaignSelectedIdx,
+        );
+        if (campaignStandaloneSelectBtn) campaignStandaloneSelectBtn.disabled = false;
+        hideModalActivity(campaignStandaloneModalCard, { afterMs: 220 });
+      }
     } catch (err) {
       resetCampaignPickState();
-      setProgress(100, { holdMs: 1200 });
-      setStatus(err && err.message ? err.message : String(err), "error");
+      const msg = err && err.message ? err.message : String(err);
+      if (inModsFlow) showModalActivityError(modsModalCard, msg);
+      else showModalActivityError(campaignStandaloneModalCard, msg);
     } finally {
       campaignBusy = false;
     }
@@ -1133,8 +1464,20 @@
       const idx = parseInt(li.getAttribute("data-idx") || "-1", 10);
       if (!Number.isFinite(idx) || idx < 0) return;
       campaignSelectedIdx = idx;
-      if (campaignFileSelectBtn) campaignFileSelectBtn.disabled = false;
+      if (modsWizardSelectBtn) modsWizardSelectBtn.disabled = false;
       paintCampaignFilePicker(lastCampaignRows, -1, campaignSelectedIdx);
+    });
+  }
+
+  if (campaignStandaloneList) {
+    campaignStandaloneList.addEventListener("click", function (ev) {
+      const li = ev.target.closest(".picker__option[role='option']");
+      if (!li || !campaignStandaloneList.contains(li)) return;
+      const idx = parseInt(li.getAttribute("data-idx") || "-1", 10);
+      if (!Number.isFinite(idx) || idx < 0) return;
+      campaignSelectedIdx = idx;
+      if (campaignStandaloneSelectBtn) campaignStandaloneSelectBtn.disabled = false;
+      paintCampaignRowsIntoList(campaignStandaloneList, lastCampaignRows, -1, campaignSelectedIdx);
     });
   }
 
@@ -1406,14 +1749,17 @@
     const id = aocrecPickerSelectedId;
     if (!id) return;
     if (busy) {
-      setStatus("Busy rendering \u2014 wait for it to finish.", "error");
+      if (aocrecModalCard) {
+        showModalActivityError(aocrecModalCard, "Busy rendering \u2014 wait for it to finish.");
+      } else {
+        setStatus("Busy rendering \u2014 wait for it to finish.", "error");
+      }
       return;
     }
     const row = (aocrecRows || []).find(function (r) { return r.id === id; });
     if (!row || !row.zipUrl) return;
 
-    setStatus("Downloading recording\u2026", "loading");
-    setProgress(10, { autoHide: false });
+    showModalActivity(aocrecModalCard, { pct: 4, message: "Downloading recording\u2026" });
 
     try {
       const res = await fetch(
@@ -1421,16 +1767,18 @@
         { cache: "no-store" },
       );
       if (!res.ok) throw new Error("Download failed (HTTP " + res.status + ")");
-      const buf = await res.arrayBuffer();
-      setProgress(55, { autoHide: false });
+      const buf = await arrayBufferFromResponseWithProgress(res, function (ratio) {
+        setModalActivityProgress(
+          aocrecModalCard,
+          lerpProgressPct(10, 74, ratio),
+          "Downloading recording\u2026",
+        );
+      });
+      setModalActivityProgress(aocrecModalCard, 80, "Extracting\u2026");
 
       const u8 = new Uint8Array(buf);
-      const z = globalThis.fflate;
-      if (!z || typeof z.unzipSync !== "function") {
-        throw new Error("ZIP support not loaded.");
-      }
-
-      const files = z.unzipSync(u8);
+      const files = fflate.unzipSync(u8);
+      setModalActivityProgress(aocrecModalCard, 92, "Finding recording\u2026");
       const names = Object.keys(files || {});
       const picked = names
         .filter(function (n) {
@@ -1450,12 +1798,15 @@
       });
 
       assignFile(file, "aocrec");
+      hideModalActivity(aocrecModalCard, { afterMs: 200 });
       closeModal(aocrecModal);
-      setProgress(100, { holdMs: 350 });
-      setStatus("Ready", "success");
+      applyMainStatus("Ready", "success");
+      applyMainProgress(100, { holdMs: 350 });
     } catch (err) {
-      setProgress(100, { holdMs: 1200 });
-      setStatus(err && err.message ? err.message : String(err), "error");
+      showModalActivityError(
+        aocrecModalCard,
+        err && err.message ? err.message : String(err),
+      );
     }
   }
 
@@ -1531,6 +1882,10 @@
       aocrecRows = [];
       if (aocrecPicker) aocrecPicker.setRows([]);
       console.warn("[aocrec] recent load failed:", err);
+      showModalActivityError(
+        aocrecModalCard,
+        err && err.message ? err.message : String(err),
+      );
     } finally {
       aocrecLoading = false;
       setPickerShellLoading(aocrecLoadingEl, aocrecList, false);
@@ -1559,6 +1914,7 @@
     if (aocrecLoading) return;
     aocrecLoading = true;
     setPickerShellLoading(aocrecLoadingEl, aocrecList, true);
+    let aocrecSearchHadError = false;
     try {
       const res = await fetch(
         "/api/aocrec/search?q=" + encodeURIComponent(q) + "&size=" + PICKER_PAGE_SIZE,
@@ -1587,12 +1943,17 @@
       if (aocrecSelectBtn) aocrecSelectBtn.disabled = true;
       if (aocrecPicker) aocrecPicker.setRows(aocrecRows);
     } catch (err) {
+      aocrecSearchHadError = true;
       aocrecLoaded = true;
       aocrecRows = [];
       aocrecPickerSelectedId = "";
       if (aocrecSelectBtn) aocrecSelectBtn.disabled = true;
       if (aocrecPicker) aocrecPicker.setRows([]);
       console.warn("[aocrec] search failed:", err);
+      showModalActivityError(
+        aocrecModalCard,
+        err && err.message ? err.message : String(err),
+      );
     } finally {
       aocrecLoading = false;
       setPickerShellLoading(aocrecLoadingEl, aocrecList, false);
@@ -1796,7 +2157,6 @@
     if (!msSelectedProfileId) return;
     setPickerShellLoading(msMatchLoading, msMatchList, true);
     try {
-      setStatus("Loading matches…", "loading");
       const rows = await msFetchMatches(msSelectedProfileId);
       msMatches = rows
         .filter(function (r) { return r && r.matchId; })
@@ -1817,10 +2177,12 @@
         })
         .filter(function (m) { return Number.isFinite(m.matchId) && m.matchId > 0; });
       msMatchActiveIdx = msMatches.length ? 0 : -1;
-      setStatus("Ready", "success");
       renderMs();
     } catch (err) {
-      setStatus(err && err.message ? err.message : String(err), "error");
+      showModalActivityError(
+        microsoftModalCard,
+        err && err.message ? err.message : String(err),
+      );
       msMatches = [];
       renderMs();
     } finally {
@@ -2046,32 +2408,35 @@
   // ---------- modals wiring ----------------------------------------------
 
   wireModal(scenarioModal);
-  wireModal(modsModal);
-  wireModal(modsFileModal);
-  wireModal(campaignFileModal);
   wireModal(aocrecModal);
   wireModal(microsoftModal);
+  wireModal(campaignStandaloneModal);
 
-  if (campaignFileModal) {
-    campaignFileModal.addEventListener("click", function (ev) {
-      if (ev.target === campaignFileModal) resetCampaignPickState();
+  if (modsModal) {
+    modsModal.addEventListener("click", function (ev) {
+      if (ev.target === modsModal) closeModsModalFully();
+      if (ev.target.closest && ev.target.closest("[data-mods-modal-close]")) closeModsModalFully();
     });
   }
-  if (campaignFileCancelBtn) {
-    campaignFileCancelBtn.addEventListener("click", function () {
-      resetCampaignPickState();
+  if (modsWizardCancelBtn) {
+    modsWizardCancelBtn.addEventListener("click", function () {
+      closeModsModalFully();
     });
   }
-  const campaignFileCloseBtn = campaignFileModal
-    ? campaignFileModal.querySelector(".modal__close")
-    : null;
-  if (campaignFileCloseBtn) {
-    campaignFileCloseBtn.addEventListener("click", function () {
-      resetCampaignPickState();
+  if (modsWizardBackBtn) {
+    modsWizardBackBtn.addEventListener("click", function () {
+      modsWizardGoBack();
     });
   }
-  if (campaignFileSelectBtn) {
-    campaignFileSelectBtn.addEventListener("click", function () {
+  if (modsWizardSelectBtn) {
+    modsWizardSelectBtn.addEventListener("click", function () {
+      if (modsWizardStep === "mod") void importSelectedModScenario();
+      else if (modsWizardStep === "zip") void importSelectedModZipScenario();
+      else void importSelectedCampaignScenario();
+    });
+  }
+  if (campaignStandaloneSelectBtn) {
+    campaignStandaloneSelectBtn.addEventListener("click", function () {
       void importSelectedCampaignScenario();
     });
   }
@@ -2085,7 +2450,8 @@
       updateScenarioSearchPlaceholder();
       if (scenarioSelectBtn) scenarioSelectBtn.disabled = true;
       if (scenarioPicker) scenarioPicker.render();
-      openModal(scenarioModal, scenarioSearch);
+      hideModalActivity(scenarioModalCard, { immediate: true });
+      openPickerModal(scenarioModal, scenarioSearch);
       void loadScenarioIndex();
     });
   }
@@ -2097,9 +2463,11 @@
       modsFetchInFlight = false;
       modsRows = [];
       modsPickerSelectedId = "";
-      if (modsSelectBtn) modsSelectBtn.disabled = true;
+      resetModsWizard();
+      syncModsWizardChrome();
+      if (modsWizardSelectBtn) modsWizardSelectBtn.disabled = true;
       if (modsPicker) modsPicker.render();
-      openModal(modsModal, modsSearch);
+      openPickerModal(modsModal, modsSearch);
       void fetchModsSearch("");
     });
   }
@@ -2111,9 +2479,10 @@
       aocrecPickerSelectedId = "";
       if (aocrecSelectBtn) aocrecSelectBtn.disabled = true;
       if (aocrecPicker) aocrecPicker.setRows([]);
-      loadAocrecRecent();
+      hideModalActivity(aocrecModalCard, { immediate: true });
+      openPickerModal(aocrecModal, aocrecSearch);
+      void loadAocrecRecent();
       if (aocrecSelectBtn) aocrecSelectBtn.disabled = !aocrecPickerSelectedId;
-      openModal(aocrecModal, aocrecSearch);
     });
   }
   if (openMicrosoftModalBtn) {
@@ -2130,13 +2499,12 @@
       setPickerShellLoading(msMatchLoading, msMatchList, false);
       if (msSelectBtn) msSelectBtn.disabled = true;
       renderMs();
-      openModal(microsoftModal, msProfileSearch);
+      hideModalActivity(microsoftModalCard, { immediate: true });
+      openPickerModal(microsoftModal, msProfileSearch);
     });
   }
 
   if (scenarioSelectBtn) scenarioSelectBtn.addEventListener("click", function () { void importSelectedScenario(); });
-  if (modsSelectBtn) modsSelectBtn.addEventListener("click", function () { void importSelectedModScenario(); });
-  if (modsFileSelectBtn) modsFileSelectBtn.addEventListener("click", function () { void importSelectedModZipScenario(); });
   if (aocrecSelectBtn) aocrecSelectBtn.addEventListener("click", function () { void importSelectedAocrec(); });
 
   if (aocrecSearch) {
@@ -2152,13 +2520,12 @@
 
   document.addEventListener("keydown", function (ev) {
     if (ev.key !== "Escape") return;
-    if (isModalOpen(aocrecModal)) closeModal(aocrecModal);
+    if (isModalOpen(modsModal)) {
+      if (modsWizardStep === "mod") closeModsModalFully();
+      else modsWizardGoBack();
+    } else if (isModalOpen(campaignStandaloneModal)) closeModal(campaignStandaloneModal);
+    else if (isModalOpen(aocrecModal)) closeModal(aocrecModal);
     else if (isModalOpen(scenarioModal)) closeModal(scenarioModal);
-    else if (isModalOpen(campaignFileModal)) {
-      closeModal(campaignFileModal);
-      resetCampaignPickState();
-    } else if (isModalOpen(modsFileModal)) closeModal(modsFileModal);
-    else if (isModalOpen(modsModal)) closeModal(modsModal);
     else if (isModalOpen(microsoftModal)) closeModal(microsoftModal);
   });
 
@@ -2169,6 +2536,7 @@
       if (qEarly.length < PICKER_MIN_QUERY_LENGTH) {
         msProfileFetchSeq += 1;
         setMsProfileSearchLoading(false);
+        hideModalActivity(microsoftModalCard, { immediate: true });
         msProfiles = [];
         msProfileActiveIdx = -1;
         msSelectedProfileId = 0;
@@ -2178,12 +2546,13 @@
         renderMs();
         return;
       }
-      setMsProfileSearchLoading(true);
+      setMsProfileSearchLoading(false);
       msProfileDebounce = setTimeout(async function () {
         const q = msProfileSearch.value.trim();
         if (q.length < PICKER_MIN_QUERY_LENGTH) {
           msProfileFetchSeq += 1;
           setMsProfileSearchLoading(false);
+          hideModalActivity(microsoftModalCard, { immediate: true });
           msProfiles = [];
           msProfileActiveIdx = -1;
           msSelectedProfileId = 0;
@@ -2199,6 +2568,7 @@
         msMatchActiveIdx = -1;
         const seq = ++msProfileFetchSeq;
         try {
+          setMsProfileSearchLoading(true);
           const rows = await msFetchProfiles(q);
           if (seq !== msProfileFetchSeq) return;
           msProfiles = rows
@@ -2220,7 +2590,10 @@
           msProfiles = [];
           msProfileActiveIdx = -1;
           renderMs();
-          setStatus(err && err.message ? err.message : String(err), "error");
+          showModalActivityError(
+            microsoftModalCard,
+            err && err.message ? err.message : String(err),
+          );
         } finally {
           if (seq === msProfileFetchSeq) setMsProfileSearchLoading(false);
         }
@@ -2254,6 +2627,7 @@
           msProfileSearch.value = "";
           msProfileFetchSeq += 1;
           setMsProfileSearchLoading(false);
+          hideModalActivity(microsoftModalCard, { immediate: true });
           msProfiles = [];
           msSelectedProfileId = 0;
           msSelectedMatchId = 0;
@@ -2295,12 +2669,15 @@
   async function importSelectedMicrosoftReplay() {
     if (!msSelectedProfileId || !msSelectedMatchId) return;
     if (busy) {
-      setStatus("Busy rendering — wait for it to finish.", "error");
+      if (microsoftModalCard) {
+        showModalActivityError(microsoftModalCard, "Busy rendering \u2014 wait for it to finish.");
+      } else {
+        setStatus("Busy rendering \u2014 wait for it to finish.", "error");
+      }
       return;
     }
 
-    setStatus("Downloading recording…", "loading");
-    setProgress(10, { autoHide: false });
+    showModalActivity(microsoftModalCard, { pct: 4, message: "Downloading recording\u2026" });
 
     try {
       const res = await fetch(
@@ -2311,16 +2688,18 @@
         { cache: "no-store" },
       );
       if (!res.ok) throw new Error("Download failed (HTTP " + res.status + ")");
-      const buf = await res.arrayBuffer();
-      setProgress(55, { autoHide: false });
+      const buf = await arrayBufferFromResponseWithProgress(res, function (ratio) {
+        setModalActivityProgress(
+          microsoftModalCard,
+          lerpProgressPct(10, 74, ratio),
+          "Downloading recording\u2026",
+        );
+      });
+      setModalActivityProgress(microsoftModalCard, 80, "Extracting\u2026");
 
       const u8 = new Uint8Array(buf);
-      const z = globalThis.fflate;
-      if (!z || typeof z.unzipSync !== "function") {
-        throw new Error("ZIP support not loaded.");
-      }
-
-      const files = z.unzipSync(u8);
+      const files = fflate.unzipSync(u8);
+      setModalActivityProgress(microsoftModalCard, 92, "Finding recording\u2026");
       const names = Object.keys(files || {});
       const picked = names
         .filter(function (n) {
@@ -2340,12 +2719,15 @@
       });
 
       assignFile(file, "microsoft");
+      hideModalActivity(microsoftModalCard, { afterMs: 200 });
       closeModal(microsoftModal);
-      setProgress(100, { holdMs: 350 });
-      setStatus("Ready", "success");
+      applyMainStatus("Ready", "success");
+      applyMainProgress(100, { holdMs: 350 });
     } catch (err) {
-      setProgress(100, { holdMs: 1200 });
-      setStatus(err && err.message ? err.message : String(err), "error");
+      showModalActivityError(
+        microsoftModalCard,
+        err && err.message ? err.message : String(err),
+      );
     }
   }
 
@@ -2396,29 +2778,49 @@
 
   function ensureWorker() {
     if (worker) return worker;
-    worker = new Worker("/pages/minimap/worker.js");
+    worker = new Worker("/minimap/worker.js");
     worker.onmessage = function (ev) {
       const msg = ev.data || {};
       if (msg.type === "progress") {
         if (msg.phase === "boot" && !bootDone) {
           const total = msg.total || BOOT_TOTAL_DEFAULT;
           const step = Math.max(1, msg.step || 1);
-          const pct = Math.min(95, Math.round((step / total) * 95));
-          setProgress(pct, { autoHide: false });
-          setStatus(msg.message || "Loading\u2026", "loading");
+          const pct =
+            typeof msg.pct === "number"
+              ? Math.min(99, Math.round(msg.pct))
+              : Math.min(99, Math.round((step / total) * 100));
+          applyMainProgress(pct, { autoHide: false });
+          applyMainStatus(msg.message || "Loading\u2026", "loading");
           if (step >= total) {
             bootDone = true;
-            setProgress(100, { holdMs: 300 });
-            setStatus("Ready", "success");
+            applyMainProgress(100, { holdMs: 300 });
+            applyMainStatus("Ready", "success");
           }
+        } else if (msg.phase === "campaignParse") {
+          if (isModalOpen(modsModal) && modsModalCard) {
+            showModalActivity(modsModalCard, {
+              pct: typeof msg.pct === "number" ? msg.pct : 40,
+              message: msg.message || "Parsing campaign\u2026",
+            });
+          } else if (isModalOpen(campaignStandaloneModal) && campaignStandaloneModalCard) {
+            showModalActivity(campaignStandaloneModalCard, {
+              pct: typeof msg.pct === "number" ? msg.pct : 40,
+              message: msg.message || "Parsing campaign\u2026",
+            });
+          } else if (pickerModalDepth === 0) {
+            applyMainStatus(msg.message || "\u2026", "loading");
+            if (typeof msg.pct === "number") applyMainProgress(msg.pct, { autoHide: false });
+          }
+        } else if (pickerModalDepth > 0) {
+          return;
         } else if (msg.phase === "render") {
-          setStatus(msg.message || "Rendering\u2026", "loading");
-          if (typeof msg.pct === "number") setProgress(msg.pct, { autoHide: false });
+          applyMainStatus(msg.message || "Rendering\u2026", "loading");
+          if (typeof msg.pct === "number") applyMainProgress(msg.pct, { autoHide: false });
         } else if (msg.phase === "error") {
-          setProgress(100, { error: true, holdMs: 1500 });
-          setStatus(msg.message || "Error", "error");
+          applyMainProgress(100, { error: true, holdMs: 1500 });
+          applyMainStatus(msg.message || "Error", "error");
         } else {
-          setStatus(msg.message || "\u2026", "loading");
+          applyMainStatus(msg.message || "\u2026", "loading");
         }
         return;
       }
@@ -2453,8 +2855,8 @@
         entry.reject(new Error(e.message || "Worker error"));
       });
       pendingCampaign.clear();
-      setProgress(100, { error: true, holdMs: 1200 });
-      setStatus(e.message || "Worker error", "error");
+      applyMainProgress(100, { error: true, holdMs: 1200 });
+      applyMainStatus(e.message || "Worker error", "error");
     };
     return worker;
   }
@@ -2581,16 +2983,16 @@
     const fingerprint = computeFingerprint();
     setBusy(true);
     setStatus("Preparing\u2026", "loading");
-    setProgress(10, { autoHide: false });
+    setProgress(6, { autoHide: false });
 
     try {
       const settings = buildSettings();
       const ext = fileExtension(file.name);
       const bytes = await file.arrayBuffer();
-      setProgress(30, { autoHide: false });
+      setProgress(18, { autoHide: false });
       setStatus("Rendering\u2026", "loading");
       const png = await callRender(bytes, ext, settings);
-      setProgress(90, { autoHide: false });
+      setProgress(94, { autoHide: false });
       const blob = new Blob([png], { type: "image/png" });
       setImageFromBlob(blob);
       lastRenderedFingerprint = fingerprint;
@@ -2610,7 +3012,7 @@
   // ---------- startup ----------------------------------------------------
 
   refreshFingerprint();
-  setProgress(2, { autoHide: false });
+  setProgress(4, { autoHide: false });
   setStatus("Loading runtime\u2026", "loading");
   ensureWorker();
   worker.postMessage({ type: "warmup" });

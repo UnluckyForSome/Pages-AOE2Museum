@@ -18,6 +18,35 @@ export default {
     const url = new URL(request.url);
     const { pathname } = url;
 
+    // Public routes (no /pages prefix). We serve the underlying /pages/* assets
+    // without redirecting so the browser URL stays clean.
+    const pagePrefixes = [
+      "minimap",
+      "gif",
+      "scenarios",
+      "campaignmanager",
+      "originalmods",
+      "contact",
+      "home",
+    ];
+    for (const p of pagePrefixes) {
+      const prefix = "/" + p;
+      if (pathname === prefix || pathname.startsWith(prefix + "/")) {
+        const nextUrl = new URL("/pages" + pathname, url);
+        return env.ASSETS.fetch(new Request(nextUrl, request));
+      }
+    }
+
+    // Serve home/contact from canonical /pages/* without changing the URL.
+    if (pathname === "/") {
+      const nextUrl = new URL("/pages/home/", url);
+      return env.ASSETS.fetch(new Request(nextUrl, request));
+    }
+    if (pathname === "/contact.html") {
+      const nextUrl = new URL("/pages/contact/", url);
+      return env.ASSETS.fetch(new Request(nextUrl, request));
+    }
+
     if (pathname === "/health") {
       return json({ ok: true, service: "aoe2museum" });
     }

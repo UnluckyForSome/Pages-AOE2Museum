@@ -3,7 +3,7 @@
    tabs, statusbar, form controls, responsive) lives in /styles/museum.css,
    and several widgets (gen-grid, imgwrap, advanced drawer, stack, field-label,
    section, hint, toggle, row) are intentionally shared in shape with
-   /pages/minimap/style.css; they are duplicated minimally here to avoid cross-app
+   /minimap/style.css; they are duplicated minimally here to avoid cross-app
    coupling.
    ========================================================================== */
 
