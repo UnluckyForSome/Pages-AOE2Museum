@@ -1,3 +1,6 @@
 [submodule "sourcemodules/aoe2mcminimap"]
 	path = sourcemodules/aoe2mcminimap
-	url = https://github.com/UnluckyForSome/AOE2-McMinimap.git
+	url = git@github.com:UnluckyForSome/AOE2-McMinimap.git
+[submodule "sourcemodules/genie-scx-py"]
+	path = sourcemodules/genie-scx-py
+	url = https://github.com/UnluckyForSome/genie-scx-py.git
