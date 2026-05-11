@@ -28,17 +28,20 @@ for _p in (_PYLIBS_DIR, _VENDOR_DIR):
 # ``json.loads(pkgutil.get_data(...))`` would raise mid-render.
 import importlib.util  # noqa: E402
 
-for _pkg in ("construct", "aocref"):
+for _pkg in ("genie_scx_py", "construct", "aocref"):
     if importlib.util.find_spec(_pkg) is None:
         raise ImportError(
             f"vendored package {_pkg!r} not found on sys.path; "
-            "check that fetch-pylibs output (sourcemodules/construct, sourcemodules/aocref) "
-            "was bundled into aoe2mcminimap.tar (scripts/build-mcminimap-bundle.mjs)."
+            "check that scripts/build-mcminimap-bundle.mjs bundled pylibs (genie_scx_py, construct, aocref) "
+            "into aoe2mcminimap.tar."
         )
 
 from types import SimpleNamespace  # noqa: E402
 
-from McMinimap import MinimapSettings, to_png_bytes, to_png_bytes_from_match  # noqa: E402
+try:
+    from McMinimap import MinimapSettings, to_png_bytes, to_png_bytes_from_match  # noqa: E402
+except ImportError:
+    from aoe2_mcminimap import MinimapSettings, to_png_bytes, to_png_bytes_from_match  # noqa: E402
 
 
 def _coerce_settings(raw):
@@ -118,7 +121,12 @@ def parse_campaign_index_json(file_bytes):
             data = bytes(file_bytes.to_py())
         else:
             data = bytes(file_bytes)
-        from legacy.aoe2campaignparser import parse_campaign_index  # noqa: PLC0415
+        try:
+            from legacy.aoe2campaignparser import parse_campaign_index  # noqa: PLC0415
+        except ImportError:
+            from aoe2_mcminimap.legacy.aoe2campaignparser import (  # noqa: PLC0415
+                parse_campaign_index,
+            )
 
         campaign_name, scenarios = parse_campaign_index(data)
         return json.dumps(

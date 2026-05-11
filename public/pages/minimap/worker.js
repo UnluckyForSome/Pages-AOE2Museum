@@ -113,8 +113,8 @@ async function handleRender(id, fileBytes, ext, settings) {
     bytesView = new Uint8Array(fileBytes);
 
     pyodide.globals.set("_bytes", bytesView);
-    // McMinimap.py handles scenario routing by sniffing file bytes (format 1.36+ -> AoE2ScenarioParser,
-    // older -> geniescx_legacy). Extension is still relevant for recorded games.
+    // McMinimap.py routes scenarios by sniffing outer SCX version (>= 1.35 -> AoE2ScenarioParser,
+    // older legacy containers -> genie_scx_py from pylibs). Extension is still relevant for recordings.
     pyodide.globals.set("_ext", ext);
     settingsProxy = pyodide.toPy(settings);
     pyodide.globals.set("_settings", settingsProxy);

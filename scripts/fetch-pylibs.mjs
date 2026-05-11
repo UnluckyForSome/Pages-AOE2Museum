@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Downloads pinned pure-Python packages that micropip cannot resolve as
-// wheels and vendors their source into sourcemodules/construct and
-// sourcemodules/aocref. The bundle script ships them as pylibs/* in the tar.
+// Downloads pinned pure-Python packages into sourcemodules/* for the McMinimap
+// Pyodide bundle: PyPI sdists (construct, aocref), genie-scx-py, and the
+// aoe2-mcminimap application tree (McMinimap.py + aoe2_mcminimap/). The bundle
+// script ships McMinimap sources plus pylibs/* into the tar.
 //
 // Why: `construct==2.8.16` (pinned by the vendored happyleaves mgz tree)
 // was only ever published as an sdist on PyPI, so
@@ -10,11 +11,14 @@
 
 import { execFileSync } from "node:child_process";
 import {
+  cpSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -39,7 +43,40 @@ const PYLIBS = [
     subpath: "aocref-2.0.37/aocref",
     destParent: join(repoRoot, "sourcemodules"),
   },
+  {
+    name: "genie_scx_py",
+    version: "0.1.0",
+    pypiProject: "genie-scx-py",
+    /**
+     * Warehouse JSON API host (no trailing slash).
+     * Default TestPyPI until genie-scx-py is on production PyPI; override with
+     * GENIE_SCX_PY_PYPI_INDEX=https://pypi.org for releases only on pypi.org.
+     */
+    pypiIndexBase:
+      process.env.GENIE_SCX_PY_PYPI_INDEX?.replace(/\/$/, "") || "https://test.pypi.org",
+    /** sdist top-level dir matches tarball name, e.g. genie_scx_py-0.1.0.tar.gz */
+    subpathFromVersion: (v) => `genie_scx_py-${v}/genie_scx_py`,
+    destParent: join(repoRoot, "sourcemodules"),
+  },
 ];
+
+async function resolvePypiSdistUrl(project, version, indexBase = "https://pypi.org") {
+  const base = indexBase.replace(/\/$/, "");
+  const res = await fetch(`${base}/pypi/${encodeURIComponent(project)}/json`, {
+    redirect: "follow",
+  });
+  if (!res.ok) throw new Error(`${base} project ${project}: HTTP ${res.status}`);
+  const data = await res.json();
+  const files = data.releases?.[version];
+  if (!files?.length) {
+    const avail = Object.keys(data.releases || {}).sort();
+    const hint = avail.length ? ` Available versions include: ${avail.slice(-8).join(", ")}.` : "";
+    throw new Error(`No PyPI release files for ${project}==${version}.${hint}`);
+  }
+  const sdist = files.find((u) => u.packagetype === "sdist");
+  if (!sdist?.url) throw new Error(`No sdist URL for ${project}==${version}`);
+  return sdist.url;
+}
 
 function versionMarkerPath(pkg) {
   return join(pkg.destParent, pkg.name, ".version");
@@ -73,6 +110,14 @@ async function fetchOne(pkg) {
     return;
   }
 
+  let url = pkg.url;
+  let subpath = pkg.subpath;
+  if (pkg.pypiProject) {
+    const indexBase = pkg.pypiIndexBase || "https://pypi.org";
+    url = await resolvePypiSdistUrl(pkg.pypiProject, pkg.version, indexBase);
+    subpath = pkg.subpathFromVersion(pkg.version);
+  }
+
   console.log(`[fetch-pylibs] downloading ${pkg.name} ${pkg.version}`);
 
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -80,10 +125,10 @@ async function fetchOne(pkg) {
   const tmpExtract = join(tmpdir(), `${pkg.name}-extract-${stamp}`);
 
   try {
-    await downloadToFile(pkg.url, tmpArchive);
+    await downloadToFile(url, tmpArchive);
     extractTarGz(tmpArchive, tmpExtract);
 
-    const extracted = join(tmpExtract, pkg.subpath);
+    const extracted = join(tmpExtract, subpath);
     if (!existsSync(extracted)) {
       throw new Error(`expected package dir missing after extract: ${extracted}`);
     }
@@ -105,8 +150,76 @@ async function fetchOne(pkg) {
   }
 }
 
+function findAoe2McMinimapSdistRoot(extractDir) {
+  /** setuptools sdists ship `aoe2_mcminimap/`; legacy repo layout may also have top-level McMinimap.py */
+  function walk(dir) {
+    if (existsSync(join(dir, "aoe2_mcminimap", "__init__.py"))) return dir;
+    let found = null;
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name);
+      if (!statSync(p).isDirectory()) continue;
+      found = walk(p);
+      if (found) return found;
+    }
+    return null;
+  }
+  const root = walk(extractDir);
+  if (!root) {
+    throw new Error(`[fetch-pylibs] could not find aoe2_mcminimap package under ${extractDir}`);
+  }
+  return root;
+}
+
+/**
+ * Vendor McMinimap CLI/package tree from an sdist (TestPyPI by default).
+ * Override: AOE2_MCMINIMAP_VERSION, AOE2_MCMINIMAP_PYPI_INDEX (e.g. https://pypi.org).
+ */
+async function fetchAoe2McMinimap() {
+  const version = process.env.AOE2_MCMINIMAP_VERSION?.trim() || "0.1.0";
+  const indexBase =
+    process.env.AOE2_MCMINIMAP_PYPI_INDEX?.replace(/\/$/, "") || "https://test.pypi.org";
+  const dest = join(repoRoot, "sourcemodules/aoe2mcminimap");
+  const marker = join(dest, ".version");
+  if (existsSync(marker) && readFileSync(marker, "utf8").trim() === version) {
+    console.log(`[fetch-pylibs] aoe2-mcminimap ${version} already present, skipping.`);
+    return;
+  }
+
+  console.log(`[fetch-pylibs] downloading aoe2-mcminimap ${version} from ${indexBase}`);
+  const url = await resolvePypiSdistUrl("aoe2-mcminimap", version, indexBase);
+
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const tmpArchive = join(tmpdir(), `aoe2-mcminimap-${version}-${stamp}.tar.gz`);
+  const tmpExtract = join(tmpdir(), `aoe2-mcminimap-extract-${stamp}`);
+
+  try {
+    await downloadToFile(url, tmpArchive);
+    extractTarGz(tmpArchive, tmpExtract);
+    const root = findAoe2McMinimapSdistRoot(tmpExtract);
+
+    if (existsSync(dest)) rmSync(dest, { recursive: true, force: true });
+    mkdirSync(dest, { recursive: true });
+    const legacyCli = join(root, "McMinimap.py");
+    if (existsSync(legacyCli)) {
+      cpSync(legacyCli, join(dest, "McMinimap.py"));
+    }
+    cpSync(join(root, "aoe2_mcminimap"), join(dest, "aoe2_mcminimap"), { recursive: true });
+    writeFileSync(marker, `${version}\n`);
+
+    console.log(`[fetch-pylibs] aoe2-mcminimap ${version} -> ${dest}`);
+  } finally {
+    try {
+      rmSync(tmpArchive, { force: true });
+    } catch {}
+    try {
+      rmSync(tmpExtract, { recursive: true, force: true });
+    } catch {}
+  }
+}
+
 async function main() {
   for (const pkg of PYLIBS) await fetchOne(pkg);
+  await fetchAoe2McMinimap();
 }
 
 main().catch((e) => {

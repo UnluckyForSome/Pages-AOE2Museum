@@ -1,13 +1,10 @@
 #!/usr/bin/env node
-// Packs the runtime-needed slice of the AOE2-McMinimap submodule (repo-root
-// sourcemodules/aoe2mcminimap) plus sourcemodules/construct + sourcemodules/aocref into a single tar at
-// public/modules/aoe2mcminimap/aoe2mcminimap.tar, plus a manifest.json describing
-// the source SHAs and contents.
+// Packs McMinimap sources from sourcemodules/aoe2mcminimap (populated by
+// fetch-pylibs.mjs from PyPI/TestPyPI), vendored genie_scx_py, construct, and
+// aocref into public/modules/aoe2mcminimap/aoe2mcminimap.tar + manifest.json.
 //
-// Cache-gated: if the submodule HEAD SHA and every vendored pylib version
-// match what's in manifest.json and the tar already exists, we skip work.
+// Cache-gated: pylib versions + aoe2-mcminimap version must match manifest.json.
 
-import { execFileSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -24,34 +21,28 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
-const submoduleDir = resolve(repoRoot, "sourcemodules/aoe2mcminimap");
+const mcminimapSrcDir = resolve(repoRoot, "sourcemodules/aoe2mcminimap");
+const genieScxPkgDir = resolve(repoRoot, "sourcemodules/genie_scx_py");
 const constructDir = resolve(repoRoot, "sourcemodules/construct");
 const aocrefDir = resolve(repoRoot, "sourcemodules/aocref");
 const outDir = resolve(repoRoot, "public/modules/aoe2mcminimap");
 const tarPath = join(outDir, "aoe2mcminimap.tar");
 const manifestPath = join(outDir, "manifest.json");
 
-// Bump when packaging rules change (submodule SHA alone is not enough to invalidate).
-const BUNDLE_SPEC_VERSION = 6;
+const BUNDLE_SPEC_VERSION = 10;
 
-// Submodule top-level entries to ship to the browser.
-const SUBMODULE_INCLUDE = ["McMinimap.py", "data", "emblems", "legacy"];
-// Inside `legacy`, ship mgz_legacy (recordings), scenario parsing (geniescx_legacy),
-// plus campaign parsing helpers.
-const LEGACY_KEEP = new Set(["mgz_legacy", "geniescx_legacy.py", "aoe2campaignparser.py"]);
+const MCMINIMAP_TOP = ["McMinimap.py", "aoe2_mcminimap"];
+
+const LEGACY_KEEP = new Set(["mgz_legacy", "aoe2campaignparser.py"]);
 
 const SKIP_DIRS = new Set(["__pycache__", ".git", "examples", "tests"]);
-
-function getSubmoduleSha() {
-  return execFileSync("git", ["-C", submoduleDir, "rev-parse", "HEAD"], {
-    encoding: "utf8",
-  }).trim();
-}
 
 function readPylibVersions() {
   const roots = [
     { name: "construct", dir: constructDir },
     { name: "aocref", dir: aocrefDir },
+    { name: "genie_scx_py", dir: genieScxPkgDir },
+    { name: "aoe2_mcminimap", dir: mcminimapSrcDir },
   ];
   const out = {};
   for (const { name, dir } of roots) {
@@ -78,18 +69,25 @@ function readManifest() {
 function collectFiles() {
   const files = [];
 
-  for (const top of SUBMODULE_INCLUDE) {
-    const abs = join(submoduleDir, top);
+  if (!existsSync(join(genieScxPkgDir, "__init__.py"))) {
+    console.error("[build-mcminimap-bundle] genie_scx_py missing — run `npm run fetch:pylibs` first.");
+    process.exit(1);
+  }
+
+  for (const top of MCMINIMAP_TOP) {
+    const abs = join(mcminimapSrcDir, top);
     if (!existsSync(abs)) continue;
     const st = statSync(abs);
     if (st.isFile()) {
       files.push({ abs, rel: top });
     } else if (st.isDirectory()) {
-      walk(abs, top, files, top === "legacy" ? LEGACY_KEEP : null);
+      const legacyFilter = top === "aoe2_mcminimap" ? LEGACY_KEEP : null;
+      walk(abs, top, files, legacyFilter);
     }
   }
 
   const pyPack = [
+    { abs: genieScxPkgDir, rel: "pylibs/genie_scx_py" },
     { abs: constructDir, rel: "pylibs/construct" },
     { abs: aocrefDir, rel: "pylibs/aocref" },
   ];
@@ -103,8 +101,10 @@ function collectFiles() {
 }
 
 function walk(dirAbs, dirRel, files, topLevelFilter) {
+  const atFilteredLegacy =
+    topLevelFilter && (dirRel === "legacy" || dirRel === "aoe2_mcminimap/legacy");
   for (const name of readdirSync(dirAbs)) {
-    if (dirRel === "legacy" && topLevelFilter && !topLevelFilter.has(name)) continue;
+    if (atFilteredLegacy && !topLevelFilter.has(name)) continue;
     if (SKIP_DIRS.has(name)) continue;
     if (name === ".version") continue;
     const abs = join(dirAbs, name);
@@ -118,8 +118,6 @@ function walk(dirAbs, dirRel, files, topLevelFilter) {
     }
   }
 }
-
-// --- minimal USTAR writer (512-byte blocks, no GNU extensions) ---------------
 
 function octal(num, length) {
   return num.toString(8).padStart(length - 1, "0") + "\0";
@@ -173,8 +171,6 @@ function writeTar(files, outPath) {
   }
 }
 
-// -----------------------------------------------------------------------------
-
 function shallowEqual(a, b) {
   const ak = Object.keys(a || {});
   const bk = Object.keys(b || {});
@@ -183,30 +179,27 @@ function shallowEqual(a, b) {
 }
 
 function main() {
-  if (!existsSync(join(submoduleDir, "McMinimap.py"))) {
+  if (!existsSync(join(mcminimapSrcDir, "aoe2_mcminimap", "__init__.py"))) {
     console.error(
-      "[build-mcminimap-bundle] submodule not populated — run `npm run sync:mcminimap` first.",
+      "[build-mcminimap-bundle] sourcemodules/aoe2mcminimap (aoe2_mcminimap package) missing — run `npm run fetch:pylibs` first.",
     );
     process.exit(1);
   }
 
-  const sha = getSubmoduleSha();
   const pylibs = readPylibVersions();
 
   const prev = readManifest();
   if (
     prev &&
     prev.specVersion === BUNDLE_SPEC_VERSION &&
-    prev.sourceSha === sha &&
     shallowEqual(prev.pylibs, pylibs) &&
     existsSync(tarPath)
   ) {
+    const mm = pylibs.aoe2_mcminimap ? ` mcminimap@${pylibs.aoe2_mcminimap}` : "";
     const pylibSummary = Object.keys(pylibs).length
-      ? " + " + Object.entries(pylibs).map(([n, v]) => `${n}@${v}`).join(",")
+      ? " +" + Object.entries(pylibs).map(([n, v]) => ` ${n}@${v}`).join("")
       : "";
-    console.log(
-      `[build-mcminimap-bundle] up to date at ${sha.slice(0, 7)}${pylibSummary}, skipping.`,
-    );
+    console.log(`[build-mcminimap-bundle] up to date (${mm || pylibSummary}), skipping.`);
     return;
   }
 
@@ -217,7 +210,6 @@ function main() {
 
   const manifest = {
     specVersion: BUNDLE_SPEC_VERSION,
-    sourceSha: sha,
     pylibs,
     builtAt: new Date().toISOString(),
     fileCount: files.length,
@@ -231,7 +223,7 @@ function main() {
     : "";
   console.log(
     `[build-mcminimap-bundle] wrote ${relative(repoRoot, tarPath)} ` +
-      `(${files.length} files, ${(bytes / 1024).toFixed(1)} KiB, sha ${sha.slice(0, 7)}${pylibSummary})`,
+      `(${files.length} files, ${(bytes / 1024).toFixed(1)} KiB${pylibSummary})`,
   );
 }
 

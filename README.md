@@ -117,34 +117,43 @@ public/                             # served by the Cloudflare assets binding
     aoe2mcminimap/                  # generated tar + manifest (gitignored)
     unit-gifs/                      # SLP/SLD mapping JSON, palette, team-colors (GIF app + Worker manifests)
 sourcemodules/
-  aoe2mcminimap/                    # git submodule -> UnluckyForSome/AOE2-McMinimap
+  aoe2mcminimap/                    # fetch-pylibs — aoe2-mcminimap sdist tree (gitignored)
   genie-rs/                         # Rust workspace (genie-scx WASM)
   construct/                        # fetch-pylibs (gitignored)
   aocref/                           # fetch-pylibs (gitignored)
+  genie_scx_py/                     # fetch-pylibs — genie-scx-py sdist (gitignored); index see below
 server/
   minimap/                          # civ/map JSON for Microsoft API proxy (imported by Worker TS)
 scripts/
-  sync-mcminimap.mjs                # ensures submodule is initialised
-  fetch-pylibs.mjs                  # downloads pinned sdists (e.g. construct==2.8.16) from PyPI
-  build-mcminimap-bundle.mjs        # cache-gated tar (sourcemodules/construct + sourcemodules/aocref -> pylibs/* in tar)
+  fetch-pylibs.mjs                  # vendors construct, aocref, genie-scx-py, aoe2-mcminimap into sourcemodules/
+  build-mcminimap-bundle.mjs        # cache-gated tar (McMinimap tree + pylibs -> aoe2mcminimap.tar)
 ```
 
 ## Local development
 
-First-time setup clones the submodule:
-
 ```bash
-git clone --recurse-submodules <this-repo>
-# or, if already cloned:
-git submodule sync
-git submodule update --init --recursive
+git clone <this-repo>
+cd Pages-AOE2Museum   # or your checkout path
 npm install
 ```
 
-If you pulled after the submodule path moved, run `git submodule sync` once so Git updates local paths (currently `sourcemodules/aoe2mcminimap`).
+**PyPI indexes (defaults match TestPyPI staging):**
 
-Run the dev server (the `predev` script regenerates the vendor tar if the
-submodule has moved):
+| Package | Default index | Override env |
+|---------|----------------|--------------|
+| **genie-scx-py** | [TestPyPI](https://test.pypi.org/project/genie-scx-py/) | `GENIE_SCX_PY_PYPI_INDEX` (e.g. `https://pypi.org`) |
+| **aoe2-mcminimap** | [TestPyPI](https://test.pypi.org/project/aoe2-mcminimap/) | `AOE2_MCMINIMAP_PYPI_INDEX` |
+| **aoe2-mcminimap** version pin | `0.1.0` in script | `AOE2_MCMINIMAP_VERSION` |
+
+When both packages are on **production [PyPI](https://pypi.org/)**:
+
+```bash
+export GENIE_SCX_PY_PYPI_INDEX=https://pypi.org
+export AOE2_MCMINIMAP_PYPI_INDEX=https://pypi.org
+npm run fetch:pylibs
+```
+
+Run the dev server (`predev` runs `build:mcminimap`, which fetches sdists if needed and rebuilds the tar):
 
 ```bash
 npm run dev
@@ -154,12 +163,13 @@ Then open http://localhost:8787.
 
 ### Bumping the McMinimap version
 
+Set **`AOE2_MCMINIMAP_VERSION`** to the new release (and bump **`AOE2_MCMINIMAP_PYPI_INDEX`** if needed), then:
+
 ```bash
-git submodule update --remote sourcemodules/aoe2mcminimap
-npm run build:mcminimap   # rebuilds the tar if the SHA changed, no-op otherwise
-git add sourcemodules/aoe2mcminimap
-git commit -m "bump AOE2-McMinimap"
+npm run build:mcminimap
 ```
+
+Commit any intentional changes to **`scripts/fetch-pylibs.mjs`** default pins if you bump them for everyone.
 
 ## Deploying
 
@@ -171,29 +181,20 @@ npm run deploy
 
 The `predeploy` hook runs `npm run build:mcminimap`, which:
 
-1. initialises the submodule if needed (`sync:mcminimap`),
-2. downloads any pinned pure-Python deps that micropip cannot install as wheels
-   (`fetch:pylibs` &mdash; `construct==2.8.16` and `aocref`, both sdist-only),
-3. compares the submodule HEAD SHA and vendored pylib versions against
-   `public/modules/aoe2mcminimap/manifest.json`, and
-4. rebuilds the tarball only when something changed (fast no-op otherwise).
+1. runs **`fetch:pylibs`** (`construct`, `aocref`, **`genie-scx-py`**, **`aoe2-mcminimap`** &mdash; see index table above),
+2. compares vendored **`.version`** pins against `public/modules/aoe2mcminimap/manifest.json`, and
+3. rebuilds the tarball only when something changed (fast no-op otherwise).
+
+Nothing under **`sourcemodules/aoe2mcminimap/`** (or other fetched trees) is committed; CI must be able to reach **PyPI / TestPyPI** over HTTPS.
 
 ### Via Cloudflare Workers Builds
 
-**Workers Builds does not auto-initialise git submodules** (unlike Pages). You
-have two reasonable options:
-
-**Option A: build command initialises the submodule.** In your Worker's
-build settings:
-
-- **Build command:** `npm ci && git submodule update --init --recursive && npm run build:mcminimap`
+- **Build command:** `npm ci && npm run build:mcminimap`
 - **Deploy command:** `npx wrangler deploy`
 
-This works because `.gitmodules` ships with the repo and the submodule
-(`UnluckyForSome/AOE2-McMinimap`) is public &mdash; no auth required.
+Set **`GENIE_SCX_PY_PYPI_INDEX`**, **`AOE2_MCMINIMAP_PYPI_INDEX`**, and **`AOE2_MCMINIMAP_VERSION`** in the Workers Builds environment when you move off TestPyPI defaults.
 
-**Option B: GitHub Actions.** If Workers Builds refuses to run `git
-submodule update`, move the build there instead:
+**GitHub Actions** example (no submodules):
 
 ```yaml
 # .github/workflows/deploy.yml
@@ -203,7 +204,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { submodules: recursive }
       - uses: actions/setup-node@v4
         with: { node-version: "20" }
       - run: npm ci
@@ -212,9 +212,6 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 ```
-
-Either way, `scripts/fetch-pylibs.mjs` pulls those sdists from PyPI at build
-time, so you do not need to commit them.
 
 ## How `/pages/minimap` works (high level)
 
