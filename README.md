@@ -122,10 +122,11 @@ sourcemodules/
   construct/                        # fetch-pylibs (gitignored)
   aocref/                           # fetch-pylibs (gitignored)
   genie_scx_py/                     # fetch-pylibs — genie-scx-py sdist (gitignored); index see below
+  rge_campaign_py/                  # fetch-pylibs — rge-campaign-py sdist (gitignored); index see below
 server/
   minimap/                          # civ/map JSON for Microsoft API proxy (imported by Worker TS)
 scripts/
-  fetch-pylibs.mjs                  # vendors construct, aocref, genie-scx-py, aoe2-mcminimap into sourcemodules/
+  fetch-pylibs.mjs                  # fetches construct, aocref, genie-scx-py, rge-campaign-py, aoe2-mcminimap into sourcemodules/
   build-mcminimap-bundle.mjs        # cache-gated tar (McMinimap tree + pylibs -> aoe2mcminimap.tar)
 ```
 
@@ -142,6 +143,7 @@ npm install
 | Package | Default index | Override env |
 |---------|----------------|--------------|
 | **genie-scx-py** | [TestPyPI](https://test.pypi.org/project/genie-scx-py/) | `GENIE_SCX_PY_PYPI_INDEX` (e.g. `https://pypi.org`) |
+| **rge-campaign-py** | TestPyPI | `RGE_CAMPAIGN_PY_PYPI_INDEX` (e.g. `https://pypi.org`) |
 | **aoe2-mcminimap** | [TestPyPI](https://test.pypi.org/project/aoe2-mcminimap/) | `AOE2_MCMINIMAP_PYPI_INDEX` |
 | **aoe2-mcminimap** version pin | `0.1.0` in script | `AOE2_MCMINIMAP_VERSION` |
 
@@ -149,6 +151,7 @@ When both packages are on **production [PyPI](https://pypi.org/)**:
 
 ```bash
 export GENIE_SCX_PY_PYPI_INDEX=https://pypi.org
+export RGE_CAMPAIGN_PY_PYPI_INDEX=https://pypi.org
 export AOE2_MCMINIMAP_PYPI_INDEX=https://pypi.org
 npm run fetch:pylibs
 ```
@@ -181,7 +184,7 @@ npm run deploy
 
 The `predeploy` hook runs `npm run build:mcminimap`, which:
 
-1. runs **`fetch:pylibs`** (`construct`, `aocref`, **`genie-scx-py`**, **`aoe2-mcminimap`** &mdash; see index table above),
+1. runs **`fetch:pylibs`** (`construct`, `aocref`, **`genie-scx-py`**, **`rge-campaign-py`**, **`aoe2-mcminimap`** &mdash; see index table above),
 2. compares vendored **`.version`** pins against `public/modules/aoe2mcminimap/manifest.json`, and
 3. rebuilds the tarball only when something changed (fast no-op otherwise).
 
@@ -192,7 +195,7 @@ Nothing under **`sourcemodules/aoe2mcminimap/`** (or other fetched trees) is com
 - **Build command:** `npm ci && npm run build:mcminimap`
 - **Deploy command:** `npx wrangler deploy`
 
-Set **`GENIE_SCX_PY_PYPI_INDEX`**, **`AOE2_MCMINIMAP_PYPI_INDEX`**, and **`AOE2_MCMINIMAP_VERSION`** in the Workers Builds environment when you move off TestPyPI defaults.
+Set **`GENIE_SCX_PY_PYPI_INDEX`**, **`RGE_CAMPAIGN_PY_PYPI_INDEX`**, **`AOE2_MCMINIMAP_PYPI_INDEX`**, and **`AOE2_MCMINIMAP_VERSION`** in the Workers Builds environment when you move off TestPyPI defaults.
 
 **GitHub Actions** example (no submodules):
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Packs McMinimap sources from sourcemodules/aoe2mcminimap (populated by
-// fetch-pylibs.mjs from PyPI/TestPyPI), vendored genie_scx_py, construct, and
-// aocref into public/modules/aoe2mcminimap/aoe2mcminimap.tar + manifest.json.
+// fetch-pylibs.mjs from PyPI/TestPyPI), plus fetched genie_scx_py,
+// rge_campaign_py, construct, and aocref into
+// public/modules/aoe2mcminimap/aoe2mcminimap.tar + manifest.json.
 //
 // Cache-gated: pylib versions + aoe2-mcminimap version must match manifest.json.
 
@@ -23,6 +24,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const mcminimapSrcDir = resolve(repoRoot, "sourcemodules/aoe2mcminimap");
 const genieScxPkgDir = resolve(repoRoot, "sourcemodules/genie_scx_py");
+const rgeCampaignPkgDir = resolve(repoRoot, "sourcemodules/rge_campaign_py");
 const constructDir = resolve(repoRoot, "sourcemodules/construct");
 const aocrefDir = resolve(repoRoot, "sourcemodules/aocref");
 const outDir = resolve(repoRoot, "public/modules/aoe2mcminimap");
@@ -33,7 +35,7 @@ const BUNDLE_SPEC_VERSION = 10;
 
 const MCMINIMAP_TOP = ["McMinimap.py", "aoe2_mcminimap"];
 
-const LEGACY_KEEP = new Set(["mgz_legacy", "aoe2campaignparser.py"]);
+const LEGACY_KEEP = new Set(["mgz_legacy"]);
 
 const SKIP_DIRS = new Set(["__pycache__", ".git", "examples", "tests"]);
 
@@ -42,6 +44,7 @@ function readPylibVersions() {
     { name: "construct", dir: constructDir },
     { name: "aocref", dir: aocrefDir },
     { name: "genie_scx_py", dir: genieScxPkgDir },
+    { name: "rge_campaign_py", dir: rgeCampaignPkgDir },
     { name: "aoe2_mcminimap", dir: mcminimapSrcDir },
   ];
   const out = {};
@@ -73,6 +76,12 @@ function collectFiles() {
     console.error("[build-mcminimap-bundle] genie_scx_py missing — run `npm run fetch:pylibs` first.");
     process.exit(1);
   }
+  if (!existsSync(join(rgeCampaignPkgDir, "__init__.py"))) {
+    console.error(
+      "[build-mcminimap-bundle] rge_campaign_py missing — run `npm run fetch:pylibs` first.",
+    );
+    process.exit(1);
+  }
 
   for (const top of MCMINIMAP_TOP) {
     const abs = join(mcminimapSrcDir, top);
@@ -88,6 +97,7 @@ function collectFiles() {
 
   const pyPack = [
     { abs: genieScxPkgDir, rel: "pylibs/genie_scx_py" },
+    { abs: rgeCampaignPkgDir, rel: "pylibs/rge_campaign_py" },
     { abs: constructDir, rel: "pylibs/construct" },
     { abs: aocrefDir, rel: "pylibs/aocref" },
   ];

@@ -28,11 +28,11 @@ for _p in (_PYLIBS_DIR, _VENDOR_DIR):
 # ``json.loads(pkgutil.get_data(...))`` would raise mid-render.
 import importlib.util  # noqa: E402
 
-for _pkg in ("genie_scx_py", "construct", "aocref"):
+for _pkg in ("genie_scx_py", "rge_campaign_py", "construct", "aocref"):
     if importlib.util.find_spec(_pkg) is None:
         raise ImportError(
             f"vendored package {_pkg!r} not found on sys.path; "
-            "check that scripts/build-mcminimap-bundle.mjs bundled pylibs (genie_scx_py, construct, aocref) "
+            "check that scripts/build-mcminimap-bundle.mjs bundled pylibs (genie_scx_py, rge_campaign_py, construct, aocref) "
             "into aoe2mcminimap.tar."
         )
 
@@ -121,13 +121,7 @@ def parse_campaign_index_json(file_bytes):
             data = bytes(file_bytes.to_py())
         else:
             data = bytes(file_bytes)
-        try:
-            from legacy.aoe2campaignparser import parse_campaign_index  # noqa: PLC0415
-        except ImportError:
-            from aoe2_mcminimap.legacy.aoe2campaignparser import (  # noqa: PLC0415
-                parse_campaign_index,
-            )
-
+        from rge_campaign_py import parse_campaign_index  # noqa: PLC0415
         campaign_name, scenarios = parse_campaign_index(data)
         return json.dumps(
             {

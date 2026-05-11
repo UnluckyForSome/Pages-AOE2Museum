@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Downloads pinned pure-Python packages into sourcemodules/* for the McMinimap
-// Pyodide bundle: PyPI sdists (construct, aocref), genie-scx-py, and the
-// aoe2-mcminimap application tree (McMinimap.py + aoe2_mcminimap/). The bundle
-// script ships McMinimap sources plus pylibs/* into the tar.
+// Pyodide bundle: PyPI sdists (construct, aocref), genie-scx-py,
+// rge-campaign-py, and the aoe2-mcminimap application tree
+// (McMinimap.py + aoe2_mcminimap/). The bundle script ships McMinimap sources
+// plus pylibs/* into the tar.
 //
 // Why: `construct==2.8.16` (pinned by the vendored happyleaves mgz tree)
 // was only ever published as an sdist on PyPI, so
@@ -56,6 +57,19 @@ const PYLIBS = [
       process.env.GENIE_SCX_PY_PYPI_INDEX?.replace(/\/$/, "") || "https://test.pypi.org",
     /** sdist top-level dir matches tarball name, e.g. genie_scx_py-0.1.0.tar.gz */
     subpathFromVersion: (v) => `genie_scx_py-${v}/genie_scx_py`,
+    destParent: join(repoRoot, "sourcemodules"),
+  },
+  {
+    name: "rge_campaign_py",
+    version: "0.1.0",
+    pypiProject: "rge-campaign-py",
+    /**
+     * Default TestPyPI until rge-campaign-py is on production PyPI; override
+     * with RGE_CAMPAIGN_PY_PYPI_INDEX=https://pypi.org once released there.
+     */
+    pypiIndexBase:
+      process.env.RGE_CAMPAIGN_PY_PYPI_INDEX?.replace(/\/$/, "") || "https://test.pypi.org",
+    subpathFromVersion: (v) => `rge_campaign_py-${v}/rge_campaign_py`,
     destParent: join(repoRoot, "sourcemodules"),
   },
 ];
