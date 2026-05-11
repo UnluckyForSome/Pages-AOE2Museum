@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // Packs McMinimap sources from sourcemodules/aoe2mcminimap (populated by
-// fetch-pylibs.mjs from PyPI/TestPyPI), plus fetched genie_scx_py,
-// rge_campaign_py, construct, and aocref into
+// fetch-pylibs.mjs from PyPI/TestPyPI), plus fetched aoe2_geniescx,
+// aoe2_mccampaign, AOE2-McMGZ (`mgz` import namespace), and its
+// transitive deps (`construct`, `aocref`) into
 // public/modules/aoe2mcminimap/aoe2mcminimap.tar + manifest.json.
 //
-// Cache-gated: pylib versions + aoe2-mcminimap version must match manifest.json.
+// Cache-gated: pylib versions + AOE2-McMinimap version must match manifest.json.
 
 import {
   existsSync,
@@ -23,19 +24,18 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const mcminimapSrcDir = resolve(repoRoot, "sourcemodules/aoe2mcminimap");
-const genieScxPkgDir = resolve(repoRoot, "sourcemodules/genie_scx_py");
-const rgeCampaignPkgDir = resolve(repoRoot, "sourcemodules/rge_campaign_py");
+const aoe2GenieScxPkgDir = resolve(repoRoot, "sourcemodules/aoe2_geniescx");
+const aoe2McCampaignPkgDir = resolve(repoRoot, "sourcemodules/aoe2_mccampaign");
+const mgzPkgDir = resolve(repoRoot, "sourcemodules/mgz");
 const constructDir = resolve(repoRoot, "sourcemodules/construct");
 const aocrefDir = resolve(repoRoot, "sourcemodules/aocref");
 const outDir = resolve(repoRoot, "public/modules/aoe2mcminimap");
 const tarPath = join(outDir, "aoe2mcminimap.tar");
 const manifestPath = join(outDir, "manifest.json");
 
-const BUNDLE_SPEC_VERSION = 10;
+const BUNDLE_SPEC_VERSION = 14;
 
 const MCMINIMAP_TOP = ["McMinimap.py", "aoe2_mcminimap"];
-
-const LEGACY_KEEP = new Set(["mgz_legacy"]);
 
 const SKIP_DIRS = new Set(["__pycache__", ".git", "examples", "tests"]);
 
@@ -43,8 +43,9 @@ function readPylibVersions() {
   const roots = [
     { name: "construct", dir: constructDir },
     { name: "aocref", dir: aocrefDir },
-    { name: "genie_scx_py", dir: genieScxPkgDir },
-    { name: "rge_campaign_py", dir: rgeCampaignPkgDir },
+    { name: "aoe2_geniescx", dir: aoe2GenieScxPkgDir },
+    { name: "aoe2_mccampaign", dir: aoe2McCampaignPkgDir },
+    { name: "aoe2_mcmgz", dir: mgzPkgDir },
     { name: "aoe2_mcminimap", dir: mcminimapSrcDir },
   ];
   const out = {};
@@ -72,13 +73,21 @@ function readManifest() {
 function collectFiles() {
   const files = [];
 
-  if (!existsSync(join(genieScxPkgDir, "__init__.py"))) {
-    console.error("[build-mcminimap-bundle] genie_scx_py missing — run `npm run fetch:pylibs` first.");
+  if (!existsSync(join(aoe2GenieScxPkgDir, "__init__.py"))) {
+    console.error(
+      "[build-mcminimap-bundle] aoe2_geniescx missing — run `npm run fetch:pylibs` first.",
+    );
     process.exit(1);
   }
-  if (!existsSync(join(rgeCampaignPkgDir, "__init__.py"))) {
+  if (!existsSync(join(aoe2McCampaignPkgDir, "__init__.py"))) {
     console.error(
-      "[build-mcminimap-bundle] rge_campaign_py missing — run `npm run fetch:pylibs` first.",
+      "[build-mcminimap-bundle] aoe2_mccampaign missing — run `npm run fetch:pylibs` first.",
+    );
+    process.exit(1);
+  }
+  if (!existsSync(join(mgzPkgDir, "__init__.py"))) {
+    console.error(
+      "[build-mcminimap-bundle] mgz (from AOE2-McMGZ) missing — run `npm run fetch:pylibs` first.",
     );
     process.exit(1);
   }
@@ -90,14 +99,14 @@ function collectFiles() {
     if (st.isFile()) {
       files.push({ abs, rel: top });
     } else if (st.isDirectory()) {
-      const legacyFilter = top === "aoe2_mcminimap" ? LEGACY_KEEP : null;
-      walk(abs, top, files, legacyFilter);
+      walk(abs, top, files, null);
     }
   }
 
   const pyPack = [
-    { abs: genieScxPkgDir, rel: "pylibs/genie_scx_py" },
-    { abs: rgeCampaignPkgDir, rel: "pylibs/rge_campaign_py" },
+    { abs: aoe2GenieScxPkgDir, rel: "pylibs/aoe2_geniescx" },
+    { abs: aoe2McCampaignPkgDir, rel: "pylibs/aoe2_mccampaign" },
+    { abs: mgzPkgDir, rel: "pylibs/mgz" },
     { abs: constructDir, rel: "pylibs/construct" },
     { abs: aocrefDir, rel: "pylibs/aocref" },
   ];
@@ -111,10 +120,8 @@ function collectFiles() {
 }
 
 function walk(dirAbs, dirRel, files, topLevelFilter) {
-  const atFilteredLegacy =
-    topLevelFilter && (dirRel === "legacy" || dirRel === "aoe2_mcminimap/legacy");
   for (const name of readdirSync(dirAbs)) {
-    if (atFilteredLegacy && !topLevelFilter.has(name)) continue;
+    if (dirRel === "aoe2_mcminimap" && name === "legacy") continue;
     if (SKIP_DIRS.has(name)) continue;
     if (name === ".version") continue;
     const abs = join(dirAbs, name);

@@ -14,25 +14,27 @@ import sys
 import tempfile
 
 _VENDOR_DIR = "/home/pyodide/aoe2mcminimap"
-# `pylibs/` holds pure-Python packages that micropip cannot install as wheels
-# (``construct==2.8.16`` and ``aocref``, both sdist-only on PyPI). Placed
-# before site-packages so our pinned versions win any version race.
+# `pylibs/` holds fetched pure-Python packages that Pyodide does not install
+# directly from the usual package indexes in this app flow. This includes the
+# Museum-maintained `AOE2-McMGZ` package (import namespace `mgz`) plus
+# its sdist-only deps (`construct`, `aocref`). Placed before site-packages so
+# our pinned versions win any version race.
 _PYLIBS_DIR = _VENDOR_DIR + "/pylibs"
 for _p in (_PYLIBS_DIR, _VENDOR_DIR):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
 # Fail loudly at boot if a vendored package is missing, so the worker
-# surfaces "aocref missing" instead of the unhelpful
+# surfaces "mgz missing" / "aocref missing" instead of the unhelpful
 # "json object must be str, bytes or bytearray, not NoneType" that
 # ``json.loads(pkgutil.get_data(...))`` would raise mid-render.
 import importlib.util  # noqa: E402
 
-for _pkg in ("genie_scx_py", "rge_campaign_py", "construct", "aocref"):
+for _pkg in ("aoe2_geniescx", "aoe2_mccampaign", "mgz", "construct", "aocref"):
     if importlib.util.find_spec(_pkg) is None:
         raise ImportError(
             f"vendored package {_pkg!r} not found on sys.path; "
-            "check that scripts/build-mcminimap-bundle.mjs bundled pylibs (genie_scx_py, rge_campaign_py, construct, aocref) "
+            "check that scripts/build-mcminimap-bundle.mjs bundled pylibs (aoe2_geniescx, aoe2_mccampaign, mgz, construct, aocref) "
             "into aoe2mcminimap.tar."
         )
 
@@ -121,7 +123,7 @@ def parse_campaign_index_json(file_bytes):
             data = bytes(file_bytes.to_py())
         else:
             data = bytes(file_bytes)
-        from rge_campaign_py import parse_campaign_index  # noqa: PLC0415
+        from aoe2_mccampaign import parse_campaign_index  # noqa: PLC0415
         campaign_name, scenarios = parse_campaign_index(data)
         return json.dumps(
             {

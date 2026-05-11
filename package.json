@@ -3,8 +3,7 @@
   "private": true,
   "scripts": {
     "fetch:pylibs": "node scripts/fetch-pylibs.mjs",
-    "build:genie-scx-wasm": "node scripts/build-genie-scx-wasm.mjs",
-    "build:mcminimap": "npm run fetch:pylibs && npm run build:genie-scx-wasm && node scripts/build-mcminimap-bundle.mjs",
+    "build:mcminimap": "npm run fetch:pylibs && node scripts/build-mcminimap-bundle.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "predev": "npm run build:mcminimap",
     "dev": "wrangler dev",

@@ -112,21 +112,19 @@ public/                             # served by the Cloudflare assets binding
     rge-campaign/rge-campaign.js
     fflate/fflate.browser.js
     gifenc/gifenc.esm.js
-    geniescx/                       # genie-scx wasm-bindgen output
-    aoe2rec/                        # replay wasm (if present)
     aoe2mcminimap/                  # generated tar + manifest (gitignored)
     unit-gifs/                      # SLP/SLD mapping JSON, palette, team-colors (GIF app + Worker manifests)
 sourcemodules/
-  aoe2mcminimap/                    # fetch-pylibs — aoe2-mcminimap sdist tree (gitignored)
-  genie-rs/                         # Rust workspace (genie-scx WASM)
-  construct/                        # fetch-pylibs (gitignored)
-  aocref/                           # fetch-pylibs (gitignored)
-  genie_scx_py/                     # fetch-pylibs — genie-scx-py sdist (gitignored); index see below
-  rge_campaign_py/                  # fetch-pylibs — rge-campaign-py sdist (gitignored); index see below
+  aoe2mcminimap/                    # fetch-pylibs — AOE2-McMinimap sdist tree (gitignored)
+  construct/                        # fetch-pylibs — transitive AOE2-McMGZ dep (gitignored)
+  aocref/                           # fetch-pylibs — transitive AOE2-McMGZ dep (gitignored)
+  aoe2_geniescx/                    # fetch-pylibs — AOE2-McGenieSCX sdist (gitignored); index see below
+  aoe2_mccampaign/                  # fetch-pylibs — AOE2-McCampaign sdist (gitignored); index see below
+  mgz/                              # fetch-pylibs — AOE2-McMGZ package (`mgz` import namespace)
 server/
   minimap/                          # civ/map JSON for Microsoft API proxy (imported by Worker TS)
 scripts/
-  fetch-pylibs.mjs                  # fetches construct, aocref, genie-scx-py, rge-campaign-py, aoe2-mcminimap into sourcemodules/
+  fetch-pylibs.mjs                  # fetches AOE2-McMGZ (+ deps), AOE2-McGenieSCX, AOE2-McCampaign, AOE2-McMinimap into sourcemodules/
   build-mcminimap-bundle.mjs        # cache-gated tar (McMinimap tree + pylibs -> aoe2mcminimap.tar)
 ```
 
@@ -142,16 +140,19 @@ npm install
 
 | Package | Default index | Override env |
 |---------|----------------|--------------|
-| **genie-scx-py** | [TestPyPI](https://test.pypi.org/project/genie-scx-py/) | `GENIE_SCX_PY_PYPI_INDEX` (e.g. `https://pypi.org`) |
-| **rge-campaign-py** | TestPyPI | `RGE_CAMPAIGN_PY_PYPI_INDEX` (e.g. `https://pypi.org`) |
-| **aoe2-mcminimap** | [TestPyPI](https://test.pypi.org/project/aoe2-mcminimap/) | `AOE2_MCMINIMAP_PYPI_INDEX` |
-| **aoe2-mcminimap** version pin | `0.1.0` in script | `AOE2_MCMINIMAP_VERSION` |
+| **AOE2-McGenieSCX** | TestPyPI | `AOE2_MCGENIESCX_PYPI_INDEX` (e.g. `https://pypi.org`) |
+| **AOE2-McCampaign** | [TestPyPI](https://test.pypi.org/project/AOE2-McCampaign/) | `AOE2_MCCAMPAIGN_PYPI_INDEX` (e.g. `https://pypi.org`) |
+| **AOE2-McMGZ** | TestPyPI | `AOE2_MCMGZ_PYPI_INDEX` |
+| **AOE2-McMGZ** version pin | `0.1.0` in script | `AOE2_MCMGZ_VERSION` |
+| **AOE2-McMinimap** | [TestPyPI](https://test.pypi.org/project/aoe2-mcminimap/) | `AOE2_MCMINIMAP_PYPI_INDEX` |
+| **AOE2-McMinimap** version pin | `0.1.0` in script | `AOE2_MCMINIMAP_VERSION` |
 
-When both packages are on **production [PyPI](https://pypi.org/)**:
+When these packages are on **production [PyPI](https://pypi.org/)**:
 
 ```bash
-export GENIE_SCX_PY_PYPI_INDEX=https://pypi.org
-export RGE_CAMPAIGN_PY_PYPI_INDEX=https://pypi.org
+export AOE2_MCGENIESCX_PYPI_INDEX=https://pypi.org
+export AOE2_MCCAMPAIGN_PYPI_INDEX=https://pypi.org
+export AOE2_MCMGZ_PYPI_INDEX=https://pypi.org
 export AOE2_MCMINIMAP_PYPI_INDEX=https://pypi.org
 npm run fetch:pylibs
 ```
@@ -164,9 +165,9 @@ npm run dev
 
 Then open http://localhost:8787.
 
-### Bumping the McMinimap version
+### Bumping McMinimap and replay-parser versions
 
-Set **`AOE2_MCMINIMAP_VERSION`** to the new release (and bump **`AOE2_MCMINIMAP_PYPI_INDEX`** if needed), then:
+Set **`AOE2_MCMINIMAP_VERSION`** and/or **`AOE2_MCMGZ_VERSION`** to the new release (and bump the matching `*_PYPI_INDEX` env var if needed), then:
 
 ```bash
 npm run build:mcminimap
@@ -184,7 +185,7 @@ npm run deploy
 
 The `predeploy` hook runs `npm run build:mcminimap`, which:
 
-1. runs **`fetch:pylibs`** (`construct`, `aocref`, **`genie-scx-py`**, **`rge-campaign-py`**, **`aoe2-mcminimap`** &mdash; see index table above),
+1. runs **`fetch:pylibs`** (**`AOE2-McMGZ`** + transitive `construct`/`aocref`, **`AOE2-McGenieSCX`**, **`AOE2-McCampaign`**, **`AOE2-McMinimap`** &mdash; see index table above),
 2. compares vendored **`.version`** pins against `public/modules/aoe2mcminimap/manifest.json`, and
 3. rebuilds the tarball only when something changed (fast no-op otherwise).
 
@@ -195,7 +196,7 @@ Nothing under **`sourcemodules/aoe2mcminimap/`** (or other fetched trees) is com
 - **Build command:** `npm ci && npm run build:mcminimap`
 - **Deploy command:** `npx wrangler deploy`
 
-Set **`GENIE_SCX_PY_PYPI_INDEX`**, **`RGE_CAMPAIGN_PY_PYPI_INDEX`**, **`AOE2_MCMINIMAP_PYPI_INDEX`**, and **`AOE2_MCMINIMAP_VERSION`** in the Workers Builds environment when you move off TestPyPI defaults.
+Set **`AOE2_MCGENIESCX_PYPI_INDEX`**, **`AOE2_MCCAMPAIGN_PYPI_INDEX`**, **`AOE2_MCMGZ_PYPI_INDEX`**, **`AOE2_MCMGZ_VERSION`**, **`AOE2_MCMINIMAP_PYPI_INDEX`**, and **`AOE2_MCMINIMAP_VERSION`** in the Workers Builds environment when you move off TestPyPI defaults.
 
 **GitHub Actions** example (no submodules):
 
@@ -223,10 +224,10 @@ Browser --> /pages/minimap/index.html --> app.js --> new Worker("/pages/minimap/
                                          |
                                          |-- loads Pyodide runtime from jsDelivr
                                          |-- installs pure-Python wheels via micropip
-                                         |     (AoE2ScenarioParser, mgz-fast, tabulate)
+                                         |     (AoE2ScenarioParser, tabulate)
                                          |-- fetches /modules/aoe2mcminimap/aoe2mcminimap.tar
                                          |-- pyodide.unpackArchive -> /home/pyodide/aoe2mcminimap
-                                         |     (renderer + pylibs: construct, aocref)
+                                         |     (renderer + pylibs: mgz, construct, aocref)
                                          |-- runs /pages/minimap/py/bootstrap.py
                                          |     (adds pylibs/ + vendor dir to sys.path)
                                          |

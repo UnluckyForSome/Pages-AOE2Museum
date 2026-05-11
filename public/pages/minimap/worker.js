@@ -39,9 +39,10 @@ async function boot() {
   await pyodide.loadPackage(["Pillow", "micropip"]);
 
   progress("Installing Python packages\u2026", { phase: "boot", pct: 38 });
-  // `construct==2.8.16` and `aocref` are vendored in the tarball because
-  // PyPI only ships sdists for those (and micropip needs pure-Python
-  // wheels). The remaining packages are pure-Python wheels on PyPI.
+  // Replay parsing now comes from the vendored `AOE2-McMGZ` package
+  // (import namespace `mgz`) inside the tarball. Its sdist-only deps
+  // (`construct==2.8.16`, `aocref`) are bundled there too. The remaining
+  // packages are pure-Python wheels available to micropip.
   // `keep_going=True` so one optional dep failing does not take the whole
   // render path down.
   await pyodide.runPythonAsync(
@@ -50,7 +51,6 @@ async function boot() {
       "await micropip.install(",
       "    [",
       '        "AoE2ScenarioParser",',
-      '        "mgz-fast",',
       '        "tabulate",',
       "    ],",
       "    keep_going=True,",
@@ -114,7 +114,7 @@ async function handleRender(id, fileBytes, ext, settings) {
 
     pyodide.globals.set("_bytes", bytesView);
     // McMinimap.py routes scenarios by sniffing outer SCX version (>= 1.35 -> AoE2ScenarioParser,
-    // older legacy containers -> genie_scx_py from pylibs). Extension is still relevant for recordings.
+    // older legacy containers -> aoe2_geniescx from pylibs). Extension is still relevant for recordings.
     pyodide.globals.set("_ext", ext);
     settingsProxy = pyodide.toPy(settings);
     pyodide.globals.set("_settings", settingsProxy);

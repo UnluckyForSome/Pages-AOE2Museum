@@ -39,7 +39,9 @@ public/modules/aoe2mcminimap/manifest.json
 # Downloaded by scripts/fetch-pylibs.mjs from PyPI at build time.
 sourcemodules/construct/
 sourcemodules/aocref/
-sourcemodules/genie_scx_py/
+sourcemodules/aoe2_geniescx/
+sourcemodules/aoe2_mccampaign/
+sourcemodules/mgz/
 sourcemodules/aoe2mcminimap/
 
 ###############################################################################

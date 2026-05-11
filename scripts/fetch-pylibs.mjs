@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // Downloads pinned pure-Python packages into sourcemodules/* for the McMinimap
-// Pyodide bundle: PyPI sdists (construct, aocref), genie-scx-py,
-// rge-campaign-py, and the aoe2-mcminimap application tree
+// Pyodide bundle: transitive sdist deps for AOE2-McMGZ (construct,
+// aocref), plus AOE2-McGenieSCX, AOE2-McCampaign, the AOE2-McMGZ package
+// itself (import namespace `mgz`), and the AOE2-McMinimap application tree
 // (McMinimap.py + aoe2_mcminimap/). The bundle script ships McMinimap sources
 // plus pylibs/* into the tar.
 //
-// Why: `construct==2.8.16` (pinned by the vendored happyleaves mgz tree)
-// was only ever published as an sdist on PyPI, so
-// `micropip.install("construct==2.8.16")` errors out with:
+// Why: `construct==2.8.16` (required by AOE2-McMGZ / mgz) was only ever
+// published as an sdist on PyPI, so `micropip.install("construct==2.8.16")`
+// errors out with:
 //   ValueError: Can't find a pure Python 3 wheel for: 'construct==2.8.16'
 
 import { execFileSync } from "node:child_process";
@@ -45,32 +46,42 @@ const PYLIBS = [
     destParent: join(repoRoot, "sourcemodules"),
   },
   {
-    name: "genie_scx_py",
+    name: "aoe2_geniescx",
     version: "0.1.0",
-    pypiProject: "genie-scx-py",
+    pypiProject: "AOE2-McGenieSCX",
     /**
      * Warehouse JSON API host (no trailing slash).
-     * Default TestPyPI until genie-scx-py is on production PyPI; override with
-     * GENIE_SCX_PY_PYPI_INDEX=https://pypi.org for releases only on pypi.org.
+     * Default TestPyPI until AOE2-McGenieSCX is on production PyPI; override with
+     * AOE2_MCGENIESCX_PYPI_INDEX=https://pypi.org for releases only on pypi.org.
      */
     pypiIndexBase:
-      process.env.GENIE_SCX_PY_PYPI_INDEX?.replace(/\/$/, "") || "https://test.pypi.org",
-    /** sdist top-level dir matches tarball name, e.g. genie_scx_py-0.1.0.tar.gz */
-    subpathFromVersion: (v) => `genie_scx_py-${v}/genie_scx_py`,
+      process.env.AOE2_MCGENIESCX_PYPI_INDEX?.replace(/\/$/, "") || "https://test.pypi.org",
+    /** sdist top-level dir matches tarball name, e.g. aoe2_mcgeniescx-0.1.0.tar.gz */
+    subpathFromVersion: (v) => `aoe2_mcgeniescx-${v}/aoe2_geniescx`,
     destParent: join(repoRoot, "sourcemodules"),
   },
   {
-    name: "rge_campaign_py",
+    name: "aoe2_mccampaign",
     version: "0.1.0",
-    pypiProject: "rge-campaign-py",
+    pypiProject: "AOE2-McCampaign",
     /**
-     * Default TestPyPI until rge-campaign-py is on production PyPI; override
-     * with RGE_CAMPAIGN_PY_PYPI_INDEX=https://pypi.org once released there.
+     * Default TestPyPI until AOE2-McCampaign is on production PyPI; override
+     * with AOE2_MCCAMPAIGN_PYPI_INDEX=https://pypi.org once released there.
      */
     pypiIndexBase:
-      process.env.RGE_CAMPAIGN_PY_PYPI_INDEX?.replace(/\/$/, "") || "https://test.pypi.org",
-    subpathFromVersion: (v) => `rge_campaign_py-${v}/rge_campaign_py`,
+      process.env.AOE2_MCCAMPAIGN_PYPI_INDEX?.replace(/\/$/, "") || "https://test.pypi.org",
+    subpathFromVersion: (v) => `aoe2_mccampaign-${v}/aoe2_mccampaign`,
     destParent: join(repoRoot, "sourcemodules"),
+  },
+  {
+    name: "aoe2_mcmgz",
+    version: process.env.AOE2_MCMGZ_VERSION?.trim() || "0.1.0",
+    pypiProject: "AOE2-McMGZ",
+    pypiIndexBase:
+      process.env.AOE2_MCMGZ_PYPI_INDEX?.replace(/\/$/, "") || "https://test.pypi.org",
+    subpathFromVersion: (v) => `aoe2_mcmgz-${v}/mgz`,
+    destParent: join(repoRoot, "sourcemodules"),
+    destDirName: "mgz",
   },
 ];
 
@@ -93,7 +104,7 @@ async function resolvePypiSdistUrl(project, version, indexBase = "https://pypi.o
 }
 
 function versionMarkerPath(pkg) {
-  return join(pkg.destParent, pkg.name, ".version");
+  return join(pkg.destParent, pkg.destDirName || pkg.name, ".version");
 }
 
 function isUpToDate(pkg) {
@@ -147,7 +158,7 @@ async function fetchOne(pkg) {
       throw new Error(`expected package dir missing after extract: ${extracted}`);
     }
 
-    const out = join(pkg.destParent, pkg.name);
+    const out = join(pkg.destParent, pkg.destDirName || pkg.name);
     if (existsSync(out)) rmSync(out, { recursive: true, force: true });
     mkdirSync(pkg.destParent, { recursive: true });
     renameSync(extracted, out);
@@ -195,11 +206,11 @@ async function fetchAoe2McMinimap() {
   const dest = join(repoRoot, "sourcemodules/aoe2mcminimap");
   const marker = join(dest, ".version");
   if (existsSync(marker) && readFileSync(marker, "utf8").trim() === version) {
-    console.log(`[fetch-pylibs] aoe2-mcminimap ${version} already present, skipping.`);
+    console.log(`[fetch-pylibs] AOE2-McMinimap ${version} already present, skipping.`);
     return;
   }
 
-  console.log(`[fetch-pylibs] downloading aoe2-mcminimap ${version} from ${indexBase}`);
+  console.log(`[fetch-pylibs] downloading AOE2-McMinimap ${version} from ${indexBase}`);
   const url = await resolvePypiSdistUrl("aoe2-mcminimap", version, indexBase);
 
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -220,7 +231,7 @@ async function fetchAoe2McMinimap() {
     cpSync(join(root, "aoe2_mcminimap"), join(dest, "aoe2_mcminimap"), { recursive: true });
     writeFileSync(marker, `${version}\n`);
 
-    console.log(`[fetch-pylibs] aoe2-mcminimap ${version} -> ${dest}`);
+    console.log(`[fetch-pylibs] AOE2-McMinimap ${version} -> ${dest}`);
   } finally {
     try {
       rmSync(tmpArchive, { force: true });
