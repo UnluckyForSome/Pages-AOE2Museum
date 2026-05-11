@@ -118,14 +118,16 @@ sourcemodules/
   aoe2mcminimap/                    # fetch-pylibs — AOE2-McMinimap sdist tree (gitignored)
   construct/                        # fetch-pylibs — transitive AOE2-McMGZ dep (gitignored)
   aocref/                           # fetch-pylibs — transitive AOE2-McMGZ dep (gitignored)
-  aoe2_geniescx/                    # fetch-pylibs — AOE2-McGenieSCX sdist (gitignored); index see below
+  aoe2_mcgeniescx/                  # fetch-pylibs — AOE2-McGenieSCX package from TestPyPI (gitignored)
+  AoE2ScenarioParser/               # fetch-pylibs — museum branch package tree from GitHub (gitignored)
+  pages_aoe2museum_py/              # local Pyodide facade package bundled for Pages-only parser entrypoints
   aoe2_mccampaign/                  # fetch-pylibs — AOE2-McCampaign sdist (gitignored); index see below
   mgz/                              # fetch-pylibs — AOE2-McMGZ package (`mgz` import namespace)
 server/
   minimap/                          # civ/map JSON for Microsoft API proxy (imported by Worker TS)
 scripts/
-  fetch-pylibs.mjs                  # fetches AOE2-McMGZ (+ deps), AOE2-McGenieSCX, AOE2-McCampaign, AOE2-McMinimap into sourcemodules/
-  build-mcminimap-bundle.mjs        # cache-gated tar (McMinimap tree + pylibs -> aoe2mcminimap.tar)
+  fetch-pylibs.mjs                  # fetches AOE2-McMGZ (+ deps), AOE2-McGenieSCX, museum AoE2ScenarioParser, AOE2-McCampaign, AOE2-McMinimap into sourcemodules/
+  build-mcminimap-bundle.mjs        # cache-gated tar (McMinimap tree + fetched pylibs + local parser facade -> aoe2mcminimap.tar)
 ```
 
 ## Local development
@@ -141,6 +143,8 @@ npm install
 | Package | Default index | Override env |
 |---------|----------------|--------------|
 | **AOE2-McGenieSCX** | TestPyPI | `AOE2_MCGENIESCX_PYPI_INDEX` (e.g. `https://pypi.org`) |
+| **AOE2-McGenieSCX** version pin | `0.1.1` in script | `AOE2_MCGENIESCX_VERSION` |
+| **AoE2ScenarioParser** source | GitHub `museum` branch | `AOE2_SCENARIO_PARSER_REF` |
 | **AOE2-McCampaign** | [TestPyPI](https://test.pypi.org/project/AOE2-McCampaign/) | `AOE2_MCCAMPAIGN_PYPI_INDEX` (e.g. `https://pypi.org`) |
 | **AOE2-McMGZ** | TestPyPI | `AOE2_MCMGZ_PYPI_INDEX` |
 | **AOE2-McMGZ** version pin | `0.1.0` in script | `AOE2_MCMGZ_VERSION` |

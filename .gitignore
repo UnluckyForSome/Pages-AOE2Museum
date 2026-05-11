@@ -40,6 +40,8 @@ public/modules/aoe2mcminimap/manifest.json
 sourcemodules/construct/
 sourcemodules/aocref/
 sourcemodules/aoe2_geniescx/
+sourcemodules/aoe2_mcgeniescx/
+sourcemodules/AoE2ScenarioParser/
 sourcemodules/aoe2_mccampaign/
 sourcemodules/mgz/
 sourcemodules/aoe2mcminimap/

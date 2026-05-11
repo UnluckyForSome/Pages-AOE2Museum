@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Downloads pinned pure-Python packages into sourcemodules/* for the McMinimap
 // Pyodide bundle: transitive sdist deps for AOE2-McMGZ (construct,
-// aocref), plus AOE2-McGenieSCX, AOE2-McCampaign, the AOE2-McMGZ package
-// itself (import namespace `mgz`), and the AOE2-McMinimap application tree
-// (McMinimap.py + aoe2_mcminimap/). The bundle script ships McMinimap sources
-// plus pylibs/* into the tar.
+// aocref), plus standalone remote sources for AOE2-McGenieSCX (TestPyPI),
+// AoE2ScenarioParser museum (GitHub), AOE2-McCampaign, the AOE2-McMGZ
+// package itself (import namespace `mgz`), and the AOE2-McMinimap
+// application tree (McMinimap.py + aoe2_mcminimap/).
 //
 // Why: `construct==2.8.16` (required by AOE2-McMGZ / mgz) was only ever
 // published as an sdist on PyPI, so `micropip.install("construct==2.8.16")`
@@ -46,19 +46,32 @@ const PYLIBS = [
     destParent: join(repoRoot, "sourcemodules"),
   },
   {
-    name: "aoe2_geniescx",
-    version: "0.1.0",
+    name: "aoe2_mcgeniescx",
+    version: process.env.AOE2_MCGENIESCX_VERSION?.trim() || "0.1.1",
     pypiProject: "AOE2-McGenieSCX",
     /**
-     * Warehouse JSON API host (no trailing slash).
-     * Default TestPyPI until AOE2-McGenieSCX is on production PyPI; override with
-     * AOE2_MCGENIESCX_PYPI_INDEX=https://pypi.org for releases only on pypi.org.
+     * Default TestPyPI; override with AOE2_MCGENIESCX_PYPI_INDEX=https://pypi.org
+     * once a production PyPI release exists.
      */
     pypiIndexBase:
       process.env.AOE2_MCGENIESCX_PYPI_INDEX?.replace(/\/$/, "") || "https://test.pypi.org",
-    /** sdist top-level dir matches tarball name, e.g. aoe2_mcgeniescx-0.1.0.tar.gz */
-    subpathFromVersion: (v) => `aoe2_mcgeniescx-${v}/aoe2_geniescx`,
+    subpathFromVersion: (v) => `aoe2_mcgeniescx-${v}/aoe2_mcgeniescx`,
     destParent: join(repoRoot, "sourcemodules"),
+    destDirName: "aoe2_mcgeniescx",
+  },
+  {
+    name: "AoE2ScenarioParser",
+    versionResolver: async () => {
+      const ref = process.env.AOE2_SCENARIO_PARSER_REF?.trim() || "museum";
+      return resolveGitHubRefVersion("UnluckyForSome", "AoE2ScenarioParser", ref);
+    },
+    urlResolver: async () => {
+      const ref = process.env.AOE2_SCENARIO_PARSER_REF?.trim() || "museum";
+      return `https://codeload.github.com/UnluckyForSome/AoE2ScenarioParser/tar.gz/refs/heads/${ref}`;
+    },
+    findPackageDirName: "AoE2ScenarioParser",
+    destParent: join(repoRoot, "sourcemodules"),
+    destDirName: "AoE2ScenarioParser",
   },
   {
     name: "aoe2_mccampaign",
@@ -85,6 +98,39 @@ const PYLIBS = [
   },
 ];
 
+async function resolveGitHubRefVersion(owner, repo, ref) {
+  const url = `https://api.github.com/repos/${owner}/${repo}/commits/${encodeURIComponent(ref)}`;
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      "User-Agent": "Pages-AOE2Museum-fetch-pylibs",
+    },
+  });
+  if (!res.ok) {
+    throw new Error(`GitHub ref ${owner}/${repo}@${ref}: HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return String(data.sha || ref).slice(0, 12);
+}
+
+async function resolveSimpleIndexSdistUrl(project, version, indexBase = "https://pypi.org") {
+  const base = indexBase.replace(/\/$/, "");
+  const url = `${base}/simple/${encodeURIComponent(project)}/`;
+  const res = await fetch(url, { redirect: "follow" });
+  if (!res.ok) throw new Error(`${base} simple index ${project}: HTTP ${res.status}`);
+  const html = await res.text();
+  const filenameNeedle = `-${version}.tar.gz`;
+  const anchorRe = /<a\s+href="([^"]+)".*?>([^<]+)<\/a>/gi;
+  let match;
+  while ((match = anchorRe.exec(html)) !== null) {
+    const href = match[1];
+    const label = match[2];
+    if (!label.endsWith(filenameNeedle)) continue;
+    return href.split("#")[0];
+  }
+  throw new Error(`No sdist link in simple index for ${project}==${version}`);
+}
+
 async function resolvePypiSdistUrl(project, version, indexBase = "https://pypi.org") {
   const base = indexBase.replace(/\/$/, "");
   const res = await fetch(`${base}/pypi/${encodeURIComponent(project)}/json`, {
@@ -94,12 +140,12 @@ async function resolvePypiSdistUrl(project, version, indexBase = "https://pypi.o
   const data = await res.json();
   const files = data.releases?.[version];
   if (!files?.length) {
-    const avail = Object.keys(data.releases || {}).sort();
-    const hint = avail.length ? ` Available versions include: ${avail.slice(-8).join(", ")}.` : "";
-    throw new Error(`No PyPI release files for ${project}==${version}.${hint}`);
+    return resolveSimpleIndexSdistUrl(project, version, indexBase);
   }
   const sdist = files.find((u) => u.packagetype === "sdist");
-  if (!sdist?.url) throw new Error(`No sdist URL for ${project}==${version}`);
+  if (!sdist?.url) {
+    return resolveSimpleIndexSdistUrl(project, version, indexBase);
+  }
   return sdist.url;
 }
 
@@ -107,11 +153,11 @@ function versionMarkerPath(pkg) {
   return join(pkg.destParent, pkg.destDirName || pkg.name, ".version");
 }
 
-function isUpToDate(pkg) {
+function isUpToDate(pkg, version) {
   const marker = versionMarkerPath(pkg);
   if (!existsSync(marker)) return false;
   try {
-    return readFileSync(marker, "utf8").trim() === pkg.version;
+    return readFileSync(marker, "utf8").trim() === version;
   } catch {
     return false;
   }
@@ -129,42 +175,72 @@ function extractTarGz(archivePath, destDir) {
   execFileSync("tar", ["-xzf", archivePath, "-C", destDir], { stdio: "inherit" });
 }
 
+function findPythonPackageDir(extractDir, packageDirName) {
+  function walk(dir) {
+    if (existsSync(join(dir, packageDirName, "__init__.py"))) return join(dir, packageDirName);
+    let found = null;
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name);
+      if (!statSync(p).isDirectory()) continue;
+      found = walk(p);
+      if (found) return found;
+    }
+    return null;
+  }
+  return walk(extractDir);
+}
+
 async function fetchOne(pkg) {
-  if (isUpToDate(pkg)) {
-    console.log(`[fetch-pylibs] ${pkg.name} ${pkg.version} already present, skipping.`);
+  const version = pkg.versionResolver ? await pkg.versionResolver() : pkg.version;
+  if (!version) {
+    throw new Error(`No resolved version for ${pkg.name}`);
+  }
+  if (isUpToDate(pkg, version)) {
+    console.log(`[fetch-pylibs] ${pkg.name} ${version} already present, skipping.`);
     return;
   }
 
   let url = pkg.url;
   let subpath = pkg.subpath;
-  if (pkg.pypiProject) {
+  if (pkg.urlResolver) {
+    url = await pkg.urlResolver(version);
+  } else if (pkg.pypiProject) {
     const indexBase = pkg.pypiIndexBase || "https://pypi.org";
-    url = await resolvePypiSdistUrl(pkg.pypiProject, pkg.version, indexBase);
-    subpath = pkg.subpathFromVersion(pkg.version);
+    url = await resolvePypiSdistUrl(pkg.pypiProject, version, indexBase);
+    if (pkg.subpathFromVersion) {
+      subpath = pkg.subpathFromVersion(version);
+    }
   }
 
-  console.log(`[fetch-pylibs] downloading ${pkg.name} ${pkg.version}`);
+  console.log(`[fetch-pylibs] downloading ${pkg.name} ${version}`);
 
   const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const tmpArchive = join(tmpdir(), `${pkg.name}-${pkg.version}-${stamp}.tar.gz`);
+  const tmpArchive = join(tmpdir(), `${pkg.name}-${version}-${stamp}.tar.gz`);
   const tmpExtract = join(tmpdir(), `${pkg.name}-extract-${stamp}`);
 
   try {
     await downloadToFile(url, tmpArchive);
     extractTarGz(tmpArchive, tmpExtract);
 
-    const extracted = join(tmpExtract, subpath);
-    if (!existsSync(extracted)) {
-      throw new Error(`expected package dir missing after extract: ${extracted}`);
+    let extracted = null;
+    if (pkg.findPackageDirName) {
+      extracted = findPythonPackageDir(tmpExtract, pkg.findPackageDirName);
+    } else {
+      extracted = join(tmpExtract, subpath);
+    }
+    if (!extracted || !existsSync(extracted)) {
+      throw new Error(
+        `expected package dir missing after extract: ${pkg.findPackageDirName || subpath}`,
+      );
     }
 
     const out = join(pkg.destParent, pkg.destDirName || pkg.name);
     if (existsSync(out)) rmSync(out, { recursive: true, force: true });
     mkdirSync(pkg.destParent, { recursive: true });
     renameSync(extracted, out);
-    writeFileSync(versionMarkerPath(pkg), pkg.version + "\n");
+    writeFileSync(versionMarkerPath(pkg), version + "\n");
 
-    console.log(`[fetch-pylibs] ${pkg.name} ${pkg.version} -> ${out}`);
+    console.log(`[fetch-pylibs] ${pkg.name} ${version} -> ${out}`);
   } finally {
     try {
       rmSync(tmpArchive, { force: true });

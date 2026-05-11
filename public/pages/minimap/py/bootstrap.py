@@ -30,20 +30,41 @@ for _p in (_PYLIBS_DIR, _VENDOR_DIR):
 # ``json.loads(pkgutil.get_data(...))`` would raise mid-render.
 import importlib.util  # noqa: E402
 
-for _pkg in ("aoe2_geniescx", "aoe2_mccampaign", "mgz", "construct", "aocref"):
+for _pkg in (
+    "AoE2ScenarioParser",
+    "aoe2_mcgeniescx",
+    "aoe2_mccampaign",
+    "mgz",
+    "construct",
+    "aocref",
+    "pages_aoe2museum_py",
+):
     if importlib.util.find_spec(_pkg) is None:
         raise ImportError(
             f"vendored package {_pkg!r} not found on sys.path; "
-            "check that scripts/build-mcminimap-bundle.mjs bundled pylibs (aoe2_geniescx, aoe2_mccampaign, mgz, construct, aocref) "
+            "check that scripts/build-mcminimap-bundle.mjs bundled pylibs (AoE2ScenarioParser, aoe2_mcgeniescx, aoe2_mccampaign, mgz, construct, aocref) "
+            "and the Pages facade package (pages_aoe2museum_py) "
             "into aoe2mcminimap.tar."
         )
 
 from types import SimpleNamespace  # noqa: E402
 
 try:
-    from McMinimap import MinimapSettings, to_png_bytes, to_png_bytes_from_match  # noqa: E402
+    from McMinimap import (  # noqa: E402
+        MinimapSettings,
+        RECORDED_GAME_EXTENSIONS,
+        to_png_bytes,
+        to_png_bytes_from_match,
+    )
 except ImportError:
-    from aoe2_mcminimap import MinimapSettings, to_png_bytes, to_png_bytes_from_match  # noqa: E402
+    from aoe2_mcminimap import (  # noqa: E402
+        MinimapSettings,
+        RECORDED_GAME_EXTENSIONS,
+        to_png_bytes,
+        to_png_bytes_from_match,
+    )
+
+from pages_aoe2museum_py.scenario_facade import parse_scenario_to_match  # noqa: E402
 
 
 def _coerce_settings(raw):
@@ -78,6 +99,11 @@ def render(file_bytes, ext, settings):
         data = bytes(file_bytes)
 
     suffix = ext if ext and ext.startswith(".") else "." + (ext or "bin")
+    if suffix.lower() not in RECORDED_GAME_EXTENSIONS:
+        cfg = _coerce_settings(settings)
+        match = parse_scenario_to_match(data, name=f"upload{suffix}")
+        return to_png_bytes_from_match(match, settings=cfg)
+
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
     try:
         tmp.write(data)

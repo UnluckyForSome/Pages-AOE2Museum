@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Packs McMinimap sources from sourcemodules/aoe2mcminimap (populated by
-// fetch-pylibs.mjs from PyPI/TestPyPI), plus fetched aoe2_geniescx,
-// aoe2_mccampaign, AOE2-McMGZ (`mgz` import namespace), and its
-// transitive deps (`construct`, `aocref`) into
+// fetch-pylibs.mjs from TestPyPI / GitHub), plus fetched aoe2_mcgeniescx,
+// fetched AoE2ScenarioParser museum, aoe2_mccampaign, AOE2-McMGZ (`mgz`
+// import namespace), and transitive deps (`construct`, `aocref`) into
 // public/modules/aoe2mcminimap/aoe2mcminimap.tar + manifest.json.
 //
 // Cache-gated: pylib versions + AOE2-McMinimap version must match manifest.json.
@@ -24,16 +24,18 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const mcminimapSrcDir = resolve(repoRoot, "sourcemodules/aoe2mcminimap");
-const aoe2GenieScxPkgDir = resolve(repoRoot, "sourcemodules/aoe2_geniescx");
+const aoe2McGenieScxPkgDir = resolve(repoRoot, "sourcemodules/aoe2_mcgeniescx");
 const aoe2McCampaignPkgDir = resolve(repoRoot, "sourcemodules/aoe2_mccampaign");
 const mgzPkgDir = resolve(repoRoot, "sourcemodules/mgz");
 const constructDir = resolve(repoRoot, "sourcemodules/construct");
 const aocrefDir = resolve(repoRoot, "sourcemodules/aocref");
+const pagesPyPkgDir = resolve(repoRoot, "sourcemodules/pages_aoe2museum_py");
+const aoe2ScenarioParserPkgDir = resolve(repoRoot, "sourcemodules/AoE2ScenarioParser");
 const outDir = resolve(repoRoot, "public/modules/aoe2mcminimap");
 const tarPath = join(outDir, "aoe2mcminimap.tar");
 const manifestPath = join(outDir, "manifest.json");
 
-const BUNDLE_SPEC_VERSION = 14;
+const BUNDLE_SPEC_VERSION = 16;
 
 const MCMINIMAP_TOP = ["McMinimap.py", "aoe2_mcminimap"];
 
@@ -43,7 +45,8 @@ function readPylibVersions() {
   const roots = [
     { name: "construct", dir: constructDir },
     { name: "aocref", dir: aocrefDir },
-    { name: "aoe2_geniescx", dir: aoe2GenieScxPkgDir },
+    { name: "aoe2_mcgeniescx", dir: aoe2McGenieScxPkgDir },
+    { name: "aoe2_scenario_parser", dir: aoe2ScenarioParserPkgDir },
     { name: "aoe2_mccampaign", dir: aoe2McCampaignPkgDir },
     { name: "aoe2_mcmgz", dir: mgzPkgDir },
     { name: "aoe2_mcminimap", dir: mcminimapSrcDir },
@@ -58,7 +61,28 @@ function readPylibVersions() {
       // ignore
     }
   }
+  const treeStamped = [{ name: "pages_aoe2museum_py", dir: pagesPyPkgDir }];
+  for (const { name, dir } of treeStamped) {
+    if (!existsSync(dir)) continue;
+    out[name] = String(latestTreeMtime(dir));
+  }
   return out;
+}
+
+function latestTreeMtime(dir) {
+  let newest = 0;
+  function walkTree(abs) {
+    if (!existsSync(abs)) return;
+    const st = statSync(abs);
+    newest = Math.max(newest, st.mtimeMs);
+    if (!st.isDirectory()) return;
+    for (const name of readdirSync(abs)) {
+      if (SKIP_DIRS.has(name) || name === ".version") continue;
+      walkTree(join(abs, name));
+    }
+  }
+  walkTree(dir);
+  return Math.floor(newest);
 }
 
 function readManifest() {
@@ -73,9 +97,9 @@ function readManifest() {
 function collectFiles() {
   const files = [];
 
-  if (!existsSync(join(aoe2GenieScxPkgDir, "__init__.py"))) {
+  if (!existsSync(join(aoe2McGenieScxPkgDir, "__init__.py"))) {
     console.error(
-      "[build-mcminimap-bundle] aoe2_geniescx missing — run `npm run fetch:pylibs` first.",
+      "[build-mcminimap-bundle] aoe2_mcgeniescx missing — run `npm run fetch:pylibs` first.",
     );
     process.exit(1);
   }
@@ -88,6 +112,18 @@ function collectFiles() {
   if (!existsSync(join(mgzPkgDir, "__init__.py"))) {
     console.error(
       "[build-mcminimap-bundle] mgz (from AOE2-McMGZ) missing — run `npm run fetch:pylibs` first.",
+    );
+    process.exit(1);
+  }
+  if (!existsSync(join(aoe2ScenarioParserPkgDir, "__init__.py"))) {
+    console.error(
+      "[build-mcminimap-bundle] AoE2ScenarioParser missing — run `npm run fetch:pylibs` first.",
+    );
+    process.exit(1);
+  }
+  if (!existsSync(join(pagesPyPkgDir, "__init__.py"))) {
+    console.error(
+      "[build-mcminimap-bundle] sourcemodules/pages_aoe2museum_py missing — expected the Pages Python facade package.",
     );
     process.exit(1);
   }
@@ -104,11 +140,13 @@ function collectFiles() {
   }
 
   const pyPack = [
-    { abs: aoe2GenieScxPkgDir, rel: "pylibs/aoe2_geniescx" },
+    { abs: aoe2McGenieScxPkgDir, rel: "pylibs/aoe2_mcgeniescx" },
+    { abs: aoe2ScenarioParserPkgDir, rel: "pylibs/AoE2ScenarioParser" },
     { abs: aoe2McCampaignPkgDir, rel: "pylibs/aoe2_mccampaign" },
     { abs: mgzPkgDir, rel: "pylibs/mgz" },
     { abs: constructDir, rel: "pylibs/construct" },
     { abs: aocrefDir, rel: "pylibs/aocref" },
+    { abs: pagesPyPkgDir, rel: "pages_aoe2museum_py" },
   ];
   for (const { abs, rel } of pyPack) {
     if (!existsSync(abs)) continue;
@@ -122,6 +160,9 @@ function collectFiles() {
 function walk(dirAbs, dirRel, files, topLevelFilter) {
   for (const name of readdirSync(dirAbs)) {
     if (dirRel === "aoe2_mcminimap" && name === "legacy") continue;
+    if (dirRel === "pylibs/AoE2ScenarioParser/legacy_bridge" && (name === "genie_rs" || name === "workbench")) {
+      continue;
+    }
     if (SKIP_DIRS.has(name)) continue;
     if (name === ".version") continue;
     const abs = join(dirAbs, name);
