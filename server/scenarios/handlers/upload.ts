@@ -11,7 +11,7 @@ import {
   getExtension,
   resolveFilenameCollision,
 } from "../services/validation";
-import { verifyScenario } from "../services/verify-scenario";
+import { ScenarioVerifierUnavailableError, verifyScenario } from "../services/verify-scenario";
 
 interface ProcessedFile {
   filename: string;
@@ -32,6 +32,8 @@ interface ReadyFile {
 }
 
 const MAX_FILES = 900;
+const VERIFY_FAILURE_MESSAGE =
+  "Scenario verifier is unavailable right now. Please try your upload again shortly.";
 
 export async function handleUpload(
   request: Request,
@@ -175,12 +177,20 @@ export async function handleUpload(
 
   const verified: Candidate[] = [];
   for (const c of deduplicated) {
-    const isValid = await verifyScenario(c.buffer);
-    if (!isValid) {
-      results.push({ filename: c.filename, status: "rejected: failed verification" });
-      continue;
+    try {
+      const verification = await verifyScenario(env, c.filename, c.buffer);
+      if (!verification.valid) {
+        const reason = verification.reason?.trim() || "failed verification";
+        results.push({ filename: c.filename, status: `rejected: ${reason}` });
+        continue;
+      }
+      verified.push(c);
+    } catch (error) {
+      if (error instanceof ScenarioVerifierUnavailableError) {
+        return Response.json({ error: VERIFY_FAILURE_MESSAGE }, { status: 503 });
+      }
+      throw error;
     }
-    verified.push(c);
   }
 
   const allNames = new Set<string>();

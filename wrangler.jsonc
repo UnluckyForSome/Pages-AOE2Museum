@@ -45,7 +45,8 @@
     "GARAGE_ENDPOINT": "https://garage.mcclemont.com",
     "GARAGE_REGION": "garage",
     "GARAGE_BUCKET_SLP": "slp",
-    "GARAGE_BUCKET_SLD": "sld"
+    "GARAGE_BUCKET_SLD": "sld",
+    "PARSER_VERIFY_BASE_URL": "https://python.mcclemont.com/api/verify-scenario"
   },
   "triggers": {
     // Weekly R2 <-> D1 reconcile for the Scenarios app. Matches the cron on

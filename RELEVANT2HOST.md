@@ -1,214 +1,121 @@
-# Scenario Upload Verification: Relevant Context
+# Host Guide: How AoE2 Museum Uses The Verifier
 
-This document is a handoff for building a remote parser-verification service on the Docker host.
+This document is for whoever maintains the remote parser service behind `python.mcclemont.com`.
 
-Primary goal:
+Its job is simple: explain the client that calls you, what it has already done before the request reaches you, and exactly what your service must return for the site to behave correctly.
 
-- Replace the current shallow scenario upload verification with a real parser-backed verification step.
-- Host that parser service on the remote machine under `python.mcclemont.com`.
-- Keep the existing Cloudflare Worker as the public upload endpoint.
-- Have the Worker call the remote Python service during upload processing.
+## System At A Glance
 
-## Repos / systems involved
+The public upload flow is split across three layers:
 
-### This repo
+1. Browser UI on `/scenarios/`
+2. Cloudflare Worker in this repo
+3. Remote verifier on `python.mcclemont.com`
 
-- Repo: `Pages-AOE2Museum`
-- Main runtime: Cloudflare Worker + static assets
-- Worker entrypoint: `server/worker/index.ts`
-- Scenario upload route: `POST /api/scenarios/upload`
+The verifier is not the public upload endpoint. The browser never talks to it directly.
 
-### Remote Docker host
+Actual flow:
 
-User-provided target area:
+1. User uploads files in the browser.
+2. Browser sends `multipart/form-data` to `POST /api/scenarios/upload` on the museum site.
+3. The Worker performs all public-facing upload checks.
+4. For each remaining candidate scenario file, the Worker sends a single raw-file request to the remote verifier.
+5. The verifier says either "valid" or "invalid" and includes a reason.
+6. Only files marked valid are stored in R2 and inserted into D1.
 
-- `@SSH FS - N2-Docker.lan/docker-projects/pythonserver`
-- Extend/build under:
-  - `@SSH FS - N2-Docker.lan/docker-projects/pythonserver/data`
-  - `@SSH FS - N2-Docker.lan/docker-projects/pythonserver/build`
+## What The Host Does Not Need To Do
 
-Desired public hostname:
+The remote verifier is intentionally narrow in scope. It does not need to:
 
-- `python.mcclemont.com`
+- handle browser uploads
+- parse `multipart/form-data`
+- verify Turnstile
+- accept `.zip` files
+- extract archives
+- enforce the museum's upload batch UX
+- deduplicate against D1
+- write to R2 or D1
+- serve downloads
 
-### Parser source of truth
+All of that already happens in the museum app before your service is called.
 
-Latest parser branch:
+## What The Worker Already Does Before Calling You
+
+The Worker route is `POST /api/scenarios/upload`.
+
+Before it calls the verifier, it already:
+
+1. verifies Turnstile
+2. accepts only `.scn`, `.scx`, `.aoe2scenario`, and `.zip`
+3. extracts `.zip` uploads with `fflate`
+4. discards non-scenario files inside zips
+5. enforces limits
+6. hashes candidate files
+7. deduplicates against D1 and within the current batch
+
+Current limits in the Worker:
+
+- max `900` scenario files per upload
+- max `5 MB` per scenario file
+- max `100 MB` compressed zip size
+- max `100 MB` extracted zip size
+
+By the time the verifier is called, each request is for exactly one already-filtered scenario file.
+
+## The Requests You Receive
+
+The Worker currently calls:
+
+- `POST https://python.mcclemont.com/api/verify-scenario`
+
+Request shape:
+
+- `Content-Type: application/octet-stream`
+- body: raw scenario bytes
+- headers:
+  - `Authorization: Bearer <PARSER_VERIFY_TOKEN>`
+  - `X-Filename: original filename`
+  - `X-Extension: scn|scx|aoe2scenario` when available
+
+The Worker side is configured by:
+
+- `PARSER_VERIFY_BASE_URL`
+- `PARSER_VERIFY_TOKEN`
+
+Today, `wrangler.jsonc` points `PARSER_VERIFY_BASE_URL` at:
+
+- `https://python.mcclemont.com/api/verify-scenario`
+
+## What The Verifier Must Decide
+
+For each request, the verifier must answer one question:
+
+Is this file a real parseable AoE2 scenario according to the museum parser stack?
+
+That includes both categories:
+
+- legacy scenarios such as `.scn` and `.scx`
+- Definitive Edition scenarios such as `.aoe2scenario`
+
+This is important: the verifier must not assume every valid scenario should go through `AoE2DEScenario.from_file()`.
+
+Legacy scenarios must be allowed to follow the legacy parser route. In the parser fork, the correct decision point is the detection/dispatch path used by `parse_scenario()` or the exported `verify_scenario()` helper, not a DE-only constructor.
+
+## Parser Source Of Truth
+
+The museum treats this parser fork as the source of truth:
 
 - [UnluckyForSome/AoE2ScenarioParser @ museum](https://github.com/UnluckyForSome/AoE2ScenarioParser/tree/museum)
 
-This repo already treats that branch as the canonical parser source for the browser-side McMinimap/Pyodide flow.
+The browser-side analyse/minimap pipeline already uses that parser family, so the host verifier should stay aligned with it.
 
-## What the current upload flow does
+If you are validating by importing the parser fork directly, prefer the library entrypoint that dispatches between legacy and DE, rather than hand-rolling your own detection rules.
 
-The current browser upload UI lives in `public/pages/scenarios/js/upload.js`.
+## Response Contract
 
-High-level flow:
+The Worker expects JSON with one of these shapes.
 
-1. Browser validates extensions and size limits client-side.
-2. Browser loads Turnstile and submits `multipart/form-data` to `POST /api/scenarios/upload`.
-3. Cloudflare Worker verifies Turnstile.
-4. Worker accepts:
-   - `.scn`
-   - `.scx`
-   - `.aoe2scenario`
-   - `.zip`
-5. For zips, Worker extracts entries with `fflate` and pulls out scenario files.
-6. Worker enforces file count and size caps.
-7. Worker hashes candidates and deduplicates against D1.
-8. Worker runs `verifyScenario()` on each remaining file.
-9. Accepted files are stored in R2 and metadata is inserted into D1.
-
-Relevant files:
-
-- `server/worker/index.ts`
-- `server/scenarios/routes.ts`
-- `server/scenarios/handlers/upload.ts`
-- `server/scenarios/services/validation.ts`
-- `server/scenarios/services/turnstile.ts`
-- `server/scenarios/services/verify-scenario.ts`
-- `public/pages/scenarios/js/upload.js`
-
-## Why the current verification is insufficient
-
-Current verification is only a header regex:
-
-```ts
-export async function verifyScenario(buffer: ArrayBuffer): Promise<boolean> {
-  if (buffer.byteLength < 3) return false;
-  const header = new Uint8Array(buffer, 0, Math.min(16, buffer.byteLength));
-  const str = String.fromCharCode(...header);
-  return /^\d+\.\d+/.test(str);
-}
-```
-
-Source:
-
-- `server/scenarios/services/verify-scenario.ts`
-
-This means uploads are currently accepted if they merely start with something that looks like a version number, not if they are truly valid scenario files according to the new parser backend.
-
-## Existing parser-related architecture in this repo
-
-There is already a richer parser/analyse pipeline in the frontend, but it is not used for uploads.
-
-Relevant files:
-
-- `public/modules/app-shell/shared-pyodide-service.js`
-- `public/pages/scenarios/js/inspector.js`
-- `scripts/fetch-pylibs.mjs`
-- `scripts/build-mcminimap-bundle.mjs`
-
-Important facts:
-
-- The browser-side analyse tab uses `window.Aoe2MuseumPyodideService.analyse(...)`.
-- The Pyodide bundle is built from vendored Python sources under `sourcemodules/`.
-- `AoE2ScenarioParser` is fetched from GitHub branch `museum`.
-
-From `scripts/fetch-pylibs.mjs`:
-
-- `AOE2_SCENARIO_PARSER_REF` defaults to `museum`
-- package source URL resolves to GitHub codeload for `UnluckyForSome/AoE2ScenarioParser`
-
-From `scripts/build-mcminimap-bundle.mjs`:
-
-- `AoE2ScenarioParser` is already considered a required part of the parsing bundle
-
-This is useful because the remote Python API should validate files using the same parser family already trusted by the analyse/minimap pipeline.
-
-## Recommended target architecture
-
-Keep the existing flow mostly intact:
-
-1. Browser still uploads to Cloudflare Worker.
-2. Worker still:
-   - verifies Turnstile
-   - extracts zip files
-   - enforces upload caps
-   - deduplicates files
-3. Worker replaces local `verifyScenario()` with a remote call to the Python parser API.
-4. Python service performs real parser-backed verification per file.
-5. Worker only stores files in R2/D1 when the remote service confirms validity.
-
-Why this shape is best:
-
-- The browser API stays same-origin and unchanged.
-- Turnstile remains enforced at the Worker.
-- Zip extraction and upload throttling stay in the Worker, so the Python service receives already-filtered individual files.
-- The Python service stays focused on parsing/verification, not archive management or public upload orchestration.
-
-## Best integration point in the Worker
-
-The clean seam is in:
-
-- `server/scenarios/handlers/upload.ts`
-
-Current logic:
-
-- dedupe first
-- verify second
-- store to R2/D1 after verification
-
-Specifically, this loop should eventually call remote verification instead of the current local regex verifier:
-
-```ts
-for (const c of deduplicated) {
-  const isValid = await verifyScenario(c.buffer);
-  if (!isValid) {
-    results.push({ filename: c.filename, status: "rejected: failed verification" });
-    continue;
-  }
-  verified.push(c);
-}
-```
-
-That is the most natural hook point for replacing local verification with an HTTP call.
-
-## Proposed responsibility split
-
-### Cloudflare Worker responsibilities
-
-- Accept browser uploads
-- Verify Turnstile
-- Expand zip uploads
-- Enforce:
-  - max 900 scenario files
-  - max 5 MB per scenario file
-  - max 100 MB zip compressed
-  - max 100 MB extracted contents
-- Deduplicate via D1 hash check
-- Call remote parser verification API for each candidate file
-- Persist accepted files to R2/D1
-- Return upload result JSON to browser
-
-### Python service responsibilities
-
-- Expose HTTP API for parser-backed verification
-- Accept one scenario file per request
-- Confirm whether the file is a legitimate parseable scenario
-- Return structured metadata if available
-- Return explicit failure reason when invalid
-- Authenticate requests from the Worker
-
-## Recommended Python service API
-
-Recommended minimal endpoint:
-
-- `POST /api/verify-scenario`
-
-Recommended request shape:
-
-- `Content-Type: application/octet-stream`
-- headers:
-  - `X-Filename: <original filename>`
-  - `X-Extension: scn|scx|aoe2scenario`
-  - `Authorization: Bearer <shared secret>`
-
-Alternative:
-
-- `multipart/form-data` with one file and metadata fields
-
-Recommended response shape:
+### Valid scenario
 
 ```json
 {
@@ -217,24 +124,24 @@ Recommended response shape:
   "reason": "parsed successfully",
   "analysis": {
     "containerFormat": "scx",
-    "dataVersion": 1.46,
-    "isDefinitiveEdition": false,
-    "parseBackend": "AoE2ScenarioParser museum"
+    "gameVersion": "legacy",
+    "scenarioVersion": "1.14",
+    "parseBackend": "aoe2_mcgeniescx.Scenario"
   }
 }
 ```
 
-Invalid example:
+### Invalid scenario
 
 ```json
 {
   "ok": true,
   "valid": false,
-  "reason": "parser rejected file: invalid trigger section"
+  "reason": "parser rejected file: unsupported trigger structure"
 }
 ```
 
-Error example:
+### Internal verifier failure
 
 ```json
 {
@@ -243,142 +150,149 @@ Error example:
 }
 ```
 
-Guidance:
+## Status Code Expectations
 
-- Keep `valid` separate from transport success.
-- Return a human-readable `reason`; the Worker can map it to the upload result.
-- Returning `analysis` is optional for first pass, but useful if this later feeds archive metadata.
+The Worker currently treats responses like this:
 
-## Authentication recommendation
+- `200` + `ok: true` + `valid: true`
+  - file is accepted and later stored
+- `200` + `ok: true` + `valid: false`
+  - file is rejected
+  - the returned `reason` is shown to the uploader
+- non-`200`
+  - verifier is treated as unavailable
+  - upload flow fails closed with a generic temporary error
+- `200` + malformed JSON
+  - verifier is treated as unavailable
+- `200` + `ok: false`
+  - verifier is treated as unavailable
 
-Do not expose an unauthenticated parser API to the public internet.
+Recommended HTTP statuses:
 
-Recommended:
+- `200` for completed verification, whether valid or invalid
+- `400` for malformed caller request
+- `401` for missing or wrong bearer token
+- `413` for host-side size rejection if you enforce your own maximum
+- `415` for wrong content type
+- `500` for unexpected internal failures
 
-- Shared bearer token between Cloudflare Worker and Python service
-- Store Worker secret as a Wrangler secret, for example:
-  - `PARSER_VERIFY_TOKEN`
-- Store base URL as config/var or secret, for example:
-  - `PARSER_VERIFY_BASE_URL=https://python.mcclemont.com`
+## Important Note About `reason`
 
-Likely future Worker env additions:
+For invalid files, the museum site now surfaces the verifier's `reason` directly to the uploader on the contribute page.
 
-- `PARSER_VERIFY_BASE_URL`
-- `PARSER_VERIFY_TOKEN`
+That means your invalid response text should be:
 
-## Performance / timeout considerations
+- human-readable
+- concise
+- accurate
+- safe to show publicly
 
-Current browser upload timeout:
+Good examples:
 
-- `300000 ms` (5 minutes)
-- file: `public/pages/scenarios/js/upload.js`
+- `parser rejected file: unsupported scenario structure`
+- `parser rejected file: corrupt compressed payload`
+- `parser rejected file: unsupported legacy container format`
 
-Implications:
+Avoid leaking secrets, stack traces, internal paths, or noisy raw exceptions unless they are intentionally safe for end users.
 
-- Remote verification must be reasonably fast.
-- The Worker currently handles files inline, synchronously.
-- If verification is done one file at a time, large uploads may become slow.
+## How The Worker Uses Your Answer
 
-Recommended first version:
+The Worker's upload loop is effectively:
 
-- Keep it simple: one-file-per-request verification
-- Add tight request timeouts in the Worker
-- Fail closed if the verifier is unavailable
+1. call remote verifier for one candidate file
+2. if `valid` is false, add `rejected: <reason>` to the UI result list
+3. if `valid` is true, keep the file
+4. after all files are checked, write accepted files to R2 and D1
 
-Possible future optimization:
+So from the host's perspective:
 
-- Add a batch verification endpoint to reduce per-request overhead
+- `valid: false` is a normal business outcome
+- `ok: false` or non-`200` is an infrastructure failure
 
-## Important current data/logic details
+Those are intentionally different.
 
-### Dedupe hash naming mismatch
+## Authentication
 
-The Worker computes MD5:
+The verifier should require a shared bearer token.
 
-- `computeMd5()` in `server/scenarios/services/validation.ts`
+Expected request header:
 
-But stores it in a D1 column named `sha256`:
+```http
+Authorization: Bearer <PARSER_VERIFY_TOKEN>
+```
 
-- insert in `server/scenarios/handlers/upload.ts`
+The Worker already sends this header. The host should reject missing or incorrect tokens with `401`.
 
-This works today, but it is a naming trap. Do not assume the stored value is actually SHA-256 unless that is separately fixed.
+## Health Endpoint
 
-### Upload limits currently enforced
+The client handoff also references:
 
-From `server/scenarios/services/validation.ts` and `server/scenarios/handlers/upload.ts`:
+- `GET /health`
 
-- max scenario file size: 5 MB
-- max zip size: 100 MB compressed
-- max extracted zip contents: 100 MB
-- max total scenario files per upload: 900
+This is useful for smoke tests and manual ops checks, but it is not part of the main upload verification flow.
 
-### Accepted extensions
+Suggested response:
 
-Upload pipeline currently accepts:
+```json
+{
+  "ok": true
+}
+```
 
-- `.scn`
-- `.scx`
-- `.aoe2scenario`
-- `.zip`
+## Host Implementation Guidance
 
-The remote parser service only needs to verify extracted individual scenario files, not zip files directly, unless the design is deliberately changed.
+If you are implementing or updating the host service, optimize for these properties:
 
-## What the remote-side Cursor agent should build
+- stateless per-request verification
+- one file per request
+- raw byte body input
+- strict bearer-token auth
+- parser-backed validity check, not header sniffing
+- support for both legacy and DE scenario paths
+- clear invalid reasons
+- stable JSON contract
 
-On the Docker host, the agent should aim to create/extend:
+## The Most Important Parsing Caveat
 
-1. A Python HTTP service in the `pythonserver` project
-2. Build/container config so it fetches or installs the parser from:
-   - `https://github.com/UnluckyForSome/AoE2ScenarioParser/tree/museum`
-3. An HTTP endpoint at:
-   - `https://python.mcclemont.com/api/verify-scenario`
-4. Auth protection so only the Worker can call it
-5. Clear container startup/build instructions for that host
+If a legacy scenario comes back with an error like:
 
-The remote agent should prefer:
+- `The version DE:1.21 is not supported by AoE2ScenarioParser`
 
-- FastAPI + Uvicorn (good default)
-- explicit health endpoint, e.g. `GET /health`
-- clear Docker build that pins the parser ref/branch
+that is a strong sign the request was incorrectly forced down a DE-only parsing route.
 
-## Suggested remote implementation checklist
+The museum's expectation is not "everything must parse as DE".
 
-The remote agent should probably do this:
+The expectation is:
 
-1. Inspect current `docker-projects/pythonserver` layout
-2. Determine whether it already has:
-   - `docker-compose.yml` or `compose.yml`
-   - `Dockerfile`
-   - reverse proxy config (nginx, Caddy, Traefik, etc.)
-3. Add a Python API app with:
-   - `POST /api/verify-scenario`
-   - `GET /health`
-4. Fetch/install the parser from the `museum` branch
-5. Add auth via bearer token
-6. Ensure the container is reachable behind `python.mcclemont.com`
-7. Document the env vars and any manual deploy commands
+- legacy scenarios should parse as legacy
+- DE scenarios should parse as DE
+- the verifier should make that decision before choosing the backend
 
-## Suggested Worker follow-up after remote service exists
+## Client Files Worth Reading
 
-Once the remote service is live, this repo will still need a follow-up change:
+If you need to understand the museum side in code, these are the most relevant files:
 
-1. Add Worker env vars/secrets for the parser service URL and token
-2. Replace `verifyScenario()` usage in `server/scenarios/handlers/upload.ts` with remote fetch
-3. Preserve the current user-facing rejected status format
-4. Decide how much of the remote parser error/reason should be exposed back to the uploader
+- `server/scenarios/handlers/upload.ts`
+- `server/scenarios/services/verify-scenario.ts`
+- `server/scenarios/routes.ts`
+- `server/scenarios/env.ts`
+- `public/pages/scenarios/js/upload.js`
+- `RELEVANT2CLIENT.md`
 
-## Constraints from this environment
+## Practical Smoke-Test Checklist
 
-The SSHFS mount rule in this repo says:
+From the host side, a good end-to-end check is:
 
-- remote filesystem can be read/edited
-- no remote shell/command execution is available from this environment
+1. send a valid legacy scenario
+2. send a valid DE scenario
+3. send a corrupt scenario
+4. send a request with the wrong token
 
-So from this side, I could not inspect or run the actual Docker host project. The remote-side agent should inspect the real files there and adapt this design to the host’s existing compose/reverse-proxy conventions.
+Expected outcomes:
 
-## Minimal context summary for the remote agent
+1. valid legacy file -> `200`, `ok: true`, `valid: true`
+2. valid DE file -> `200`, `ok: true`, `valid: true`
+3. corrupt file -> `200`, `ok: true`, `valid: false`, with a public-safe reason
+4. wrong token -> `401`
 
-If you want a short prompt to give a Cursor agent on the Docker host, use this:
-
-> Build a parser verification HTTP service inside the existing `docker-projects/pythonserver` project. It should expose `POST /api/verify-scenario` on `python.mcclemont.com`, authenticate requests with a bearer token, and verify uploaded `.scn`, `.scx`, and `.aoe2scenario` files using `UnluckyForSome/AoE2ScenarioParser` branch `museum`. The Cloudflare Worker in the main app will call this endpoint after Turnstile, zip extraction, size checks, and dedupe, and before storing files to R2/D1. Please inspect the current Docker/proxy setup on this machine and implement the service in a way that matches the existing project conventions.
-
+That is the contract the museum client is built around.
