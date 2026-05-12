@@ -24,9 +24,61 @@
     contribute: document.getElementById('panel-contribute'),
     analyse: document.getElementById('panel-analyse'),
   };
+  const analyseScriptSrc = '/scenarios/js/inspector.js';
+  let activeTab = null;
+  let analyseScriptPromise = null;
+
+  function dispatchTabChange(name) {
+    document.dispatchEvent(
+      new CustomEvent('scenarios:tabchange', { detail: { tab: name } })
+    );
+  }
+
+  function reportAnalyseScriptError() {
+    const errorEl = document.getElementById('analysis-error');
+    if (errorEl) {
+      errorEl.textContent = 'Failed to load analysis tools.';
+      errorEl.classList.remove('hidden');
+    }
+  }
+
+  function ensureAnalyseScript() {
+    if (analyseScriptPromise) return analyseScriptPromise;
+    analyseScriptPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-scenarios-inspector="true"]');
+      if (existing) {
+        if (existing.dataset.loaded === 'true') {
+          resolve();
+          return;
+        }
+        existing.addEventListener('load', () => resolve(), { once: true });
+        existing.addEventListener('error', () => reject(new Error('Failed to load inspector script.')), {
+          once: true,
+        });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = analyseScriptSrc;
+      script.defer = true;
+      script.dataset.scenariosInspector = 'true';
+      script.onload = () => {
+        script.dataset.loaded = 'true';
+        resolve();
+      };
+      script.onerror = () => reject(new Error('Failed to load inspector script.'));
+      document.body.appendChild(script);
+    }).catch((error) => {
+      analyseScriptPromise = null;
+      reportAnalyseScriptError();
+      throw error;
+    });
+    return analyseScriptPromise;
+  }
 
   function select(name) {
     if (!panels[name]) name = 'archive';
+    activeTab = name;
     tabs.forEach((t) => {
       const active = t.dataset.tab === name;
       t.setAttribute('aria-selected', active ? 'true' : 'false');
@@ -34,9 +86,13 @@
     Object.entries(panels).forEach(([key, el]) => {
       if (el) el.hidden = key !== name;
     });
-    document.dispatchEvent(
-      new CustomEvent('scenarios:tabchange', { detail: { tab: name } })
-    );
+    if (name === 'analyse') {
+      void ensureAnalyseScript().then(() => {
+        if (activeTab === name) dispatchTabChange(name);
+      });
+      return;
+    }
+    dispatchTabChange(name);
   }
 
   tabs.forEach((t) => {

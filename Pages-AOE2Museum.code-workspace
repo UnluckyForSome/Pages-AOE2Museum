@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "SSH FS - N2-Docker.lan",
+			"uri": "ssh://n2-docker.lan/home/unluckyforsome"
+		}
+	],
+	"settings": {}
+}
