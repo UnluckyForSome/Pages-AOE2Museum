@@ -133,10 +133,8 @@ import * as fflate from "/modules/fflate/fflate.browser.js";
 
   let lastObjectUrl = null;
   let busy = false;
-  let worker = null;
-  let pendingId = 0;
-  const pending = new Map();
-  const pendingCampaign = new Map();
+  const pyodideService = window.Aoe2MuseumPyodideService;
+  const locationState = window.Aoe2MuseumLocation || null;
   let lastRenderedFingerprint = null;
   let currentFingerprint = "";
   let galleryLoaded = false;
@@ -1303,12 +1301,11 @@ import * as fflate from "/modules/fflate/fflate.browser.js";
   }
 
   function callParseCampaign(buf) {
-    ensureWorker();
-    const id = ++pendingId;
-    const toSend = buf.slice(0);
-    return new Promise(function (resolve, reject) {
-      pendingCampaign.set(id, { resolve: resolve, reject: reject });
-      worker.postMessage({ type: "parseCampaign", id: id, fileBytes: toSend }, [toSend]);
+    if (!pyodideService) {
+      return Promise.reject(new Error("Shared Pyodide service is unavailable."));
+    }
+    return pyodideService.parseCampaign(buf.slice(0), {
+      onProgress: handlePyodideProgress,
     });
   }
 
@@ -2748,6 +2745,19 @@ import * as fflate from "/modules/fflate/fflate.browser.js";
 
   // ---------- tabs -------------------------------------------------------
 
+  function getSelectedTab() {
+    const value = locationState && locationState.getQueryParam("tab");
+    return value === "gallery" ? "gallery" : "generate";
+  }
+
+  function setSelectedTab(name) {
+    if (!locationState) return;
+    locationState.setQueryParam("tab", name, {
+      replace: true,
+      removeIf: "generate",
+    });
+  }
+
   function selectTab(name) {
     tabs.forEach(function (t) {
       const active = t.getAttribute("data-tab") === name;
@@ -2762,9 +2772,19 @@ import * as fflate from "/modules/fflate/fflate.browser.js";
 
   tabs.forEach(function (t) {
     t.addEventListener("click", function () {
-      selectTab(t.getAttribute("data-tab"));
+      const name = t.getAttribute("data-tab");
+      selectTab(name);
+      setSelectedTab(name);
     });
   });
+
+  if (locationState && locationState.subscribe) {
+    locationState.subscribe(function () {
+      selectTab(getSelectedTab());
+    });
+  }
+
+  selectTab(getSelectedTab());
 
   if (galleryRefresh) {
     galleryRefresh.addEventListener("click", function () {
@@ -2776,100 +2796,63 @@ import * as fflate from "/modules/fflate/fflate.browser.js";
 
   const BOOT_TOTAL_DEFAULT = 6;
 
-  function ensureWorker() {
-    if (worker) return worker;
-    worker = new Worker("/minimap/worker.js");
-    worker.onmessage = function (ev) {
-      const msg = ev.data || {};
-      if (msg.type === "progress") {
-        if (msg.phase === "boot" && !bootDone) {
-          const total = msg.total || BOOT_TOTAL_DEFAULT;
-          const step = Math.max(1, msg.step || 1);
-          const pct =
-            typeof msg.pct === "number"
-              ? Math.min(99, Math.round(msg.pct))
-              : Math.min(99, Math.round((step / total) * 100));
-          applyMainProgress(pct, { autoHide: false });
-          applyMainStatus(msg.message || "Loading\u2026", "loading");
-          if (step >= total) {
-            bootDone = true;
-            applyMainProgress(100, { holdMs: 300 });
-            applyMainStatus("Ready", "success");
-          }
-        } else if (msg.phase === "campaignParse") {
-          if (isModalOpen(modsModal) && modsModalCard) {
-            showModalActivity(modsModalCard, {
-              pct: typeof msg.pct === "number" ? msg.pct : 40,
-              message: msg.message || "Parsing campaign\u2026",
-            });
-          } else if (isModalOpen(campaignStandaloneModal) && campaignStandaloneModalCard) {
-            showModalActivity(campaignStandaloneModalCard, {
-              pct: typeof msg.pct === "number" ? msg.pct : 40,
-              message: msg.message || "Parsing campaign\u2026",
-            });
-          } else if (pickerModalDepth === 0) {
-            applyMainStatus(msg.message || "\u2026", "loading");
-            if (typeof msg.pct === "number") applyMainProgress(msg.pct, { autoHide: false });
-          }
-        } else if (pickerModalDepth > 0) {
-          return;
-        } else if (msg.phase === "render") {
-          applyMainStatus(msg.message || "Rendering\u2026", "loading");
-          if (typeof msg.pct === "number") applyMainProgress(msg.pct, { autoHide: false });
-        } else if (msg.phase === "error") {
-          applyMainProgress(100, { error: true, holdMs: 1500 });
-          applyMainStatus(msg.message || "Error", "error");
-        } else {
-          applyMainStatus(msg.message || "\u2026", "loading");
-        }
-        return;
+  function handlePyodideProgress(msg) {
+    if (!msg) return;
+    if (msg.phase === "boot" && !bootDone) {
+      const total = msg.total || BOOT_TOTAL_DEFAULT;
+      const step = Math.max(1, msg.step || 1);
+      const pct =
+        typeof msg.pct === "number"
+          ? Math.min(99, Math.round(msg.pct))
+          : Math.min(99, Math.round((step / total) * 100));
+      applyMainProgress(pct, { autoHide: false });
+      applyMainStatus(msg.message || "Loading\u2026", "loading");
+      if (step >= total || pct >= 99) {
+        bootDone = true;
+        applyMainProgress(100, { holdMs: 300 });
+        applyMainStatus("Ready", "success");
       }
-      if (msg.type === "campaignParseResult") {
-        const entry = pendingCampaign.get(msg.id);
-        if (!entry) return;
-        pendingCampaign.delete(msg.id);
-        if (msg.ok) {
-          entry.resolve({
-            campaignName: msg.campaignName,
-            scenarios: msg.scenarios || [],
-          });
-        } else {
-          entry.reject(new Error(msg.error || "Campaign parse failed."));
-        }
-        return;
+      return;
+    }
+    if (msg.phase === "campaignParse") {
+      if (isModalOpen(modsModal) && modsModalCard) {
+        showModalActivity(modsModalCard, {
+          pct: typeof msg.pct === "number" ? msg.pct : 40,
+          message: msg.message || "Parsing campaign\u2026",
+        });
+      } else if (isModalOpen(campaignStandaloneModal) && campaignStandaloneModalCard) {
+        showModalActivity(campaignStandaloneModalCard, {
+          pct: typeof msg.pct === "number" ? msg.pct : 40,
+          message: msg.message || "Parsing campaign\u2026",
+        });
+      } else if (pickerModalDepth === 0) {
+        applyMainStatus(msg.message || "\u2026", "loading");
+        if (typeof msg.pct === "number") applyMainProgress(msg.pct, { autoHide: false });
       }
-      if (msg.type === "result") {
-        const entry = pending.get(msg.id);
-        if (!entry) return;
-        pending.delete(msg.id);
-        if (msg.ok) entry.resolve(msg.png);
-        else entry.reject(new Error(msg.error || "Render failed."));
-      }
-    };
-    worker.onerror = function (e) {
-      pending.forEach(function (entry) {
-        entry.reject(new Error(e.message || "Worker error"));
-      });
-      pending.clear();
-      pendingCampaign.forEach(function (entry) {
-        entry.reject(new Error(e.message || "Worker error"));
-      });
-      pendingCampaign.clear();
-      applyMainProgress(100, { error: true, holdMs: 1200 });
-      applyMainStatus(e.message || "Worker error", "error");
-    };
-    return worker;
+      return;
+    }
+    if (pickerModalDepth > 0) {
+      return;
+    }
+    if (msg.phase === "render") {
+      applyMainStatus(msg.message || "Rendering\u2026", "loading");
+      if (typeof msg.pct === "number") applyMainProgress(msg.pct, { autoHide: false });
+      return;
+    }
+    if (msg.phase === "error") {
+      applyMainProgress(100, { error: true, holdMs: 1500 });
+      applyMainStatus(msg.message || "Error", "error");
+      return;
+    }
+    applyMainStatus(msg.message || "\u2026", "loading");
   }
 
   function callRender(fileBytes, ext, settings) {
-    ensureWorker();
-    const id = ++pendingId;
-    return new Promise(function (resolve, reject) {
-      pending.set(id, { resolve: resolve, reject: reject });
-      worker.postMessage(
-        { type: "render", id: id, fileBytes: fileBytes, ext: ext, settings: settings },
-        [fileBytes],
-      );
+    if (!pyodideService) {
+      return Promise.reject(new Error("Shared Pyodide service is unavailable."));
+    }
+    return pyodideService.render(fileBytes, ext, settings, {
+      onProgress: handlePyodideProgress,
     });
   }
 
@@ -3014,6 +2997,10 @@ import * as fflate from "/modules/fflate/fflate.browser.js";
   refreshFingerprint();
   setProgress(4, { autoHide: false });
   setStatus("Loading runtime\u2026", "loading");
-  ensureWorker();
-  worker.postMessage({ type: "warmup" });
+  if (pyodideService) {
+    pyodideService.warmup({ onProgress: handlePyodideProgress }).catch(function (err) {
+      applyMainProgress(100, { error: true, holdMs: 1500 });
+      applyMainStatus(err && err.message ? err.message : String(err), "error");
+    });
+  }
 })();

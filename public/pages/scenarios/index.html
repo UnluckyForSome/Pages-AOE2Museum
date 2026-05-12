@@ -77,6 +77,14 @@
             aria-controls="panel-contribute"
             data-tab="contribute"
           >Contribute</button>
+          <button
+            class="tab"
+            role="tab"
+            id="tab-analyse"
+            aria-selected="false"
+            aria-controls="panel-analyse"
+            data-tab="analyse"
+          >Analyse</button>
         </nav>
       </div>
 
@@ -203,6 +211,70 @@
           </div>
         </div>
       </section>
+
+      <!-- Analyse tab ----------------------------------------------------- -->
+      <section
+        class="panel"
+        id="panel-analyse"
+        role="tabpanel"
+        aria-labelledby="tab-analyse"
+        hidden
+      >
+        <div class="card analyse-intro">
+          <p>
+            Drop a single <code>.scn</code>, <code>.scx</code> or <code>.aoe2scenario</code> file
+            to run the full Museum pipeline: version peek, parser dispatch, scenario parse,
+            and minimap render.
+          </p>
+          <p class="analyse-intro-subtle">
+            This proof of concept stays client-side and is meant to demonstrate the shared parser flow.
+          </p>
+        </div>
+
+        <div class="card analyse-card">
+          <div class="drop-zone analyse-drop-zone" id="analyse-drop-zone">
+            <p class="drop-zone-text">Drag one scenario file here</p>
+            <p class="drop-zone-hint">or</p>
+            <label class="btn btn--small btn--ghost" for="analyse-file-input">Browse file</label>
+            <input
+              type="file"
+              id="analyse-file-input"
+              accept=".scn,.scx,.aoe2scenario"
+            />
+          </div>
+
+          <div class="analysis-selected hidden" id="analysis-selected"></div>
+
+          <div class="analysis-status hidden" id="analysis-status" aria-live="polite">
+            <div class="progress-bar analysis-progress-bar">
+              <div class="progress-fill" id="analysis-progress-fill"></div>
+            </div>
+            <p class="progress-text" id="analysis-progress-text">Waiting for a file...</p>
+          </div>
+
+          <div class="analysis-error hidden" id="analysis-error" aria-live="polite"></div>
+        </div>
+
+        <div class="analysis-output hidden" id="analysis-output">
+          <div class="card analysis-summary-card">
+            <h2 class="result-title">Scenario Details</h2>
+            <dl class="analysis-summary-grid" id="analysis-summary-grid"></dl>
+            <div class="analysis-players-block">
+              <h3 class="analysis-subtitle">Player Slots</h3>
+              <div class="analysis-players-list" id="analysis-players-list"></div>
+            </div>
+          </div>
+
+          <div class="card analysis-minimap-card">
+            <h2 class="result-title">Minimap Preview</h2>
+            <img
+              class="analysis-minimap-image hidden"
+              id="analysis-minimap-image"
+              alt="Scenario minimap preview"
+            />
+          </div>
+        </div>
+      </section>
     </main>
 
     <footer>
@@ -220,5 +292,6 @@
     <script src="/scenarios/js/tabs.js" defer></script>
     <script src="/scenarios/js/scenarios.js" defer></script>
     <script src="/scenarios/js/upload.js" defer></script>
+    <script src="/scenarios/js/analyse.js" defer></script>
   </body>
 </html>

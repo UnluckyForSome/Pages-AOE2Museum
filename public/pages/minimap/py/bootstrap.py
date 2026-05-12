@@ -64,7 +64,7 @@ except ImportError:
         to_png_bytes_from_match,
     )
 
-from pages_aoe2museum_py.scenario_facade import parse_scenario_to_match  # noqa: E402
+from pages_aoe2museum_py.scenario_facade import analyse_scenario, parse_scenario_to_match  # noqa: E402
 
 
 def _coerce_settings(raw):
@@ -116,6 +116,22 @@ def render(file_bytes, ext, settings):
             os.remove(tmp.name)
         except OSError:
             pass
+
+
+def analyse(file_bytes, ext, settings, name="uploaded scenario"):
+    """Inspect a scenario and render a minimap preview in one pass."""
+    if hasattr(file_bytes, "to_py"):
+        data = bytes(file_bytes.to_py())
+    else:
+        data = bytes(file_bytes)
+
+    suffix = ext if ext and ext.startswith(".") else "." + (ext or "bin")
+    if suffix.lower() in RECORDED_GAME_EXTENSIONS:
+        raise ValueError("Scenario analysis only supports scenario files, not recorded games.")
+
+    cfg = _coerce_settings(settings)
+    summary, match = analyse_scenario(data, name=name or f"upload{suffix}")
+    return json.dumps(summary), to_png_bytes_from_match(match, settings=cfg)
 
 
 def _ns(obj):

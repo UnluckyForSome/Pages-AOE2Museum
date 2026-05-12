@@ -94,6 +94,21 @@ async function ensurePyodide() {
   return pyodideReady;
 }
 
+async function handleWarmup(id) {
+  try {
+    await ensurePyodide();
+    if (id != null) {
+      self.postMessage({ type: "warmupResult", id: id, ok: true });
+    }
+  } catch (err) {
+    const errorText = err && err.message ? err.message : String(err);
+    progress("Warmup failed: " + errorText, { phase: "error" });
+    if (id != null) {
+      self.postMessage({ type: "warmupResult", id: id, ok: false, error: errorText });
+    }
+  }
+}
+
 async function handleRender(id, fileBytes, ext, settings) {
   let pyodide;
   try {
@@ -150,6 +165,82 @@ async function handleRender(id, fileBytes, ext, settings) {
       pyodide && pyodide.globals.delete("_ext");
       pyodide && pyodide.globals.delete("_settings");
       pyodide && pyodide.globals.delete("_match");
+    } catch (_e) {}
+  }
+}
+
+async function handleAnalyse(id, fileBytes, ext, settings, fileName) {
+  let pyodide;
+  try {
+    pyodide = await ensurePyodide();
+  } catch (err) {
+    self.postMessage({
+      type: "analysisResult",
+      id: id,
+      ok: false,
+      error: "Failed to start Python runtime: " + (err && err.message ? err.message : String(err)),
+    });
+    return;
+  }
+
+  let settingsProxy = null;
+  let summaryProxy = null;
+  let pngProxy = null;
+  try {
+    progress("Inspecting scenario…", { phase: "analysis", pct: 18 });
+    pyodide.globals.set("_bytes", new Uint8Array(fileBytes));
+    pyodide.globals.set("_ext", ext);
+    pyodide.globals.set("_name", fileName || "uploaded scenario");
+    settingsProxy = pyodide.toPy(settings || {});
+    pyodide.globals.set("_settings", settingsProxy);
+
+    progress("Parsing scenario and rendering minimap…", { phase: "analysis", pct: 54 });
+    await pyodide.runPythonAsync("_analysis_json, _analysis_png = analyse(_bytes, _ext, _settings, _name)");
+
+    summaryProxy = pyodide.globals.get("_analysis_json");
+    pngProxy = pyodide.globals.get("_analysis_png");
+    const analysisJson = summaryProxy && typeof summaryProxy.toJs === "function"
+      ? summaryProxy.toJs()
+      : String(summaryProxy);
+
+    progress("Packaging preview…", { phase: "analysis", pct: 84 });
+    const pngBytes = pngProxy.toJs();
+    const out = new Uint8Array(pngBytes.length);
+    out.set(pngBytes);
+    self.postMessage(
+      {
+        type: "analysisResult",
+        id: id,
+        ok: true,
+        analysis: JSON.parse(analysisJson),
+        png: out.buffer,
+      },
+      [out.buffer],
+    );
+  } catch (err) {
+    self.postMessage({
+      type: "analysisResult",
+      id: id,
+      ok: false,
+      error: err && err.message ? err.message : String(err),
+    });
+  } finally {
+    try {
+      if (summaryProxy && typeof summaryProxy.destroy === "function") summaryProxy.destroy();
+    } catch (_e) {}
+    try {
+      if (pngProxy && typeof pngProxy.destroy === "function") pngProxy.destroy();
+    } catch (_e) {}
+    try {
+      if (settingsProxy && typeof settingsProxy.destroy === "function") settingsProxy.destroy();
+    } catch (_e) {}
+    try {
+      pyodide && pyodide.globals.delete("_bytes");
+      pyodide && pyodide.globals.delete("_ext");
+      pyodide && pyodide.globals.delete("_name");
+      pyodide && pyodide.globals.delete("_settings");
+      pyodide && pyodide.globals.delete("_analysis_json");
+      pyodide && pyodide.globals.delete("_analysis_png");
     } catch (_e) {}
   }
 }
@@ -222,16 +313,15 @@ async function handleParseCampaign(id, fileBytes) {
 self.onmessage = function (ev) {
   const data = ev.data || {};
   if (data.type === "warmup") {
-    ensurePyodide().catch(function (err) {
-      progress(
-        "Warmup failed: " + (err && err.message ? err.message : String(err)),
-        { phase: "error" },
-      );
-    });
+    handleWarmup(data.id);
     return;
   }
   if (data.type === "render") {
     handleRender(data.id, data.fileBytes, data.ext, data.settings);
+    return;
+  }
+  if (data.type === "analyse") {
+    handleAnalyse(data.id, data.fileBytes, data.ext, data.settings, data.fileName);
     return;
   }
   if (data.type === "parseCampaign") {

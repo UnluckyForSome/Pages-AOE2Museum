@@ -4,6 +4,16 @@
   const MAX_ZIP_SIZE = 100 * 1024 * 1024; // 100 MB per zip
   const MAX_SCENARIO_FILES = 900;
   const ALLOWED_EXTENSIONS = ['scn', 'scx', 'aoe2scenario', 'zip'];
+  const TURNSTILE_SITEKEY_PROD = '0x4AAAAAACsqOhUOmHnJaPFc';
+  const TURNSTILE_SITEKEY_DEV = '1x00000000000000000000AA';
+
+  function isLocalDevHost(hostname) {
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+  }
+
+  function getTurnstileSitekey() {
+    return isLocalDevHost(window.location.hostname) ? TURNSTILE_SITEKEY_DEV : TURNSTILE_SITEKEY_PROD;
+  }
 
   function getExtension(name) {
     const parts = name.split('.');
@@ -63,7 +73,7 @@
 
     window.onTurnstileLoad = () => {
       turnstile.render(turnstileContainer, {
-        sitekey: '0x4AAAAAACsqOhUOmHnJaPFc',
+        sitekey: getTurnstileSitekey(),
         theme: 'dark',
       });
     };

@@ -19,6 +19,19 @@ import { zipSync } from "/modules/fflate/fflate.browser.js";
 // --------------------------------------------------------------------------
 
 (() => {
+  const locationState = window.Aoe2MuseumLocation || {
+    getQueryParam() {
+      const hash = (location.hash || "").replace("#", "");
+      return hash || null;
+    },
+    setQueryParam(_name, value) {
+      if (history.replaceState) history.replaceState(null, "", value && value !== "extract" ? "#" + value : location.pathname);
+      else location.hash = value || "";
+    },
+    subscribe(handler) {
+      window.addEventListener("hashchange", handler);
+    },
+  };
   const tabs = Array.from(document.querySelectorAll(".tab[data-tab]"));
   if (tabs.length === 0) return;
 
@@ -42,16 +55,15 @@ import { zipSync } from "/modules/fflate/fflate.browser.js";
     t.addEventListener("click", () => {
       const name = t.dataset.tab;
       select(name);
-      if (history.replaceState) history.replaceState(null, "", "#" + name);
-      else location.hash = name;
+      locationState.setQueryParam("tab", name, { replace: true, removeIf: "extract" });
     });
   });
 
-  const initial = (location.hash || "").replace("#", "");
+  const initial = locationState.getQueryParam("tab") || "extract";
   select(panels[initial] ? initial : "extract");
 
-  window.addEventListener("hashchange", () => {
-    const n = (location.hash || "").replace("#", "");
+  locationState.subscribe(() => {
+    const n = locationState.getQueryParam("tab") || "extract";
     if (panels[n]) select(n);
   });
 })();

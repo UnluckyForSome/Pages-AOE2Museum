@@ -18,8 +18,6 @@ export default {
     const url = new URL(request.url);
     const { pathname } = url;
 
-    // Public routes (no /pages prefix). We serve the underlying /pages/* assets
-    // without redirecting so the browser URL stays clean.
     const pagePrefixes = [
       "minimap",
       "gif",
@@ -29,22 +27,43 @@ export default {
       "contact",
       "home",
     ];
+
+    const accept = request.headers.get("accept") || "";
+    const isHtmlRequest =
+      (request.method === "GET" || request.method === "HEAD") &&
+      (accept.includes("text/html") || accept.includes("application/xhtml+xml"));
+    const shellPaths = new Set([
+      "/",
+      "/home",
+      "/home/",
+      "/minimap",
+      "/minimap/",
+      "/gif",
+      "/gif/",
+      "/scenarios",
+      "/scenarios/",
+      "/campaignmanager",
+      "/campaignmanager/",
+      "/originalmods",
+      "/originalmods/",
+      "/contact",
+      "/contact/",
+      "/contact.html",
+    ]);
+
+    if (isHtmlRequest && shellPaths.has(pathname)) {
+      const nextUrl = new URL("/index.html", url);
+      return env.ASSETS.fetch(new Request(nextUrl, request));
+    }
+
+    // Keep page-owned assets and the legacy /pages/* sources addressable so the
+    // shared shell can lazy-load existing page HTML/CSS/JS on demand.
     for (const p of pagePrefixes) {
       const prefix = "/" + p;
-      if (pathname === prefix || pathname.startsWith(prefix + "/")) {
+      if (pathname.startsWith(prefix + "/")) {
         const nextUrl = new URL("/pages" + pathname, url);
         return env.ASSETS.fetch(new Request(nextUrl, request));
       }
-    }
-
-    // Serve home/contact from canonical /pages/* without changing the URL.
-    if (pathname === "/") {
-      const nextUrl = new URL("/pages/home/", url);
-      return env.ASSETS.fetch(new Request(nextUrl, request));
-    }
-    if (pathname === "/contact.html") {
-      const nextUrl = new URL("/pages/contact/", url);
-      return env.ASSETS.fetch(new Request(nextUrl, request));
     }
 
     if (pathname === "/health") {

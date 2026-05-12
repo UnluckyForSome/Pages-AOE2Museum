@@ -100,6 +100,7 @@ const panelSld = document.getElementById("panel-sld");
 const statusBar = document.getElementById("statusbar");
 const statusText = document.getElementById("status");
 const progressFill = statusBar.querySelector(".statusbar__fill");
+const locationState = window.Aoe2MuseumLocation || null;
 
 // ---------- shared status / progress ---------------------------------------
 
@@ -461,6 +462,23 @@ function createCycleButton(el, options, init) {
 // Tab switching (hash-synced)
 // =============================================================================
 
+function getTabFromUrl() {
+  const value = locationState && locationState.getQueryParam("tab");
+  return value === "sld" ? "sld" : "slp";
+}
+
+function writeTabToUrl(name) {
+  if (locationState) {
+    locationState.setQueryParam("tab", name, {
+      replace: true,
+      removeIf: "slp",
+    });
+    return;
+  }
+  const hash = "#" + name;
+  if (location.hash !== hash) history.replaceState(null, "", hash);
+}
+
 function currentTab() {
   const active = document.querySelector(".tab[aria-selected='true']");
   return active ? active.getAttribute("data-tab") : "slp";
@@ -476,20 +494,26 @@ function selectTab(name) {
   panelSld.hidden = n !== "sld";
   if (n === "sld") slpEnsureIdle(); else sldEnsureIdle();
   if (n === "sld") sld.onActivate();
-  const hash = "#" + n;
-  if (location.hash !== hash) history.replaceState(null, "", hash);
 }
 
 tabs.forEach(function (t) {
   t.addEventListener("click", function () {
-    selectTab(t.getAttribute("data-tab"));
+    const name = t.getAttribute("data-tab");
+    selectTab(name);
+    writeTabToUrl(name);
   });
 });
 
-window.addEventListener("hashchange", function () {
-  const target = (location.hash || "#slp").slice(1);
-  selectTab(target);
-});
+if (locationState && locationState.subscribe) {
+  locationState.subscribe(function () {
+    selectTab(getTabFromUrl());
+  });
+} else {
+  window.addEventListener("hashchange", function () {
+    const target = (location.hash || "#slp").slice(1);
+    selectTab(target);
+  });
+}
 
 function slpEnsureIdle() { if (slp.busy) return; slp.applyButtonState(); }
 function sldEnsureIdle() { if (sld.busy) return; sld.applyButtonState(); }
@@ -1116,8 +1140,7 @@ const sld = (function () {
 // Boot
 // =============================================================================
 
-// Honour initial hash (#slp / #sld) before anything else.
-const initialTab = (location.hash || "").replace(/^#/, "");
+const initialTab = getTabFromUrl();
 if (initialTab === "sld") selectTab("sld");
 
 slp.boot();

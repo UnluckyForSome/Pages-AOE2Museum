@@ -1,6 +1,6 @@
 import { unzipSync } from "fflate";
 import type { ScenariosEnv } from "../env";
-import { verifyTurnstile } from "../services/turnstile";
+import { getTurnstileSecretForRequest, verifyTurnstile } from "../services/turnstile";
 import {
   isAllowedUploadType,
   isScenarioFile,
@@ -45,7 +45,8 @@ export async function handleUpload(
   }
 
   const ip = request.headers.get("CF-Connecting-IP") ?? undefined;
-  const valid = await verifyTurnstile(turnstileToken, env.TURNSTILE_SECRET, ip);
+  const turnstileSecret = getTurnstileSecretForRequest(request.url, env.TURNSTILE_SECRET);
+  const valid = await verifyTurnstile(turnstileToken, turnstileSecret, ip);
   if (!valid) {
     return Response.json({ error: "Turnstile verification failed" }, { status: 403 });
   }
