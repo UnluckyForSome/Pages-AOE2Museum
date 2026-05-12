@@ -44,9 +44,9 @@ The verifier does not do a DE-only load anymore.
 It now follows the library-level museum parser entrypoint:
 
 ```python
-from AoE2ScenarioParser import verify_scenario
+from AoE2ScenarioParser import parse_scenario
 
-parsed = verify_scenario(file_bytes, name=filename, suppress_output=True)
+parsed = parse_scenario(file_bytes, name=filename, suppress_output=True)
 ```
 
 That matters because the parser now uses the same legacy-vs-DE dispatch path as the museum parser code, instead of forcing every file through `AoE2DEScenario.from_file(...)`.

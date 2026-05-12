@@ -87,18 +87,24 @@ def _coerce_settings(raw):
     return MinimapSettings(**clean)
 
 
+def _coerce_bytes(file_bytes):
+    if hasattr(file_bytes, "to_py"):
+        return bytes(file_bytes.to_py())
+    return bytes(file_bytes)
+
+
+def _normalise_suffix(ext):
+    return ext if ext and ext.startswith(".") else "." + (ext or "bin")
+
+
 def render(file_bytes, ext, settings):
     """Render the uploaded replay/scenario to PNG bytes.
 
     ``file_bytes`` is a ``Uint8Array`` (JsProxy); bounce it through
     ``bytes(...)`` to materialise a Python bytes object we can write to disk.
     """
-    if hasattr(file_bytes, "to_py"):
-        data = bytes(file_bytes.to_py())
-    else:
-        data = bytes(file_bytes)
-
-    suffix = ext if ext and ext.startswith(".") else "." + (ext or "bin")
+    data = _coerce_bytes(file_bytes)
+    suffix = _normalise_suffix(ext)
     if suffix.lower() not in RECORDED_GAME_EXTENSIONS:
         cfg = _coerce_settings(settings)
         match = parse_scenario_to_match(data, name=f"upload{suffix}")
@@ -120,12 +126,8 @@ def render(file_bytes, ext, settings):
 
 def analyse(file_bytes, ext, settings, name="uploaded scenario"):
     """Inspect a scenario and render a minimap preview in one pass."""
-    if hasattr(file_bytes, "to_py"):
-        data = bytes(file_bytes.to_py())
-    else:
-        data = bytes(file_bytes)
-
-    suffix = ext if ext and ext.startswith(".") else "." + (ext or "bin")
+    data = _coerce_bytes(file_bytes)
+    suffix = _normalise_suffix(ext)
     if suffix.lower() in RECORDED_GAME_EXTENSIONS:
         raise ValueError("Scenario analysis only supports scenario files, not recorded games.")
 

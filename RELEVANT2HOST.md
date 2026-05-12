@@ -99,7 +99,7 @@ That includes both categories:
 
 This is important: the verifier must not assume every valid scenario should go through `AoE2DEScenario.from_file()`.
 
-Legacy scenarios must be allowed to follow the legacy parser route. In the parser fork, the correct decision point is the detection/dispatch path used by `parse_scenario()` or the exported `verify_scenario()` helper, not a DE-only constructor.
+Legacy scenarios must be allowed to follow the legacy parser route. In the parser fork, the correct decision point is the detection/dispatch path used by `parse_scenario()`, not a DE-only constructor.
 
 ## Parser Source Of Truth
 

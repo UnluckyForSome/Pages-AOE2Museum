@@ -74,6 +74,14 @@
     return value.toFixed(2).replace(/\.?0+$/, "");
   }
 
+  function formatEdition(analysis) {
+    if (analysis && typeof analysis.edition === "string") {
+      if (analysis.edition === "definitive") return "Definitive Edition";
+      if (analysis.edition === "legacy") return "Legacy";
+    }
+    return analysis && analysis.isDefinitiveEdition ? "Definitive Edition" : "Legacy";
+  }
+
   function validateFile(file) {
     var ext;
     if (!file) return "Choose a scenario file first.";
@@ -123,7 +131,7 @@
     var rows = [
       ["File", file.name],
       ["File size", formatBytes(file.size)],
-      ["Detected edition", analysis.isDefinitiveEdition ? "Definitive Edition" : "Legacy"],
+      ["Detected edition", formatEdition(analysis)],
       ["Container format", analysis.containerFormat || "Unavailable"],
       ["Data version", formatDataVersion(analysis.dataVersion)],
       ["Detection reason", analysis.detectionReason || "Unavailable"],

@@ -11,8 +11,7 @@ def _coerce_bytes(file_bytes) -> bytes:
     return bytes(file_bytes)
 
 
-def detect_scenario_details(file_bytes):
-    detection = detect_scenario_edition(_coerce_bytes(file_bytes))
+def _detection_summary(detection):
     return {
         "edition": detection.edition.value,
         "containerFormat": detection.container_format,
@@ -20,6 +19,23 @@ def detect_scenario_details(file_bytes):
         "isDefinitiveEdition": detection.is_definitive_edition,
         "reason": detection.reason,
     }
+
+
+def _parsed_summary(parsed):
+    return {
+        "edition": parsed.edition.value,
+        "containerFormat": parsed.container_format,
+        "dataVersion": parsed.data_version,
+        "isDefinitiveEdition": parsed.is_definitive_edition,
+        "detectionReason": parsed.detection_reason,
+        "parseBackend": parsed.parse_backend,
+        "gameVersion": parsed.game_version,
+        "scenarioVersion": parsed.scenario_version,
+    }
+
+
+def detect_scenario_details(file_bytes):
+    return _detection_summary(detect_scenario_edition(_coerce_bytes(file_bytes)))
 
 
 def parse_scenario_any(file_bytes, *, name: str = "uploaded scenario"):
@@ -58,16 +74,7 @@ def analyse_scenario(file_bytes, *, name: str = "uploaded scenario"):
         for slot, player in enumerate(match.players, start=1)
     ]
     summary = {
-        "edition": parsed.edition.value,
-        "containerFormat": parsed.detection.container_format,
-        "dataVersion": parsed.detection.data_version,
-        "isDefinitiveEdition": parsed.is_definitive_edition,
-        "detectionReason": parsed.detection.reason,
-        "parseBackend": (
-            "AoE2DEScenario"
-            if parsed.is_definitive_edition
-            else "aoe2_mcgeniescx.Scenario"
-        ),
+        **_parsed_summary(parsed),
         "mapDimension": int(match.map.dimension),
         "tileCount": len(match.map.tiles),
         "playerSlots": len(players),
