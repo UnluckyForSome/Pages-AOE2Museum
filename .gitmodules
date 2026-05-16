@@ -1,0 +1,4 @@
+[submodule "remote-n2"]
+	path = remote-n2
+	url = git@github.com:UnluckyForSome/AOE2-MuseumRemote.git
+	branch = main
