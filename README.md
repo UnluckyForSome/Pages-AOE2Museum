@@ -3,6 +3,10 @@
 A Cloudflare Worker that hosts a small collection of Age of Empires II tools.
 Each "app" lives under its own path and runs client-side where possible.
 
+For the cross-repo dependency map covering `AoE2ScenarioParser`,
+`AOE2-McMinimap`, `AOE2-McMGZ`, and the separate `remote-n2` deployment, see
+[`DEPENDENCIES.md`](./DEPENDENCIES.md).
+
 | Path                            | Description                                                                                 |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
 | `/`                             | Museum landing page listing available apps.                                                 |
