@@ -22,15 +22,44 @@
 
   function formatDataVersion(value) {
     if (typeof value !== "number" || !Number.isFinite(value)) return "—";
-    return value.toFixed(2).replace(/\.?0+$/, "");
+    return Number(value).toFixed(2);
+  }
+
+  var ERA_LABELS = { aoe: "AOE", aok: "AOK", aoc: "AOC", hd: "HD", de: "DE" };
+
+  function parseContainerMinor(format) {
+    var m = /^1\.(\d)(\d)$/.exec(String(format || "").trim());
+    if (!m) return null;
+    return Number(m[1]) * 10 + Number(m[2]);
+  }
+
+  function deriveGameEra(analysis) {
+    if (!analysis) return null;
+    if (analysis.gameEra && ERA_LABELS[analysis.gameEra]) return analysis.gameEra;
+    var cf = analysis.containerFormat ? String(analysis.containerFormat).trim() : "";
+    var dv = analysis.dataVersion;
+    var isDe = analysis.isDefinitiveEdition === true;
+    if (isDe) return "de";
+    if (typeof dv === "number" && Number.isFinite(dv) && dv >= 1.28) return "de";
+    var minor = parseContainerMinor(cf);
+    if (minor != null && minor > 22) return "de";
+    if (cf === "1.18" || cf === "1.19" || cf === "1.20") return "aok";
+    if (cf === "1.21" && typeof dv === "number" && Number.isFinite(dv) && dv <= 1.22) {
+      return "aoc";
+    }
+    if (
+      cf === "1.21" ||
+      (cf === "1.22" && typeof dv === "number" && Number.isFinite(dv) && dv > 1.22)
+    ) {
+      return "hd";
+    }
+    if (minor != null && minor < 18) return "aoe";
+    return null;
   }
 
   function formatEdition(analysis) {
-    if (analysis && typeof analysis.edition === "string") {
-      if (analysis.edition === "definitive") return "Definitive Edition";
-      if (analysis.edition === "legacy") return "Legacy";
-    }
-    return analysis && analysis.isDefinitiveEdition ? "Definitive Edition" : "Legacy";
+    var era = deriveGameEra(analysis);
+    return era ? ERA_LABELS[era] : "—";
   }
 
   function formatUploaded(iso) {
@@ -409,6 +438,7 @@
     configureBrowseViews: configureBrowseViews,
     escapeHtml: escapeHtml,
     formatBytes: formatBytes,
+    formatEdition: formatEdition,
     renderScenarioDetails: renderScenarioDetails,
     preloadMinimapUrl: preloadMinimapUrl,
     setMinimapFromBuffer: setMinimapFromBuffer,

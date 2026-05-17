@@ -71,15 +71,13 @@
 
   function formatDataVersion(value) {
     if (typeof value !== "number" || !Number.isFinite(value)) return "Unavailable";
-    return value.toFixed(2).replace(/\.?0+$/, "");
+    return Number(value).toFixed(2);
   }
 
   function formatEdition(analysis) {
-    if (analysis && typeof analysis.edition === "string") {
-      if (analysis.edition === "definitive") return "Definitive Edition";
-      if (analysis.edition === "legacy") return "Legacy";
-    }
-    return analysis && analysis.isDefinitiveEdition ? "Definitive Edition" : "Legacy";
+    var render = window.ScenarioDetailsRender;
+    if (render && render.formatEdition) return render.formatEdition(analysis);
+    return "—";
   }
 
   function validateFile(file) {

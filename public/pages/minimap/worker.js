@@ -245,6 +245,57 @@ async function handleAnalyse(id, fileBytes, ext, settings, fileName) {
   }
 }
 
+async function handleConvertToDe(id, fileBytes, ext, fileName) {
+  let pyodide;
+  try {
+    pyodide = await ensurePyodide();
+  } catch (err) {
+    self.postMessage({
+      type: "convertToDeResult",
+      id: id,
+      ok: false,
+      error: "Failed to start Python runtime: " + (err && err.message ? err.message : String(err)),
+    });
+    return;
+  }
+
+  let outProxy = null;
+  try {
+    progress("Downloading scenario\u2026", { phase: "convertDe", pct: 10 });
+    pyodide.globals.set("_bytes", new Uint8Array(fileBytes));
+    pyodide.globals.set("_ext", ext);
+    pyodide.globals.set("_name", fileName || "uploaded scenario");
+
+    progress("Rebuilding for Definitive Edition\u2026", { phase: "convertDe", pct: 42 });
+    outProxy = await pyodide.runPythonAsync("convert_to_de(_bytes, _ext, _name)");
+
+    progress("Packaging .aoe2scenario\u2026", { phase: "convertDe", pct: 84 });
+    const outBytes = outProxy.toJs();
+    const out = new Uint8Array(outBytes.length);
+    out.set(outBytes);
+    self.postMessage(
+      { type: "convertToDeResult", id: id, ok: true, bytes: out.buffer },
+      [out.buffer],
+    );
+  } catch (err) {
+    self.postMessage({
+      type: "convertToDeResult",
+      id: id,
+      ok: false,
+      error: err && err.message ? err.message : String(err),
+    });
+  } finally {
+    try {
+      if (outProxy && typeof outProxy.destroy === "function") outProxy.destroy();
+    } catch (_e) {}
+    try {
+      pyodide && pyodide.globals.delete("_bytes");
+      pyodide && pyodide.globals.delete("_ext");
+      pyodide && pyodide.globals.delete("_name");
+    } catch (_e) {}
+  }
+}
+
 async function handleParseCampaign(id, fileBytes) {
   let pyodide;
   try {
@@ -326,6 +377,10 @@ self.onmessage = function (ev) {
   }
   if (data.type === "parseCampaign") {
     handleParseCampaign(data.id, data.fileBytes);
+    return;
+  }
+  if (data.type === "convertToDe") {
+    handleConvertToDe(data.id, data.fileBytes, data.ext, data.fileName);
     return;
   }
 };

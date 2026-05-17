@@ -131,6 +131,14 @@ export function rowColumnsToAnalysis(
   if (row.is_definitive_edition != null) {
     analysis.isDefinitiveEdition = row.is_definitive_edition === 1;
   }
+  const game_era =
+    row.game_era ??
+    deriveGameEra({
+      container_format: row.container_format,
+      data_version: row.data_version,
+      is_definitive_edition: row.is_definitive_edition,
+    });
+  if (game_era) analysis.gameEra = game_era;
   if (row.detection_reason != null) analysis.detectionReason = row.detection_reason;
   if (row.parse_backend != null) analysis.parseBackend = row.parse_backend;
   if (row.game_version != null) analysis.gameVersion = row.game_version;

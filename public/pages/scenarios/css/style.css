@@ -992,14 +992,22 @@
 }
 .scenario-detail-actions {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: stretch;
   gap: 0.35rem;
   width: 100%;
 }
+.scenario-detail-actions-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0.35rem;
+  width: 100%;
+}
+.scenario-detail-actions-row .btn--pill {
+  flex: 1 1 0;
+}
 .scenario-detail-actions .btn--pill {
-  flex: 1 1 calc(50% - 0.2rem);
   min-width: 0;
   height: 2.5rem;
   min-height: 2.5rem;
@@ -1103,8 +1111,40 @@
   min-width: 1.25rem;
   text-align: center;
 }
-.btn--download .btn-label {
+.btn--download .btn-label,
+.btn--convert-de .btn-label {
   font-family: var(--font-display);
+}
+.btn--convert-de {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.btn--convert-de .btn-convert-progress {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--gold) 42%, var(--bg));
+  transition: width 0.22s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+.btn--convert-de .btn-label {
+  position: relative;
+  z-index: 1;
+}
+.btn--convert-de.is-converting {
+  cursor: wait;
+}
+.btn--convert-de.is-converting:disabled {
+  opacity: 1;
+  color: var(--text);
+}
+.btn--convert-de.is-converting .btn-label {
+  text-shadow: 0 0 6px var(--bg), 0 1px 2px var(--bg);
 }
 .btn--heart {
   color: var(--text);

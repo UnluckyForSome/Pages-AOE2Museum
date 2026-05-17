@@ -20,8 +20,8 @@ Flags:
   --only-unparsed      Rows with parsed_at IS NULL
   --only-stale         Rows where parser_version != current
   --only-null          With --columns, only rows where those column(s) are NULL
-  --force              Overwrite non-NULL values (game_era bulk: NULL only unless --force)
-  --columns scenario_title  Fast path: set title from filename for all rows (no R2 parse)
+  --force              Parse path / game_era bulk only (not needed for --columns scenario_title)
+  --columns scenario_title  Fast bulk SQL from filename (all rows; do not use --only-stale)
   --id ID              Single scenario id
   --local-root DIR     If DIR/<r2_key> exists as a file, read bytes from disk instead of R2 get
 
@@ -73,8 +73,10 @@ def museum_root() -> Path:
 
 
 def setup_pythonpath(root: Path) -> None:
+    scripts = Path(__file__).resolve().parent
     # Last entry inserted wins (insert(0)); museum vendored parser must beat Forks/.
     candidates = [
+        scripts,
         root.parent.parent / "Forks" / "AoE2ScenarioParser",
         root.parent.parent / "Public" / "AOE2-McGenieSCX",
         root / "sourcemodules",
@@ -87,11 +89,6 @@ def setup_pythonpath(root: Path) -> None:
     for path in candidates:
         if path.is_dir() and str(path) not in sys.path:
             sys.path.insert(0, str(path))
-
-
-setup_pythonpath(museum_root())
-
-from pages_aoe2museum_py.scenario_facade import title_from_filename  # noqa: E402
 
 
 def wrangler_flag(root: Path) -> list[str]:
@@ -453,11 +450,17 @@ def collect_update_fields(
     return {k: v for k, v in all_fields.items() if k in columns}
 
 
+# Rows per UPDATE … CASE id … (one wrangler d1 execute each; avoids thousands of CLI calls).
+_TITLE_BULK_BATCH = 400
+
+
 def bulk_update_scenario_title(
     root: Path,
     args: argparse.Namespace,
     dry_run: bool,
 ) -> int:
+    from title_from_filename import title_from_filename
+
     columns = frozenset({"scenario_title"})
     where = build_where_clause(args, columns, bulk=True)
     limit = f" LIMIT {int(args.limit)}" if args.limit else ""
@@ -466,7 +469,7 @@ def bulk_update_scenario_title(
         f"FROM scenarios{where} ORDER BY id ASC{limit}"
     )
     rows = d1_query(root, sql)
-    updated = 0
+    pairs: list[tuple[int, str]] = []
     for row in rows:
         sid = int(row["id"])
         name = (
@@ -474,21 +477,33 @@ def bulk_update_scenario_title(
             or str(row.get("filename") or "").strip()
         )
         title = title_from_filename(name)
-        if not title:
-            continue
-        if dry_run:
-            updated += 1
-            continue
-        d1_execute(
-            root,
-            f"UPDATE scenarios SET scenario_title = {sql_quote(title)} WHERE id = {sid}",
-        )
-        updated += 1
+        if title:
+            pairs.append((sid, title))
+
+    if not pairs:
+        print("    no rows with a derivable scenario_title")
+        return 0
+
     if dry_run:
-        print(f"    dry-run: would SET scenario_title on {updated} row(s)")
-    else:
-        print(f"    updated scenario_title on {updated} row(s)")
-    return updated
+        print(f"    dry-run: would SET scenario_title on {len(pairs)} row(s)")
+        return len(pairs)
+
+    total = 0
+    for start in range(0, len(pairs), _TITLE_BULK_BATCH):
+        batch = pairs[start : start + _TITLE_BULK_BATCH]
+        case_parts = [f"WHEN {sid} THEN {sql_quote(title)}" for sid, title in batch]
+        id_list = ", ".join(str(sid) for sid, _ in batch)
+        update_sql = (
+            "UPDATE scenarios SET scenario_title = CASE id "
+            + " ".join(case_parts)
+            + f" END WHERE id IN ({id_list})"
+        )
+        d1_execute(root, update_sql)
+        total += len(batch)
+        print(f"    batch {start // _TITLE_BULK_BATCH + 1}: updated {len(batch)} row(s)", flush=True)
+
+    print(f"    updated scenario_title on {total} row(s)")
+    return total
 
 
 def bulk_update_data_version(
@@ -742,6 +757,21 @@ def main() -> int:
     else:
         mode = "parse"
     print(f"    mode: {mode}{col_note}")
+    if columns and can_bulk_filename_only(columns) and (
+        args.only_stale or args.only_unparsed
+    ):
+        print(
+            "    NOTE: --only-stale/--only-unparsed are ignored for scenario_title bulk.",
+            file=sys.stderr,
+        )
+
+    if columns and can_bulk_filename_only(columns):
+        stage_done("BACKFILL", 1, BACKFILL_STAGES, "bulk filename titles (no parse)")
+        stage("BACKFILL", 2, BACKFILL_STAGES, "Set scenario_title from filename")
+        bulk_update_scenario_title(root, args, dry_run=args.dry_run)
+        stage_done("BACKFILL", 2, BACKFILL_STAGES, "scenario_title")
+        print(f"[BACKFILL] All {BACKFILL_STAGES} stages complete.", flush=True)
+        return 0
 
     if columns and can_bulk_round_data_version(columns):
         stage_done("BACKFILL", 1, BACKFILL_STAGES, "bulk ROUND data_version (no parse)")
@@ -756,14 +786,6 @@ def main() -> int:
         stage("BACKFILL", 2, BACKFILL_STAGES, "Bulk SQL column update")
         bulk_update_game_era(root, args, columns, dry_run=args.dry_run)
         stage_done("BACKFILL", 2, BACKFILL_STAGES, "bulk game_era")
-        print(f"[BACKFILL] All {BACKFILL_STAGES} stages complete.", flush=True)
-        return 0
-
-    if columns and can_bulk_filename_only(columns):
-        stage_done("BACKFILL", 1, BACKFILL_STAGES, "bulk filename titles (no parse)")
-        stage("BACKFILL", 2, BACKFILL_STAGES, "Set scenario_title from filename")
-        bulk_update_scenario_title(root, args, dry_run=args.dry_run)
-        stage_done("BACKFILL", 2, BACKFILL_STAGES, "scenario_title")
         print(f"[BACKFILL] All {BACKFILL_STAGES} stages complete.", flush=True)
         return 0
 

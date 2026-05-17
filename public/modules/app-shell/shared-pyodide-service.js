@@ -118,6 +118,20 @@ function createSharedPyodideService() {
     });
   }
 
+  function convertToDe(fileBytes, ext, fileName, opts) {
+    const options = opts || {};
+    return warmup({ onProgress: options.onProgress }).then(function () {
+      return request(
+        "convertToDe",
+        { fileBytes: fileBytes, ext: ext, fileName: fileName },
+        fileBytes ? [fileBytes] : [],
+        options.onProgress,
+      ).then(function (msg) {
+        return msg.bytes;
+      });
+    });
+  }
+
   function parseCampaign(fileBytes, opts) {
     const options = opts || {};
     return warmup({ onProgress: options.onProgress }).then(function () {
@@ -137,6 +151,7 @@ function createSharedPyodideService() {
 
   return {
     analyse: analyse,
+    convertToDe: convertToDe,
     isBooted: function () {
       return booted;
     },

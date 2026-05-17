@@ -117,7 +117,7 @@ function mapFullRow(row: FullRow, viewerId: string | null) {
     visibility: row.visibility,
     uploader:
       row.uploader_id == null
-        ? "Legacy"
+        ? "AOE2M"
         : row.uploader_username ?? "Unknown",
     uploader_id: row.uploader_id,
     is_owner: Boolean(viewerId && row.uploader_id === viewerId),
@@ -192,7 +192,7 @@ export async function handleList(
       kind: "standalone" as const,
       campaign_id: null,
       visibility: "public",
-      uploader: "Legacy",
+      uploader: "AOE2M",
       uploader_id: null,
       is_owner: false,
       has_details: false,

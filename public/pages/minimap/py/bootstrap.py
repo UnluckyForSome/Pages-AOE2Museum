@@ -69,6 +69,7 @@ else:
 
 from pages_aoe2museum_py.scenario_facade import (  # noqa: E402
     build_analysis_summary,
+    convert_legacy_scenario_to_de_bytes,
     museum_minimap_settings,
     parse_scenario_any,
     parse_scenario_to_match,
@@ -169,6 +170,16 @@ def render_match(match_obj, settings):
     cfg = _coerce_settings(settings)
     match_ns = _ns(match_obj)
     return to_png_bytes_from_match(match_ns, settings=cfg)
+
+
+def convert_to_de(file_bytes, ext, name="uploaded scenario"):
+    """Rebuild a legacy/HD scenario as Definitive Edition ``.aoe2scenario`` bytes."""
+    data = _coerce_bytes(file_bytes)
+    suffix = _normalise_suffix(ext)
+    if suffix.lower() in RECORDED_GAME_EXTENSIONS:
+        raise ValueError("Convert to DE only supports scenario files, not recorded games.")
+    nm = name or f"upload{suffix}"
+    return convert_legacy_scenario_to_de_bytes(data, name=nm)
 
 
 def parse_campaign_index_json(file_bytes):

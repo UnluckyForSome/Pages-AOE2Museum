@@ -45,7 +45,7 @@ type ScenarioRow = {
 const SCENARIO_SELECT = `SELECT s.id, s.filename, s.original_filename, s.filetype, s.size,
   s.uploaded_at, s.downloads, s.hearts_count, s.kind, s.campaign_id, s.uploader_id,
   s.visibility, s.analysis_json, s.minimap_r2_key, s.parsed_at, s.parser_version,
-  s.edition, s.container_format, s.data_version, s.is_definitive_edition,
+  s.edition, s.container_format, s.data_version, s.is_definitive_edition, s.game_era,
   s.detection_reason, s.parse_backend, s.game_version, s.scenario_version,
   s.map_dimension, s.tile_count, s.player_slots, s.active_player_count,
   s.player_object_count, s.gaia_object_count, s.trigger_count,
@@ -72,7 +72,7 @@ function canViewScenario(
 }
 
 function mapUploader(row: ScenarioRow): string {
-  if (row.uploader_id == null) return "Legacy";
+  if (row.uploader_id == null) return "AOE2M";
   return row.uploader_username ?? "Unknown";
 }
 

@@ -107,9 +107,9 @@ export const GAME_ERA_LIST_SQL = `CASE
   END`;
 
 export const GAME_ERA_LABEL: Record<GameEra, string> = {
-  aoe: "Age of Empires",
-  aok: "Age of Kings",
-  aoc: "The Conquerors",
-  hd: "HD Edition",
-  de: "Definitive Edition",
+  aoe: "AOE",
+  aok: "AOK",
+  aoc: "AOC",
+  hd: "HD",
+  de: "DE",
 };

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import io
+import os
+import tempfile
+from pathlib import Path
 
 from AoE2ScenarioParser.scenario_detection import detect_scenario_edition
 from AoE2ScenarioParser.scenario_parsing import parse_scenario
@@ -219,3 +222,38 @@ def analyse_scenario(file_bytes, *, name: str = "uploaded scenario"):
     match = match_from_parsed_scenario(parsed)
     summary = build_analysis_summary(parsed, match, fallback_title=name)
     return summary, match
+
+
+def _scenario_suffix(name: str) -> str:
+    lower = (name or "").lower().replace("\\", "/").rsplit("/", 1)[-1]
+    for ext in _SCENARIO_EXTENSIONS:
+        if lower.endswith(ext):
+            return ext
+    dot = lower.rfind(".")
+    return lower[dot:] if dot > 0 else ".scx"
+
+
+def convert_legacy_scenario_to_de_bytes(file_bytes, *, name: str = "scenario") -> bytes:
+    """Legacy/HD container → rebuilt Definitive Edition ``.aoe2scenario`` bytes."""
+    from AoE2ScenarioParser.legacy_bridge.bridge_wireup import convert_legacy_to_de
+
+    data = _coerce_bytes(file_bytes)
+    suffix = _scenario_suffix(name)
+    inp_path = None
+    out_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as inp:
+            inp.write(data)
+            inp.flush()
+            inp_path = inp.name
+        out_path = inp_path + ".de.aoe2scenario"
+        convert_legacy_to_de(inp_path, out_path)
+        return Path(out_path).read_bytes()
+    finally:
+        for path in (inp_path, out_path):
+            if not path:
+                continue
+            try:
+                os.remove(path)
+            except OSError:
+                pass

@@ -30,17 +30,101 @@
     return i > 0 ? name.slice(0, i) : name;
   }
 
+  function scenarioFileExt(scenario) {
+    const name = scenario.original_filename || scenario.filename || '';
+    const i = name.lastIndexOf('.');
+    return i > 0 ? name.slice(i) : '.scx';
+  }
+
+  function isDeScenario(scenario, analysis) {
+    const era =
+      (analysis && analysis.gameEra) ||
+      scenario.game_era ||
+      (analysis && analysis.isDefinitiveEdition ? 'de' : null);
+    return era === 'de';
+  }
+
+  const CONVERT_DE_BTN_INNER =
+    '<span class="btn-convert-progress" aria-hidden="true"></span>' +
+    '<span class="btn-label">Convert to DE</span>';
+
+  function setConvertDeProgress(btn, pct, label) {
+    if (!btn) return;
+    const fill = btn.querySelector('.btn-convert-progress');
+    if (typeof pct === 'number' && Number.isFinite(pct)) {
+      const clamped = Math.max(0, Math.min(100, pct));
+      btn.style.setProperty('--convert-progress', clamped + '%');
+      if (fill) fill.style.width = clamped + '%';
+      btn.setAttribute('aria-valuenow', String(Math.round(clamped)));
+    }
+    if (label) {
+      const labelEl = btn.querySelector('.btn-label');
+      if (labelEl) labelEl.textContent = label;
+    }
+  }
+
+  function resetConvertDeButton(btn) {
+    if (!btn) return;
+    btn.disabled = false;
+    btn.classList.remove('is-converting');
+    btn.removeAttribute('aria-valuenow');
+    btn.style.removeProperty('--convert-progress');
+    const fill = btn.querySelector('.btn-convert-progress');
+    if (fill) fill.style.width = '';
+    const labelEl = btn.querySelector('.btn-label');
+    if (labelEl) labelEl.textContent = 'Convert to DE';
+  }
+
+  function mapConvertDeProgress(msg, afterDownload) {
+    if (!msg) return null;
+    const base = afterDownload ? 14 : 0;
+    if (msg.phase === 'boot' && msg.step && msg.total) {
+      return {
+        pct: Math.round((msg.step / msg.total) * 12),
+        label: msg.message || 'Loading converter\u2026',
+      };
+    }
+    if (msg.phase === 'convertDe' && typeof msg.pct === 'number') {
+      return {
+        pct: base + Math.round(msg.pct * 0.82),
+        label: msg.message || 'Converting\u2026',
+      };
+    }
+    if (typeof msg.pct === 'number') {
+      return { pct: Math.min(95, msg.pct), label: msg.message || 'Converting\u2026' };
+    }
+    if (msg.message) {
+      return { pct: null, label: msg.message };
+    }
+    return null;
+  }
+
+  function downloadBlob(bytes, filename) {
+    const blob = new Blob([bytes], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+    }, 0);
+  }
+
   function scenarioDisplayName(s) {
     if (s.display_name) return s.display_name;
     return stripExtension(s.original_filename || s.filename);
   }
 
   const ERA_META = {
-    aoe: { icon: 'aoe.png', label: 'Age of Empires' },
-    aok: { icon: 'aok.png', label: 'Age of Kings' },
-    aoc: { icon: 'aoc.png', label: 'The Conquerors' },
-    hd: { icon: 'hd.png', label: 'HD Edition' },
-    de: { icon: 'de.png', label: 'Definitive Edition' },
+    aoe: { icon: 'aoe.png', label: 'AOE' },
+    aok: { icon: 'aok.png', label: 'AOK' },
+    aoc: { icon: 'aoc.png', label: 'AOC' },
+    hd: { icon: 'hd.png', label: 'HD' },
+    de: { icon: 'de.png', label: 'DE' },
   };
 
   function eraIcon(gameEra) {
@@ -174,7 +258,6 @@
     const detailId = 'scenario-detail-' + scenario.id;
     const objectivesPanelId = 'scenario-objectives-' + scenario.id;
     const dl = scenario.downloads || 0;
-    const hearts = scenario.hearts_count || 0;
     const isOpen = expandedIds.has(scenario.id);
     const cached = detailsCache.has(scenario.id);
     return (
@@ -236,13 +319,7 @@
       '<div class="scenario-objectives-body"></div></section>' +
       '</div></div></div>' +
       '<div class="scenario-detail-actions hidden">' +
-      '<button type="button" class="btn btn--pill btn--heart heart-btn" data-heart-id="' +
-      scenario.id +
-      '" data-heart-kind="scenario" aria-pressed="false" title="Heart">' +
-      '<span class="btn-label">\u2764\uFE0F Heart</span>' +
-      '<span class="btn-count" data-count="hearts">' +
-      hearts.toLocaleString() +
-      '</span></button>' +
+      '<div class="scenario-detail-actions-row">' +
       '<a class="btn btn--pill btn--download" href="/api/scenarios/download/' +
       scenario.id +
       '">' +
@@ -250,6 +327,14 @@
       '<span class="btn-count" data-count="downloads">' +
       dl.toLocaleString() +
       '</span></a>' +
+      (scenario.game_era !== 'de'
+        ? '<button type="button" class="btn btn--pill btn--convert-de" data-convert-id="' +
+          scenario.id +
+          '" title="Rebuild as Definitive Edition (.aoe2scenario)" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' +
+          CONVERT_DE_BTN_INNER +
+          '</button>'
+        : '') +
+      '</div>' +
       (scenario.campaign_id
         ? '<a class="btn btn--small btn--ghost" href="/campaigns/?id=' +
           scenario.campaign_id +
@@ -331,6 +416,10 @@
     const panel = document.getElementById('scenario-detail-' + id);
     if (!panel) return;
 
+    const scenario = allScenarios.find(function (x) {
+      return x.id === id;
+    });
+
     const output = panel.querySelector('.scenario-detail-output');
     const actions = panel.querySelector('.scenario-detail-actions');
     const render = window.ScenarioDetailsRender;
@@ -383,6 +472,95 @@
         viewerHearted: data.viewer_hearted,
       });
     }
+
+    if (scenario) {
+      syncConvertDeButton(panel, scenario, data.parsed ? data.analysis : null);
+    }
+  }
+
+  function syncConvertDeButton(panel, scenario, analysis) {
+    const actions = panel.querySelector('.scenario-detail-actions');
+    if (!actions) return;
+    let btn = actions.querySelector('.btn--convert-de');
+    if (isDeScenario(scenario, analysis)) {
+      if (btn) btn.remove();
+      return;
+    }
+    if (!btn) {
+      const row =
+        actions.querySelector('.scenario-detail-actions-row') || actions;
+      const dl = row.querySelector('.btn--download');
+      if (!dl) return;
+      btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn--pill btn--convert-de';
+      btn.dataset.convertId = String(scenario.id);
+      btn.title = 'Rebuild as Definitive Edition (.aoe2scenario)';
+      btn.setAttribute('role', 'progressbar');
+      btn.setAttribute('aria-valuemin', '0');
+      btn.setAttribute('aria-valuemax', '100');
+      btn.setAttribute('aria-valuenow', '0');
+      btn.innerHTML = CONVERT_DE_BTN_INNER;
+      row.appendChild(btn);
+    }
+  }
+
+  async function convertScenarioToDe(scenarioId) {
+    const scenario = allScenarios.find(function (x) {
+      return x.id === scenarioId;
+    });
+    if (!scenario) return;
+
+    const panel = document.getElementById('scenario-detail-' + scenarioId);
+    const btn = panel && panel.querySelector('.btn--convert-de');
+    const cached = detailsCache.get(scenarioId);
+    if (cached && cached.parsed && isDeScenario(scenario, cached.analysis)) {
+      alert('This scenario is already Definitive Edition.');
+      return;
+    }
+
+    const pyodide = window.Aoe2MuseumPyodideService;
+    if (!pyodide) {
+      alert('Conversion engine is not available on this page.');
+      return;
+    }
+
+    if (btn) {
+      if (!btn.querySelector('.btn-convert-progress')) {
+        btn.innerHTML = CONVERT_DE_BTN_INNER;
+      }
+      btn.disabled = true;
+      btn.classList.add('is-converting');
+      setConvertDeProgress(btn, 0, 'Convert to DE');
+    }
+
+    let afterDownload = false;
+    try {
+      setConvertDeProgress(btn, 6, 'Downloading\u2026');
+      const dlRes = await fetch('/api/scenarios/download/' + scenarioId, { cache: 'no-store' });
+      if (!dlRes.ok) throw new Error('Download failed (HTTP ' + dlRes.status + ')');
+      const fileBytes = await dlRes.arrayBuffer();
+      afterDownload = true;
+      setConvertDeProgress(btn, 14, 'Preparing\u2026');
+      const ext = scenarioFileExt(scenario);
+      const fileName = scenario.original_filename || scenario.filename || 'scenario' + ext;
+
+      const outBytes = await pyodide.convertToDe(fileBytes, ext, fileName, {
+        onProgress: function (msg) {
+          const mapped = mapConvertDeProgress(msg, afterDownload);
+          if (!mapped) return;
+          setConvertDeProgress(btn, mapped.pct != null ? mapped.pct : undefined, mapped.label);
+        },
+      });
+
+      setConvertDeProgress(btn, 100, 'Done');
+      const stem = stripExtension(fileName) || 'scenario';
+      downloadBlob(outBytes, stem + '.aoe2scenario');
+    } catch (err) {
+      alert(err && err.message ? err.message : String(err));
+    } finally {
+      resetConvertDeButton(btn);
+    }
   }
 
   function updateHeartUi(scenarioId, hearted, heartsCount) {
@@ -393,14 +571,6 @@
     if (row) {
       const rowBtn = row.querySelector('.heart-btn');
       if (rowBtn) rowBtn.textContent = '\u2665 ' + heartsCount.toLocaleString();
-    }
-
-    const panel = document.getElementById('scenario-detail-' + scenarioId);
-    if (panel && window.ScenarioDetailsRender) {
-      window.ScenarioDetailsRender.updateActionCounts(panel, {
-        hearts: heartsCount,
-        viewerHearted: hearted,
-      });
     }
 
     const cached = detailsCache.get(scenarioId);
@@ -575,6 +745,17 @@
       if (detail && view && window.ScenarioDetailsRender?.setBrowseDetailView) {
         window.ScenarioDetailsRender.setBrowseDetailView(detail, view);
       }
+      return;
+    }
+
+    const convertBtn = e.target.closest('.btn--convert-de');
+    if (convertBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (convertBtn.disabled) return;
+      const scenarioId = Number(convertBtn.dataset.convertId);
+      if (!Number.isFinite(scenarioId)) return;
+      void convertScenarioToDe(scenarioId);
       return;
     }
 

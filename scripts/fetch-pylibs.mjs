@@ -29,6 +29,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
+const pylibsLockPath = join(repoRoot, "scripts/pylibs.lock.json");
 
 const PYLIBS = [
   {
@@ -65,8 +66,12 @@ const PYLIBS = [
       const ref = process.env.AOE2_SCENARIO_PARSER_REF?.trim() || "museum";
       return resolveGitHubRefVersion("UnluckyForSome", "AoE2ScenarioParser", ref);
     },
-    urlResolver: async () => {
+    urlResolver: async (version) => {
       const ref = process.env.AOE2_SCENARIO_PARSER_REF?.trim() || "museum";
+      const v = String(version || "");
+      if (/^[0-9a-f]{12,40}$/i.test(v)) {
+        return `https://codeload.github.com/UnluckyForSome/AoE2ScenarioParser/tar.gz/${v}`;
+      }
       return `https://codeload.github.com/UnluckyForSome/AoE2ScenarioParser/tar.gz/refs/heads/${ref}`;
     },
     findPackageDirName: "AoE2ScenarioParser",
@@ -98,19 +103,59 @@ const PYLIBS = [
   },
 ];
 
-async function resolveGitHubRefVersion(owner, repo, ref) {
-  const url = `https://api.github.com/repos/${owner}/${repo}/commits/${encodeURIComponent(ref)}`;
-  const res = await fetch(url, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      "User-Agent": "Pages-AOE2Museum-fetch-pylibs",
-    },
-  });
-  if (!res.ok) {
-    throw new Error(`GitHub ref ${owner}/${repo}@${ref}: HTTP ${res.status}`);
+function githubAuthHeaders() {
+  const token = process.env.GITHUB_TOKEN?.trim() || process.env.GH_TOKEN?.trim();
+  const headers = {
+    Accept: "application/vnd.github+json",
+    "User-Agent": "Pages-AOE2Museum-fetch-pylibs",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+}
+
+function readPylibsLock() {
+  if (!existsSync(pylibsLockPath)) return null;
+  try {
+    return JSON.parse(readFileSync(pylibsLockPath, "utf8"));
+  } catch {
+    return null;
   }
-  const data = await res.json();
-  return String(data.sha || ref).slice(0, 12);
+}
+
+function pinnedParserSha(ref) {
+  const envSha = process.env.AOE2_SCENARIO_PARSER_SHA?.trim();
+  if (envSha) return envSha.slice(0, 12);
+
+  const lock = readPylibsLock();
+  const entry = lock?.AoE2ScenarioParser;
+  if (!entry?.sha) return null;
+  if (entry.ref && entry.ref !== ref) return null;
+  return String(entry.sha).slice(0, 12);
+}
+
+async function resolveGitHubRefVersion(owner, repo, ref) {
+  const pinned = pinnedParserSha(ref);
+  const url = `https://api.github.com/repos/${owner}/${repo}/commits/${encodeURIComponent(ref)}`;
+  const res = await fetch(url, { headers: githubAuthHeaders() });
+  if (res.ok) {
+    const data = await res.json();
+    return String(data.sha || ref).slice(0, 12);
+  }
+
+  if (res.status === 401 || res.status === 403 || res.status === 429) {
+    if (pinned) {
+      console.warn(
+        `[fetch-pylibs] GitHub API HTTP ${res.status} for ${owner}/${repo}@${ref}; using pinned SHA ${pinned} from pylibs.lock.json / AOE2_SCENARIO_PARSER_SHA`,
+      );
+      return pinned;
+    }
+    console.warn(
+      `[fetch-pylibs] GitHub API HTTP ${res.status} for ${owner}/${repo}@${ref}; using ref as version (set GITHUB_TOKEN, scripts/pylibs.lock.json, or AOE2_SCENARIO_PARSER_SHA).`,
+    );
+    return ref;
+  }
+
+  throw new Error(`GitHub ref ${owner}/${repo}@${ref}: HTTP ${res.status}`);
 }
 
 async function resolveSimpleIndexSdistUrl(project, version, indexBase = "https://pypi.org") {
