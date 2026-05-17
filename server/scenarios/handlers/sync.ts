@@ -33,11 +33,17 @@ async function listAllR2Objects(bucket: R2Bucket): Promise<R2Entry[]> {
 
 export async function handleSync(env: ScenariosEnv): Promise<void> {
   const r2Objects = await listAllR2Objects(env.BUCKET);
+  const { results: tombstoneRows } = await env.DB.prepare(
+    "SELECT r2_key FROM deleted_r2_keys",
+  ).all<{ r2_key: string }>();
+  const tombstones = new Set((tombstoneRows ?? []).map((r) => r.r2_key));
+
   const { results: dbRows } = await env.DB.prepare(
     "SELECT id, filename, r2_key, sha256, size, downloads FROM scenarios",
   ).all<DbRow>();
 
   const rows = dbRows ?? [];
+  const r2PurgeKeys: string[] = [];
 
   const dbByKey = new Map<string, DbRow>();
   const dbByHash = new Map<string, DbRow>();
@@ -54,6 +60,11 @@ export async function handleSync(env: ScenariosEnv): Promise<void> {
   const renames: { r2Entry: R2Entry; oldRow: DbRow }[] = [];
 
   for (const obj of r2Objects) {
+    if (tombstones.has(obj.key)) {
+      r2PurgeKeys.push(obj.key);
+      continue;
+    }
+
     if (dbByKey.has(obj.key)) continue;
 
     const filename = obj.key;
@@ -116,7 +127,11 @@ export async function handleSync(env: ScenariosEnv): Promise<void> {
     await env.DB.batch(statements.slice(i, i + BATCH_SIZE));
   }
 
+  for (const key of r2PurgeKeys) {
+    await env.BUCKET.delete(key).catch(() => {});
+  }
+
   console.log(
-    `[scenarios sync] ${renames.length} renamed, ${toInsert.length} added, ${toDelete.length} deleted`,
+    `[scenarios sync] ${renames.length} renamed, ${toInsert.length} added, ${toDelete.length} deleted, ${r2PurgeKeys.length} tombstone purged from R2`,
   );
 }

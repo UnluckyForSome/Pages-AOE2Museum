@@ -25,6 +25,7 @@
     analyse: document.getElementById('panel-analyse'),
   };
   const analyseScriptSrc = '/scenarios/js/inspector.js';
+  const detailsRenderSrc = '/scenarios/js/scenario-details-render.js';
   let activeTab = null;
   let analyseScriptPromise = null;
 
@@ -56,6 +57,14 @@
           once: true,
         });
         return;
+      }
+
+      if (!document.querySelector('script[data-scenario-details-render="true"]')) {
+        const dr = document.createElement('script');
+        dr.src = detailsRenderSrc;
+        dr.defer = true;
+        dr.dataset.scenarioDetailsRender = 'true';
+        document.body.appendChild(dr);
       }
 
       const script = document.createElement('script');

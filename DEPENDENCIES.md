@@ -41,9 +41,11 @@ Standalone Python CLI/library that renders isometric minimaps.
 
 Main Cloudflare Worker site.
 
+- Uses **[better-auth](https://www.better-auth.com/)** (D1 + Kysely) for accounts and **[Resend](https://resend.com/)** for verification email — no upstream repo; configured only in this Worker.
 - Hosts the public Museum pages and APIs.
 - Builds a browser bundle for `/pages/minimap/`.
 - Calls a remote Python verifier for `/pages/scenarios/` uploads.
+- Stores per-scenario parsed metadata in D1 (`analysis_json`, `parsed_at`) and minimap PNGs in R2 `MINIMAPS` under `scenario/<id>.png` (admin backfill via in-browser Pyodide on `/scenarios/dev-parse.html`).
 - Consumes upstream repos by fetching pinned package sources or commits during
   build/deploy steps.
 

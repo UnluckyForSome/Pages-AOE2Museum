@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Parse scenarios (admin) - AoE2 Museum</title>
+    <link rel="stylesheet" href="/assets/css/museum.css" />
+    <link rel="stylesheet" href="/scenarios/css/style.css" />
+  </head>
+  <body>
+    <nav class="site-nav" aria-label="Site"></nav>
+    <main class="account-main">
+      <div class="card card--narrow" style="max-width: 42rem">
+        <h1>Parse scenario archive</h1>
+        <p class="muted">
+          Admin tool: downloads unparsed scenarios, runs the McMinimap Pyodide analyser in-browser,
+          and stores metadata + minimap PNG via <code>PUT /api/scenarios/:id/details</code>.
+        </p>
+        <p id="dev-parse-auth" class="form-msg" role="status">Checking access…</p>
+
+        <form id="dev-parse-form" class="stack hidden">
+          <label>How many scenarios
+            <input type="number" name="limit" value="30" min="1" max="500" />
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" name="legacy" checked />
+            Legacy uploads only (<code>uploader_id</code> null)
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" name="stale" />
+            Re-parse stale (parser version outdated)
+          </label>
+          <button type="submit" class="btn" id="dev-parse-start">Start parsing</button>
+          <button type="button" class="btn btn--ghost hidden" id="dev-parse-stop">Stop after current</button>
+        </form>
+
+        <div id="dev-parse-progress" class="hidden" aria-live="polite">
+          <div class="progress-bar">
+            <div class="progress-fill" id="dev-parse-fill" style="width: 0%"></div>
+          </div>
+          <p class="progress-text" id="dev-parse-text">—</p>
+          <ul id="dev-parse-log" class="dev-parse-log"></ul>
+        </div>
+      </div>
+    </main>
+    <script src="/modules/site/museum-nav.js" defer></script>
+    <script src="/assets/js/museum-auth.js" defer></script>
+    <script type="module" src="/modules/app-shell/shared-pyodide-service.js"></script>
+    <script src="/scenarios/js/scenario-details-render.js" defer></script>
+    <script src="/scenarios/js/dev-parse.js" defer></script>
+  </body>
+</html>

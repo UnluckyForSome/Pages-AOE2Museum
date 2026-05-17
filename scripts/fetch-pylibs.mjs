@@ -47,7 +47,7 @@ const PYLIBS = [
   },
   {
     name: "aoe2_mcgeniescx",
-    version: process.env.AOE2_MCGENIESCX_VERSION?.trim() || "0.1.1",
+    version: process.env.AOE2_MCGENIESCX_VERSION?.trim() || "0.1.2",
     pypiProject: "AOE2-McGenieSCX",
     /**
      * Default TestPyPI; override with AOE2_MCGENIESCX_PYPI_INDEX=https://pypi.org

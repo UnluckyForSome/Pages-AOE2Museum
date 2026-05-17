@@ -1,5 +1,7 @@
 import { unzipSync } from "fflate";
 import type { ScenariosEnv } from "../env";
+import type { AuthEnv } from "../../auth/env";
+import { requireVerifiedUser } from "../../auth/services/session";
 import { getTurnstileSecretForRequest, verifyTurnstile } from "../services/turnstile";
 import {
   isAllowedUploadType,
@@ -9,8 +11,9 @@ import {
   checkZipExtractedSize,
   computeMd5,
   getExtension,
-  resolveFilenameCollision,
 } from "../services/validation";
+import { resolveStandaloneFilename } from "../services/collisions";
+import { normalizeStoredKey } from "../services/filenames";
 import { ScenarioVerifierUnavailableError, verifyScenario } from "../services/verify-scenario";
 
 interface ProcessedFile {
@@ -37,8 +40,10 @@ const VERIFY_FAILURE_MESSAGE =
 
 export async function handleUpload(
   request: Request,
-  env: ScenariosEnv,
+  env: ScenariosEnv & AuthEnv,
 ): Promise<Response> {
+  const user = await requireVerifiedUser(request, env);
+  if (user instanceof Response) return user;
   const formData = await request.formData();
 
   const turnstileToken = formData.get("cf-turnstile-response") as string | null;
@@ -198,22 +203,27 @@ export async function handleUpload(
     const { results: existingRows } = await env.DB.prepare(
       "SELECT filename FROM scenarios",
     ).all<{ filename: string }>();
-    for (const r of existingRows ?? []) allNames.add(r.filename);
+    for (const r of existingRows ?? []) allNames.add(normalizeStoredKey(r.filename));
   }
 
-  const readyFiles: ReadyFile[] = verified.map((c) => {
+  const readyFiles: ReadyFile[] = [];
+  for (const c of verified) {
+    const resolved = await resolveStandaloneFilename(
+      env,
+      c.filename,
+      user.username,
+      allNames,
+    );
     const ext = getExtension(c.filename);
-    const storedFilename = resolveFilenameCollision(c.filename, allNames);
-    allNames.add(storedFilename);
-    return {
-      storedFilename,
+    readyFiles.push({
+      storedFilename: resolved.storedFilename,
       originalFilename: c.filename,
       ext,
       buffer: c.buffer,
       md5: c.md5,
-      r2Key: storedFilename,
-    };
-  });
+      r2Key: resolved.storedFilename,
+    });
+  }
 
   const R2_CHUNK = 50;
   for (let i = 0; i < readyFiles.length; i += R2_CHUNK) {
@@ -224,10 +234,15 @@ export async function handleUpload(
   if (readyFiles.length > 0) {
     const D1_CHUNK = 500;
     const insertStmt = env.DB.prepare(
-      `INSERT INTO scenarios (filename, original_filename, filetype, size, sha256, r2_key)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO scenarios (filename, original_filename, filetype, size, sha256, r2_key,
+        uploader_id, visibility, kind, hearts_count)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'public', 'standalone', 0)`,
     );
-    const stmts = readyFiles.map((f) =>
+    const clearTombstoneStmt = env.DB.prepare(
+      "DELETE FROM deleted_r2_keys WHERE r2_key = ?",
+    );
+    const stmts = readyFiles.flatMap((f) => [
+      clearTombstoneStmt.bind(f.r2Key),
       insertStmt.bind(
         f.storedFilename,
         f.originalFilename,
@@ -235,8 +250,9 @@ export async function handleUpload(
         f.buffer.byteLength,
         f.md5,
         f.r2Key,
+        user.id,
       ),
-    );
+    ]);
     for (let i = 0; i < stmts.length; i += D1_CHUNK) {
       await env.DB.batch(stmts.slice(i, i + D1_CHUNK));
     }

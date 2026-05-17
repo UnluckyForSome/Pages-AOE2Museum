@@ -61,7 +61,7 @@ import * as fflate from "/modules/fflate/fflate.browser.js";
     final_height: [64, 8192],
   };
 
-  const RAINBOW_URL = "/minimap/assets/rainbow.png";
+  const RAINBOW_URL = "/assets/img/rainbow.png";
 
   // ---------- DOM references ----------------------------------------------
 
@@ -82,6 +82,7 @@ import * as fflate from "/modules/fflate/fflate.browser.js";
   const tabs = Array.prototype.slice.call(document.querySelectorAll(".tab"));
   const panelGenerate = document.getElementById("panel-generate");
   const panelGallery = document.getElementById("panel-gallery");
+  const panelMyGallery = document.getElementById("panel-my-gallery");
   const galleryGrid = document.getElementById("gallery-grid");
   const galleryRefresh = document.getElementById("gallery-refresh");
   const openScenarioModalBtn = document.getElementById("open-scenario-modal");
@@ -2747,7 +2748,8 @@ import * as fflate from "/modules/fflate/fflate.browser.js";
 
   function getSelectedTab() {
     const value = locationState && locationState.getQueryParam("tab");
-    return value === "gallery" ? "gallery" : "generate";
+    if (value === "gallery" || value === "my-gallery") return value;
+    return "generate";
   }
 
   function setSelectedTab(name) {
@@ -2765,6 +2767,7 @@ import * as fflate from "/modules/fflate/fflate.browser.js";
     });
     panelGenerate.hidden = name !== "generate";
     panelGallery.hidden = name !== "gallery";
+    if (panelMyGallery) panelMyGallery.hidden = name !== "my-gallery";
     if (name === "gallery" && !galleryLoaded) {
       loadGallery();
     }
@@ -2982,7 +2985,13 @@ import * as fflate from "/modules/fflate/fflate.browser.js";
       refreshFingerprint();
       setProgress(100, { holdMs: 400 });
       setStatus("Done", "success");
-      uploadToGallery(blob, file.name);
+      if (typeof window.MuseumSavePrompt === "function") {
+        window.MuseumSavePrompt(blob, file.name, {}).catch(function () {
+          uploadToGallery(blob, file.name);
+        });
+      } else {
+        uploadToGallery(blob, file.name);
+      }
     } catch (err) {
       resetImage();
       setProgress(100, { error: true, holdMs: 1500 });

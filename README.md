@@ -15,11 +15,22 @@ For the cross-repo dependency map covering `AoE2ScenarioParser`,
 | `/pages/gif/`                   | Animated unit GIF / APNG from `.slp` / `.sld` sprites (Garage-backed assets via `/api/gif/*`). |
 | `/api/gallery`                  | `GET` returns the latest-20 index; `POST image/png` (with `X-Source-Name`) appends to the gallery. |
 | `/api/gallery/:id`              | Streams a stored gallery PNG from R2.                                                       |
-| `/pages/scenarios/`             | Community archive of AoE2 custom scenarios (Archive + Contribute tabs on one page; `#contribute` deep-links the upload tab). |
-| `/pages/campaignmanager/`    | Pure-JS port of [withmorten/rge_campaign](https://github.com/withmorten/rge_campaign). Extract + Pack tabs for `.cpn`/`.cpx`/`.aoecpn`/`.aoe2campaign` &mdash; runs entirely in the browser, nothing is uploaded. |
+| `/pages/scenarios/`             | Community archive of AoE2 custom scenarios (verified accounts only for upload). |
+| `/pages/campaigns/`             | Campaign uploads (`.cpn`, `.cpx`, `.aoecpn`, `.aoe2campaign`) with mirrored scenario rows. |
+| `/pages/account/`               | Sign up, sign in, profile, account deletion. |
+| `/pages/campaignmanager/`    | Pure-JS port of [withmorten/rge_campaign](https://github.com/withmorten/rge_campaign). Extract + Pack tabs &mdash; runs entirely in the browser, nothing is uploaded. |
+| `/api/auth/*`                   | [better-auth](https://www.better-auth.com/) email+password, sessions, email verification. |
+| `/api/campaigns/*`              | Campaign list, upload, update, download, visibility, delete. |
+| `/api/hearts`                   | Toggle hearts on scenarios or campaigns (verified users). |
+| `/api/history/*`                | My Gallery save/list/delete for minimaps and unit GIFs. |
+| `/api/gif/gallery`              | Public GIF gallery ring (parallel to minimap gallery). |
 | `GET /api/scenarios`            | JSON list of every scenario in D1, newest first.                                            |
 | `POST /api/scenarios/upload`    | Multipart upload (Turnstile-gated). Accepts `.scn`/`.scx`/`.aoe2scenario`/`.zip`, dedupes by MD5. |
 | `GET /api/scenarios/download/:id` | Streams the scenario file from R2 and increments the download counter.                    |
+| `GET /api/scenarios/:id/details` | Parsed metadata JSON + minimap URL (when backfilled). |
+| `GET /api/scenarios/:id/minimap.png` | Stored scenario minimap PNG from R2 (`MINIMAPS`, key `scenario/<id>.png`). |
+| `PUT /api/scenarios/:id/details` | Admin-only: persist analysis JSON + minimap PNG after Pyodide parse. |
+| `GET /api/scenarios?unparsed=true&limit=30` | Unparsed scenarios for admin backfill tooling. |
 | `POST /api/scenarios/sync`      | Bearer-auth (`SYNC_SECRET`) or cron-triggered R2&harr;D1 reconcile.                          |
 | `/health`                       | JSON uptime check.                                                                          |
 
@@ -49,10 +60,19 @@ are comfortable with them being visible to other visitors.
 | Binding         | Type           | Purpose                                   |
 | --------------- | -------------- | ----------------------------------------- |
 | `ASSETS`        | assets         | Serves `public/` (HTML, JS, vendor tar, &hellip;). |
-| `MINIMAPS`      | R2 bucket      | McMinimap gallery PNGs (`aoe2museum-minimaps`, key `minimap/<id>.png`). |
+| `MINIMAPS`      | R2 bucket      | McMinimap gallery (`minimap/<id>.png`) + parsed scenario minimaps (`scenario/<id>.png`). |
 | `MINIMAP_INDEX` | KV namespace   | McMinimap gallery &mdash; single `index` key, JSON array newest-first, capped at 20. |
 | `BUCKET`        | R2 bucket      | Scenarios archive object storage (`scenarios`; key = stored filename). |
-| `DB`            | D1 database    | Scenarios metadata (`scenarios`, uuid `94e77071-f016-4073-9c1a-c9012424b48d`). |
+| `DB`            | D1 database    | Scenarios + auth + campaigns + hearts + history (`94e77071-f016-4073-9c1a-c9012424b48d`). |
+| `GIFS`          | R2 bucket      | Unit GIF artifacts + public gallery (`aoe2museum-gifs`). |
+| `CAMPAIGNS_BUCKET` | R2 bucket   | Raw campaign files (`aoe2museum-campaigns`). |
+| `GIF_INDEX`     | KV namespace   | Public GIF gallery ring (20 entries). |
+
+**Legacy uploads:** scenario rows with `uploader_id = NULL` display as **Uploader: Legacy** (pre-account archive).
+
+**Account name:** one permanent public name per user (3–20 characters: `A–Z`, `a–z`, `0–9`, `_`), stored as `user.username` and mirrored to `user.name` for better-auth. It appears in the nav, uploader column, and upload filenames (`Mission1 by YourName.scx`). Case is preserved. Run `npm run db:migrate:auth:unify-name` once on existing databases to backfill older rows.
+
+**Scenario previews:** the Browse tab expands each row into a compact detail panel (metadata + minimap, same layout as Analyse). Rows with `parsed_at` set show stored data; others show a “pending backfill” message. Run `npm run db:migrate:scenarios:v3` once, then use `/scenarios/dev-parse.html` (admin, `ADMIN_EMAILS`) to parse a dev batch (~30 legacy scenarios by default) before backfilling the full archive.
 
 A weekly cron (`0 3 * * 1`) re-runs the R2&harr;D1 reconcile for the
 Scenarios archive. Both resources are inherited from the previous standalone
@@ -64,7 +84,12 @@ Secrets (set with `wrangler secret put <NAME>` against this Worker):
 | Name                | Purpose                                                                |
 | ------------------- | ---------------------------------------------------------------------- |
 | `TURNSTILE_SECRET`  | Server-side key for the Cloudflare Turnstile widget on the upload form. |
-| `SYNC_SECRET`       | Bearer token accepted by `POST /api/scenarios/sync` (the footer button). |
+| `SYNC_SECRET`       | Bearer token for `POST /api/scenarios/sync` (`scripts/sync-livescenarios.bat`). |
+| `AUTH_SECRET`       | better-auth session secret (`openssl rand -hex 32`). |
+| `RESEND_API_KEY`    | Resend API key for verification emails (free tier: 100/day). |
+| `PARSER_VERIFY_TOKEN` | Bearer token for the remote scenario verifier. |
+
+Vars in `wrangler.jsonc`: `PUBLIC_BASE_URL`, `RESEND_FROM`, `ADMIN_EMAILS` (comma-separated admin emails), `MY_GALLERY_MAX_PER_KIND` (default `20`).
 
 One-time setup (already done for the production account; repeat per account):
 
@@ -81,8 +106,18 @@ wrangler d1 create scenarios
 npm run db:migrate:scenarios   # WARNING: wipes the scenarios table
 
 # Scenarios secrets
+wrangler r2 bucket create aoe2museum-gifs
+wrangler r2 bucket create aoe2museum-campaigns
+wrangler kv namespace create GIF_INDEX
+# paste GIF_INDEX id into wrangler.jsonc
+
 wrangler secret put TURNSTILE_SECRET
 wrangler secret put SYNC_SECRET
+wrangler secret put AUTH_SECRET
+wrangler secret put RESEND_API_KEY
+
+# Additive migrations (safe on production — does not wipe scenarios)
+npm run db:migrate:all
 ```
 
 ## Layout
@@ -273,8 +308,7 @@ Browser --> /pages/scenarios/ (Archive tab)  --> GET /api/scenarios (list from D
 The weekly cron (`0 3 * * 1`) runs `handleSync()` which reconciles the R2
 bucket against the D1 table &mdash; detecting manual renames in R2,
 inserting orphaned objects, and deleting D1 rows whose R2 object disappeared.
-The same handler is reachable from the archive footer's `sync` link via
-bearer-auth.
+The same handler is called from `scripts/sync-livescenarios.bat` (and the weekly cron) via bearer-auth.
 
 ### Migration from the standalone `scenarios` Worker
 

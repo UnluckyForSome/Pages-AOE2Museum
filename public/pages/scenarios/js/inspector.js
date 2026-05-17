@@ -128,22 +128,20 @@
   }
 
   function renderSummary(file, analysis) {
+    var render = window.ScenarioDetailsRender;
+    if (render && outputEl) {
+      render.renderScenarioDetails(outputEl, {
+        file: file,
+        analysis: analysis || {},
+        minimapUrl: null,
+      });
+      return;
+    }
+
     var rows = [
       ["File", file.name],
       ["File size", formatBytes(file.size)],
-      ["Detected edition", formatEdition(analysis)],
-      ["Container format", analysis.containerFormat || "Unavailable"],
-      ["Data version", formatDataVersion(analysis.dataVersion)],
-      ["Detection reason", analysis.detectionReason || "Unavailable"],
-      ["Parse backend", analysis.parseBackend || "Unavailable"],
-      ["Map size", formatNumber(analysis.mapDimension) + " x " + formatNumber(analysis.mapDimension)],
-      ["Terrain tiles", formatNumber(analysis.tileCount)],
-      ["Occupied player slots", formatNumber(analysis.activePlayerCount) + " / " + formatNumber(analysis.playerSlots)],
-      ["Player objects", formatNumber(analysis.playerObjectCount)],
-      ["Gaia objects", formatNumber(analysis.gaiaObjectCount)],
     ];
-    var players = Array.isArray(analysis.players) ? analysis.players : [];
-
     summaryGrid.innerHTML = rows
       .map(function (row) {
         return "<dt>" + escapeHtml(row[0]) + "</dt><dd>" + escapeHtml(row[1]) + "</dd>";
@@ -168,9 +166,13 @@
   }
 
   function renderPreview(pngBuffer) {
-    var blob;
+    var render = window.ScenarioDetailsRender;
     revokePreviewUrl();
-    blob = new Blob([pngBuffer], { type: "image/png" });
+    if (render) {
+      currentPreviewUrl = render.setMinimapFromBuffer(minimapImg, pngBuffer);
+      return;
+    }
+    var blob = new Blob([pngBuffer], { type: "image/png" });
     currentPreviewUrl = URL.createObjectURL(blob);
     minimapImg.src = currentPreviewUrl;
     minimapImg.classList.remove("hidden");

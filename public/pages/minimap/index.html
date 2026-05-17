@@ -83,7 +83,15 @@
             aria-selected="false"
             aria-controls="panel-gallery"
             data-tab="gallery"
-          >Gallery</button>
+          >Public Gallery</button>
+          <button
+            class="tab"
+            role="tab"
+            id="tab-my-gallery"
+            aria-selected="false"
+            aria-controls="panel-my-gallery"
+            data-tab="my-gallery"
+          >My Gallery</button>
         </nav>
       </div>
 
@@ -205,7 +213,7 @@
               <div class="imgwrap" id="imgwrap">
                 <img
                   id="img"
-                  src="/minimap/assets/rainbow.png"
+                  src="/assets/img/rainbow.png"
                   alt="Minimap preview. A rainbow placeholder is shown until you render."
                 />
               </div>
@@ -612,18 +620,31 @@
       >
         <div class="gallery-head">
           <div>
-            <h2>Gallery</h2>
-            <p>The last 20 minimaps rendered here, across all visitors. Public.</p>
+            <h2>Public Gallery</h2>
+            <p>The last 20 minimaps rendered here, across all visitors.</p>
           </div>
           <button type="button" id="gallery-refresh" class="linklike">Refresh</button>
         </div>
         <div id="gallery-grid" class="gallery-grid" aria-live="polite"></div>
+      </section>
+
+      <section class="panel" id="panel-my-gallery" role="tabpanel" aria-labelledby="tab-my-gallery" hidden>
+        <div class="gallery-head">
+          <div>
+            <h2>My Gallery</h2>
+            <p>Your saved minimaps (up to 20). <a href="/account/login.html">Sign in</a> required.</p>
+          </div>
+          <button type="button" id="my-gallery-refresh" class="linklike">Refresh</button>
+        </div>
+        <div id="my-gallery-grid" class="gallery-grid" aria-live="polite"></div>
       </section>
     </main>
 
     <footer>AoE2 Museum</footer>
 
     <script src="/modules/site/museum-nav.js" defer></script>
+    <script src="/assets/js/museum-auth.js" defer></script>
+    <script src="/minimap/my-gallery.js" defer></script>
     <script type="module" src="/minimap/app.js"></script>
   </body>
 </html>

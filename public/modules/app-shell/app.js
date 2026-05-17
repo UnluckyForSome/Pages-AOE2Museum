@@ -70,6 +70,10 @@ function resolveRoute(pathname) {
 }
 
 function setActiveNav(routeKey) {
+  if (window.MuseumNav && typeof window.MuseumNav.setActiveRouteKey === "function") {
+    window.MuseumNav.setActiveRouteKey(routeKey);
+    return;
+  }
   document.querySelectorAll(".site-nav__links a[data-route-key]").forEach((link) => {
     if (link.getAttribute("data-route-key") === routeKey) {
       link.setAttribute("aria-current", "page");

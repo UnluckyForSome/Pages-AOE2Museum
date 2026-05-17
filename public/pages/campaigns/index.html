@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Campaigns - AoE2 Museum</title>
+    <link rel="stylesheet" href="/assets/css/museum.css" />
+    <link rel="stylesheet" href="/campaigns/css/style.css" />
+  </head>
+  <body>
+    <nav class="site-nav" aria-label="Site">
+      <div class="site-nav__bar">
+        <a class="site-nav__logo" href="/"><span class="site-nav__logo-text">AoE2 Museum</span></a>
+        <button type="button" class="site-nav__toggle" id="site-nav-toggle" aria-expanded="false" aria-controls="site-nav-menu" aria-label="Open menu"><span class="site-nav__burger" aria-hidden="true"><span class="site-nav__burger-line"></span><span class="site-nav__burger-line"></span><span class="site-nav__burger-line"></span></span></button>
+      </div>
+      <div class="site-nav__backdrop" aria-hidden="true"></div>
+      <div id="site-nav-menu" class="site-nav__drawer">
+        <div class="site-nav__links">
+          <a href="/">Home</a>
+          <a href="/scenarios/">Scenarios</a>
+          <a href="/campaigns/" aria-current="page">Campaigns</a>
+          <a href="/campaignmanager/">Campaign Manager</a>
+        </div>
+      </div>
+    </nav>
+    <main>
+      <header class="page-header">
+        <div class="page-header__inner"><h1 class="page-title">Campaign uploads</h1></div>
+      </header>
+      <div class="tabs-bar">
+        <nav class="tabs" role="tablist">
+          <button class="tab" role="tab" data-tab="browse" aria-selected="true">Browse</button>
+          <button class="tab" role="tab" data-tab="upload">Upload</button>
+        </nav>
+      </div>
+      <section class="panel" id="panel-browse">
+        <p id="campaign-stats" class="muted"></p>
+        <table class="scenario-table" id="campaign-table">
+          <thead><tr><th>Title</th><th>Uploader</th><th>Scenarios</th><th>Hearts</th><th>Uploaded</th></tr></thead>
+          <tbody id="campaign-body"><tr><td colspan="5">Loading…</td></tr></tbody>
+        </table>
+      </section>
+      <section class="panel" id="panel-upload" hidden>
+        <div class="card card--narrow">
+          <p>Upload <code>.cpn</code>, <code>.cpx</code>, <code>.aoecpn</code>, or <code>.aoe2campaign</code>. Requires a <a href="/account/login.html">verified account</a>.</p>
+          <form id="campaign-upload-form">
+            <input type="file" name="file" accept=".cpn,.cpx,.aoecpn,.aoe2campaign" required />
+            <div id="turnstile-container" class="turnstile-center"></div>
+            <button type="submit" class="btn">Upload campaign</button>
+          </form>
+          <p id="upload-status" class="form-msg" role="status"></p>
+        </div>
+      </section>
+    </main>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script src="/modules/site/museum-nav.js" defer></script>
+    <script src="/assets/js/museum-auth.js" defer></script>
+    <script src="/campaigns/js/campaigns.js" type="module"></script>
+  </body>
+</html>

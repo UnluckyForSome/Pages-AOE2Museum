@@ -1,5 +1,6 @@
 import type { Env } from "../worker/env";
 import { json } from "../http/json";
+import { getSession } from "../auth/services/session";
 
 interface GalleryEntry {
   id: string;
@@ -46,6 +47,11 @@ function sanitizeSourceName(raw: string | null): string {
 }
 
 export async function handleGalleryPost(request: Request, env: Env): Promise<Response> {
+  const session = await getSession(request, env);
+  if (session && request.headers.get("x-skip-public-gallery") === "1") {
+    return json({ id: null, skipped: true }, { status: 201 });
+  }
+
   const contentType = request.headers.get("content-type") || "";
   if (!contentType.toLowerCase().startsWith("image/png")) {
     return json({ error: "content-type must be image/png" }, { status: 415 });

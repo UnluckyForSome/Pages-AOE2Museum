@@ -50,3 +50,5 @@ sourcemodules/aoe2mcminimap/
 # Local-only / dev-only assets (NOT deployed)
 ###############################################################################
 dev/
+livescenarios/
+livescenariosremoved/

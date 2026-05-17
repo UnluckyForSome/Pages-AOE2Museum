@@ -323,10 +323,20 @@
           </div>
         </form>
       </section>
+      <section class="panel" style="margin-top:2rem">
+        <h2>Public Gallery</h2>
+        <p class="muted">Last 20 GIFs contributed site-wide.</p>
+        <div id="gif-public-grid" class="gallery-grid"></div>
+        <h2 style="margin-top:1.5rem">My Gallery</h2>
+        <p class="muted">Up to 20 saved GIFs per account. <a href="/account/login.html">Sign in</a> required.</p>
+        <div id="gif-my-grid" class="gallery-grid"></div>
+      </section>
     </main>
 
     <footer>AoE2 Museum</footer>
     <script src="/modules/site/museum-nav.js" defer></script>
+    <script src="/assets/js/museum-auth.js" defer></script>
+    <script src="/gif/gif-galleries.js" defer></script>
     <script type="module" src="/gif/app.js"></script>
   </body>
 </html>

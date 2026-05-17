@@ -44,7 +44,8 @@
           <a href="/minimap/">McMinimap</a>
           <a href="/scenarios/" aria-current="page">Scenarios</a>
           <a href="/gif/">GIFs</a>
-          <a href="/campaignmanager/">Campaigns</a>
+          <a href="/campaigns/">Campaigns</a>
+          <a href="/campaignmanager/">Campaign Manager</a>
           <a href="/originalmods/">Original Mods</a>
           <a href="/contact/">Contact</a>
         </div>
@@ -124,14 +125,14 @@
           placeholder="Filter by name..."
         />
 
-        <table class="scenario-table">
+        <table class="scenario-table scenario-table--compact">
           <thead>
             <tr>
-              <th data-sort="filename" class="sortable col-filename">Filename</th>
-              <th data-sort="filetype" class="sortable col-type">Type</th>
-              <th data-sort="size" class="sortable col-size">Size</th>
-              <th data-sort="uploaded_at" class="sortable col-uploaded desc active">Uploaded</th>
-              <th data-sort="downloads" class="sortable col-dls">D/Ls</th>
+              <th data-sort="display_name" class="sortable col-name asc active">Scenario Name</th>
+              <th data-sort="uploader" class="sortable col-uploader">Uploader</th>
+              <th data-sort="game_era" class="sortable col-version">Version</th>
+              <th data-sort="downloads" class="sortable col-dls">Downloads</th>
+              <th data-sort="hearts_count" class="sortable col-hearts">Hearts</th>
             </tr>
           </thead>
           <tbody id="scenario-body">
@@ -156,6 +157,7 @@
         hidden
       >
         <div class="card card--narrow upload-intro" id="upload-intro">
+          <p>Contributions require a <a href="/account/signup.html">free account</a> with verified email. Campaign uploads use the <a href="/campaigns/">Campaigns</a> page.</p>
           <p>Contributions to this archive are most welcome &mdash; so many user creations have been lost to time!</p>
           <p>
             <code>.scn</code>, <code>.scx</code> and <code>.aoe2scenario</code> files are
@@ -279,16 +281,12 @@
 
     <footer>
       AoE2 Museum
-      <br />
-      <a href="#" class="sync-link" id="sync-link">sync</a>
-      <div class="sync-prompt hidden" id="sync-prompt">
-        <input type="password" id="sync-secret" placeholder="Secret" class="sync-input" />
-        <button class="sync-btn" id="sync-btn">Run</button>
-        <span class="sync-status" id="sync-status"></span>
-      </div>
     </footer>
 
     <script src="/modules/site/museum-nav.js" defer></script>
+    <script src="/assets/js/museum-auth.js" defer></script>
+    <script type="module" src="/modules/app-shell/shared-pyodide-service.js"></script>
+    <script src="/scenarios/js/scenario-details-render.js" defer></script>
     <script src="/scenarios/js/tabs.js" defer></script>
     <script src="/scenarios/js/scenarios.js" defer></script>
     <script src="/scenarios/js/upload.js" defer></script>

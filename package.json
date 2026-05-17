@@ -12,7 +12,32 @@
     "check": "npm run typecheck",
     "check:garage": "node scripts/check-garage.mjs",
     "db:migrate:scenarios": "wrangler d1 execute scenarios --file=server/scenarios/db/schema.sql --remote",
-    "db:migrate:scenarios:local": "wrangler d1 execute scenarios --file=server/scenarios/db/schema.sql --local"
+    "db:migrate:scenarios:local": "wrangler d1 execute scenarios --file=server/scenarios/db/schema.sql --local",
+    "db:migrate:scenarios:v2": "wrangler d1 execute scenarios --file=server/scenarios/db/alter-v2.sql --remote",
+    "db:migrate:scenarios:v2:local": "wrangler d1 execute scenarios --file=server/scenarios/db/alter-v2.sql --local",
+    "db:migrate:scenarios:v3": "wrangler d1 execute scenarios --file=server/scenarios/db/alter-v3.sql --remote",
+    "db:migrate:scenarios:v3:local": "wrangler d1 execute scenarios --file=server/scenarios/db/alter-v3.sql --local",
+    "db:migrate:scenarios:v4": "wrangler d1 execute scenarios --file=server/scenarios/db/alter-v4.sql --remote",
+    "db:migrate:scenarios:v4:local": "wrangler d1 execute scenarios --file=server/scenarios/db/alter-v4.sql --local",
+    "db:migrate:scenarios:v5": "wrangler d1 execute scenarios --file=server/scenarios/db/alter-v5-tombstones.sql --remote",
+    "db:migrate:scenarios:v5:local": "wrangler d1 execute scenarios --file=server/scenarios/db/alter-v5-tombstones.sql --local",
+    "db:migrate:scenarios:v6": "wrangler d1 execute scenarios --file=server/scenarios/db/alter-v6-game-era.sql --remote",
+    "db:migrate:scenarios:v6:local": "wrangler d1 execute scenarios --file=server/scenarios/db/alter-v6-game-era.sql --local",
+    "db:migrate:auth": "wrangler d1 execute scenarios --file=server/auth/db/schema.sql --remote",
+    "db:migrate:auth:local": "wrangler d1 execute scenarios --file=server/auth/db/schema.sql --local",
+    "db:migrate:auth:unify-name": "wrangler d1 execute scenarios --file=server/auth/db/migrate-unify-name.sql --remote",
+    "db:migrate:auth:unify-name:local": "wrangler d1 execute scenarios --file=server/auth/db/migrate-unify-name.sql --local",
+    "db:migrate:campaigns": "wrangler d1 execute scenarios --file=server/campaigns/db/schema.sql --remote",
+    "db:migrate:campaigns:local": "wrangler d1 execute scenarios --file=server/campaigns/db/schema.sql --local",
+    "db:migrate:hearts": "wrangler d1 execute scenarios --file=server/hearts/db/schema.sql --remote",
+    "db:migrate:hearts:local": "wrangler d1 execute scenarios --file=server/hearts/db/schema.sql --local",
+    "db:migrate:history": "wrangler d1 execute scenarios --file=server/history/db/schema.sql --remote",
+    "db:migrate:history:local": "wrangler d1 execute scenarios --file=server/history/db/schema.sql --local",
+    "db:migrate:all": "node scripts/db-migrate-all.mjs",
+    "backfill:scenario-metadata": "python scripts/backfill-scenario-metadata.py",
+    "backfill:scenario-metadata:unparsed": "python scripts/backfill-scenario-metadata.py --only-unparsed",
+    "check:scenario-metadata": "python scripts/check-scenario-metadata.py",
+    "db:migrate:all:local": "node scripts/db-migrate-all.mjs --local"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250419.0",
@@ -26,6 +51,11 @@
   },
   "dependencies": {
     "aws4fetch": "^1.0.20",
-    "fflate": "^0.8.2"
+    "better-auth": "^1.6.11",
+    "drizzle-orm": "^0.45.2",
+    "fflate": "^0.8.2",
+    "kysely": "^0.28.17",
+    "kysely-d1": "^0.4.0",
+    "nanoid": "^5.1.11"
   }
 }

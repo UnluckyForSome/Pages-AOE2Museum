@@ -62,9 +62,18 @@ except ImportError:
         RECORDED_GAME_EXTENSIONS,
         to_png_bytes,
         to_png_bytes_from_match,
+        match_from_parsed_scenario,
     )
+else:
+    from aoe2_mcminimap import match_from_parsed_scenario  # noqa: E402
 
-from pages_aoe2museum_py.scenario_facade import analyse_scenario, parse_scenario_to_match  # noqa: E402
+from pages_aoe2museum_py.scenario_facade import (  # noqa: E402
+    build_analysis_summary,
+    museum_minimap_settings,
+    parse_scenario_any,
+    parse_scenario_to_match,
+    to_museum_minimap_webp_bytes_from_match,
+)
 
 
 def _coerce_settings(raw):
@@ -131,9 +140,14 @@ def analyse(file_bytes, ext, settings, name="uploaded scenario"):
     if suffix.lower() in RECORDED_GAME_EXTENSIONS:
         raise ValueError("Scenario analysis only supports scenario files, not recorded games.")
 
-    cfg = _coerce_settings(settings)
-    summary, match = analyse_scenario(data, name=name or f"upload{suffix}")
-    return json.dumps(summary), to_png_bytes_from_match(match, settings=cfg)
+    nm = name or f"upload{suffix}"
+    parsed = parse_scenario_any(data, name=nm)
+    match = match_from_parsed_scenario(parsed)
+    summary = build_analysis_summary(parsed, match, fallback_title=nm)
+    # Archive / dev-parse minimaps: fixed 560×280 WEBP (not full-res PNG).
+    return json.dumps(summary), to_museum_minimap_webp_bytes_from_match(
+        match, settings=museum_minimap_settings()
+    )
 
 
 def _ns(obj):

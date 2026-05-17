@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Delete account - AoE2 Museum</title>
+    <link rel="stylesheet" href="/assets/css/museum.css" />
+  </head>
+  <body data-account-page="delete">
+    <nav class="site-nav" aria-label="Site"></nav>
+    <main class="account-main">
+      <div class="card card--narrow">
+        <h1>Delete account</h1>
+        <p class="text-danger">This permanently removes all your uploads, campaigns, generated history, and hearts. It cannot be undone.</p>
+        <form id="delete-form">
+          <button type="submit" class="btn btn--danger">Delete my account</button>
+        </form>
+        <p id="account-msg" class="form-msg" role="status"></p>
+        <p><a href="/account/profile.html">Cancel</a></p>
+      </div>
+    </main>
+    <script src="/modules/site/museum-nav.js" defer></script>
+    <script src="/assets/js/museum-auth.js" defer></script>
+    <script src="/account/account.js" defer></script>
+  </body>
+</html>

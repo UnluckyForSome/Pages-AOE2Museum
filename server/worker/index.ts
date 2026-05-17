@@ -2,6 +2,11 @@ import type { Env } from "./env";
 import { json } from "../http/json";
 import { handleGalleryImage, handleGalleryList, handleGalleryPost } from "../minimap/gallery";
 import {
+  handleGifGalleryImage,
+  handleGifGalleryList,
+  handleGifGalleryPost,
+} from "../gif/gallery";
+import {
   handleAocrecRecent,
   handleAocrecSearch,
   handleAocrecSynonyms,
@@ -12,6 +17,10 @@ import { handleModsSearch, handleModsZip } from "../minimap/mods";
 import { routeScenarios } from "../scenarios/routes";
 import { handleSync } from "../scenarios/handlers/sync";
 import { routeGif } from "../gif/handlers";
+import { routeAuth } from "../auth/routes";
+import { routeCampaigns } from "../campaigns/routes";
+import { routeHearts } from "../hearts/routes";
+import { routeHistory } from "../history/routes";
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -22,7 +31,9 @@ export default {
       "minimap",
       "gif",
       "scenarios",
+      "campaigns",
       "campaignmanager",
+      "account",
       "originalmods",
       "contact",
       "home",
@@ -42,8 +53,12 @@ export default {
       "/gif/",
       "/scenarios",
       "/scenarios/",
+      "/campaigns",
+      "/campaigns/",
       "/campaignmanager",
       "/campaignmanager/",
+      "/account",
+      "/account/",
       "/originalmods",
       "/originalmods/",
       "/contact",
@@ -56,8 +71,6 @@ export default {
       return env.ASSETS.fetch(new Request(nextUrl, request));
     }
 
-    // Keep page-owned assets and the legacy /pages/* sources addressable so the
-    // shared shell can lazy-load existing page HTML/CSS/JS on demand.
     for (const p of pagePrefixes) {
       const prefix = "/" + p;
       if (pathname.startsWith(prefix + "/")) {
@@ -69,6 +82,9 @@ export default {
     if (pathname === "/health") {
       return json({ ok: true, service: "aoe2museum" });
     }
+
+    const authRes = await routeAuth(request, env, pathname);
+    if (authRes) return authRes;
 
     if (pathname === "/api/gallery") {
       if (request.method === "POST") return handleGalleryPost(request, env);
@@ -89,8 +105,42 @@ export default {
       return handleGalleryImage(pathname.slice("/api/gallery/".length), env);
     }
 
+    if (pathname === "/api/gif/gallery") {
+      if (request.method === "POST") return handleGifGalleryPost(request, env);
+      if (request.method === "GET") return handleGifGalleryList(env);
+      return new Response("method not allowed", {
+        status: 405,
+        headers: { allow: "GET, POST" },
+      });
+    }
+
+    if (pathname.startsWith("/api/gif/gallery/")) {
+      if (request.method !== "GET") {
+        return new Response("method not allowed", {
+          status: 405,
+          headers: { allow: "GET" },
+        });
+      }
+      return handleGifGalleryImage(pathname.slice("/api/gif/gallery/".length), env);
+    }
+
     if (pathname === "/api/scenarios" || pathname.startsWith("/api/scenarios/")) {
       const res = await routeScenarios(request, env, ctx, pathname);
+      if (res) return res;
+      return new Response("not found", { status: 404 });
+    }
+
+    if (pathname === "/api/campaigns" || pathname.startsWith("/api/campaigns/")) {
+      const res = await routeCampaigns(request, env, ctx, pathname);
+      if (res) return res;
+      return new Response("not found", { status: 404 });
+    }
+
+    const heartsRes = await routeHearts(request, env, pathname);
+    if (heartsRes) return heartsRes;
+
+    if (pathname.startsWith("/api/history")) {
+      const res = await routeHistory(request, env, pathname);
       if (res) return res;
       return new Response("not found", { status: 404 });
     }
@@ -138,4 +188,3 @@ export default {
     await handleSync(env);
   },
 };
-
