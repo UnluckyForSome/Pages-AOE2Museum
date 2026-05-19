@@ -17,7 +17,7 @@ For the cross-repo dependency map covering `AoE2ScenarioParser`,
 | `/api/gallery/:id`              | Streams a stored gallery PNG from R2.                                                       |
 | `/pages/scenarios/`             | Community archive of AoE2 custom scenarios (verified accounts only for upload). |
 | `/pages/campaigns/`             | Campaign uploads (`.cpn`, `.cpx`, `.aoecpn`, `.aoe2campaign`) with mirrored scenario rows. |
-| `/pages/account/`               | Sign up, sign in, profile, account deletion. |
+| `/modules/site/museum-auth-modal.js` | Sign in, sign up, verification, password reset, profile, and account deletion (in-page modal). |
 | `/pages/campaignmanager/`    | Pure-JS port of [withmorten/rge_campaign](https://github.com/withmorten/rge_campaign). Extract + Pack tabs &mdash; runs entirely in the browser, nothing is uploaded. |
 | `/api/auth/*`                   | [better-auth](https://www.better-auth.com/) email+password, sessions, email verification. |
 | `/api/campaigns/*`              | Campaign list, upload, update, download, visibility, delete. |

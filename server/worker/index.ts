@@ -21,11 +21,15 @@ import { routeAuth } from "../auth/routes";
 import { routeCampaigns } from "../campaigns/routes";
 import { routeHearts } from "../hearts/routes";
 import { routeHistory } from "../history/routes";
+import { accountAuthRedirectResponse } from "./account-auth-redirect";
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const { pathname } = url;
+
+    const accountRedirect = accountAuthRedirectResponse(url);
+    if (accountRedirect) return accountRedirect;
 
     const pagePrefixes = [
       "minimap",
@@ -34,7 +38,6 @@ export default {
       "campaigns",
       "campaignmanager",
       "archives",
-      "account",
       "originalmods",
       "contact",
       "home",

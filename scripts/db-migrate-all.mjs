@@ -16,6 +16,8 @@ const flag = local ? "--local" : "--remote";
 const MIGRATIONS = [
   "server/auth/db/schema.sql",
   "server/auth/db/pending-signup.sql",
+  "server/auth/db/pending-signup-drop-link.sql",
+  "server/auth/db/pending-signup-add-link.sql",
   "server/scenarios/db/alter-v2.sql",
   "server/scenarios/db/alter-v3.sql",
   "server/scenarios/db/alter-v4.sql",
@@ -59,7 +61,11 @@ function runWrangler(file) {
 }
 
 function isAlreadyApplied(output) {
-  return /duplicate column name/i.test(output) || /already exists/i.test(output);
+  return (
+    /duplicate column name/i.test(output) ||
+    /already exists/i.test(output) ||
+    /no such column/i.test(output)
+  );
 }
 
 async function main() {

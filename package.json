@@ -11,6 +11,9 @@
     "predeploy": "npm run build:mcminimap",
     "deploy": "wrangler deploy",
     "check": "npm run typecheck",
+    "test": "vitest run",
+    "db:migrate:auth:link": "wrangler d1 execute scenarios --file=server/auth/db/pending-signup-add-link.sql --remote",
+    "db:migrate:auth:link:local": "wrangler d1 execute scenarios --file=server/auth/db/pending-signup-add-link.sql --local",
     "check:garage": "node scripts/check-garage.mjs",
     "db:migrate:scenarios": "wrangler d1 execute scenarios --file=server/scenarios/db/schema.sql --remote",
     "db:migrate:scenarios:local": "wrangler d1 execute scenarios --file=server/scenarios/db/schema.sql --local",
@@ -50,6 +53,7 @@
     "gifuct-js": "^2.1.2",
     "patch-package": "^8.0.1",
     "typescript": "^5.8.3",
+    "vitest": "^3.2.4",
     "wrangler": "^4.87.0"
   },
   "dependencies": {

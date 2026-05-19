@@ -23,6 +23,16 @@ export async function routeAuth(
   const pending = await routePendingSignup(authRequest, env, pathname);
   if (pending) return pending;
 
+  if (pathname === "/api/auth/sign-up/email" && request.method === "POST") {
+    return json(
+      {
+        error: "Use museum sign-up",
+        redirect: "/?museum-auth=sign-up",
+      },
+      { status: 410 },
+    );
+  }
+
   if (pathname.startsWith("/api/auth")) {
     try {
       const auth = createAuth(env);

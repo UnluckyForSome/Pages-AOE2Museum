@@ -65,7 +65,11 @@ export function generateOtp(length = 6): string {
   return String(n).padStart(length, "0");
 }
 
+/** URL-safe one-time verification link token. */
 export function generateLinkToken(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(24));
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }

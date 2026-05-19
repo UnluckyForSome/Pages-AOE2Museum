@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import type { AuthEnv } from "../env";
 import { createAuth } from "../auth";
+import { PRODUCTION_SITE_URL } from "../../site";
 import { sendEmail } from "./email";
 import {
   decryptPassword,
@@ -13,6 +14,9 @@ import {
 import { MUSEUM_NAME_MAX, MUSEUM_NAME_MIN } from "./museum-name";
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000;
+const RESEND_COOLDOWN_MS = 60 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
+const OTP_LOCK_MS = 15 * 60 * 1000;
 const USERNAME_RE = /^[A-Za-z0-9_]{3,20}$/;
 
 interface PendingRow {
@@ -21,37 +25,72 @@ interface PendingRow {
   username: string;
   password_enc: string;
   otp_hash: string;
-  link_token_hash: string;
+  link_token_hash: string | null;
   expires_at: number;
+  otp_attempts: number;
+  otp_locked_until: number | null;
+  last_sent_at: number | null;
 }
 
-function baseUrl(env: AuthEnv): string {
-  return env.PUBLIC_BASE_URL.replace(/\/$/, "");
+interface VerificationSecrets {
+  otp: string;
+  linkToken: string;
+  otpHash: string;
+  linkHash: string;
+}
+
+function nowMs(): number {
+  return Date.now();
+}
+
+function isSqliteConstraintError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /SQLITE_CONSTRAINT|UNIQUE constraint failed/i.test(msg);
+}
+
+function signUpConflictMessage(err: unknown): string | null {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/username/i.test(msg)) return "This username is already taken.";
+  if (/email/i.test(msg)) return "An account with this email already exists.";
+  return null;
+}
+
+function buildVerifyLinkUrl(env: AuthEnv, email: string, linkToken: string): string {
+  const base = (env.PUBLIC_BASE_URL || PRODUCTION_SITE_URL).replace(/\/$/, "");
+  const url = new URL("/", base);
+  url.searchParams.set("museum-auth", "verify-link");
+  url.searchParams.set("email", email);
+  url.searchParams.set("token", linkToken);
+  return url.toString();
 }
 
 function verificationEmailHtml(handle: string, otp: string, verifyUrl: string): string {
   return (
     `<p>Hi ${handle},</p>` +
-    `<p>Thanks for joining AoE2 Museum. Use this verification code:</p>` +
+    `<p>Thanks for joining AoE2 Museum. Verify your account using either option below:</p>` +
+    `<p><strong>Option 1 — code:</strong> Enter this 6-digit code in the sign-up dialog:</p>` +
     `<p style="font-size:1.5rem;font-weight:bold;letter-spacing:0.2em">${otp}</p>` +
-    `<p>Or click the link below to verify your email:</p>` +
-    `<p><a href="${verifyUrl}">Verify email</a></p>` +
-    `<p>This code and link expire in 10 minutes. If you did not sign up, ignore this email.</p>`
+    `<p><strong>Option 2 — link:</strong> <a href="${verifyUrl}">Verify your email</a></p>` +
+    `<p>Both expire in 10 minutes. If your code expired, sign up again with the same email to get a new one.</p>` +
+    `<p>If you did not sign up, ignore this email.</p>`
   );
+}
+
+async function purgeExpiredPending(env: AuthEnv): Promise<void> {
+  await env.DB.prepare(`DELETE FROM pending_signup WHERE expires_at <= ?`).bind(nowMs()).run();
 }
 
 async function sendPendingVerificationEmail(
   env: AuthEnv,
   email: string,
   username: string,
-  otp: string,
-  linkToken: string,
+  secrets: VerificationSecrets,
 ): Promise<void> {
-  const verifyUrl = `${baseUrl(env)}/api/auth/museum/verify?token=${encodeURIComponent(linkToken)}`;
+  const verifyUrl = buildVerifyLinkUrl(env, email, secrets.linkToken);
   await sendEmail(env, {
     to: email,
     subject: "Verify your AoE2 Museum account",
-    html: verificationEmailHtml(username, otp, verifyUrl),
+    html: verificationEmailHtml(username, secrets.otp, verifyUrl),
   });
 }
 
@@ -74,40 +113,47 @@ async function emailInUse(env: AuthEnv, email: string): Promise<boolean> {
   return Boolean(user?.id);
 }
 
-async function usernameInUse(env: AuthEnv, username: string): Promise<boolean> {
+async function usernameInUse(
+  env: AuthEnv,
+  username: string,
+  excludePendingId?: string,
+): Promise<boolean> {
   const user = await env.DB.prepare(
     `SELECT id FROM "user" WHERE username = ? COLLATE NOCASE AND emailVerified = 1`,
   )
     .bind(username)
     .first<{ id: string }>();
   if (user?.id) return true;
-  const pending = await env.DB.prepare(
-    `SELECT id FROM pending_signup WHERE username = ? COLLATE NOCASE`,
-  )
-    .bind(username)
+
+  const t = nowMs();
+  let sql = `SELECT id FROM pending_signup WHERE username = ? COLLATE NOCASE AND expires_at > ?`;
+  const binds: (string | number)[] = [username, t];
+  if (excludePendingId) {
+    sql += ` AND id != ?`;
+    binds.push(excludePendingId);
+  }
+  const pending = await env.DB.prepare(sql)
+    .bind(...binds)
     .first<{ id: string }>();
   return Boolean(pending?.id);
 }
 
 async function getPendingByEmail(env: AuthEnv, email: string): Promise<PendingRow | null> {
-  return env.DB.prepare(`SELECT * FROM pending_signup WHERE email = ?`)
+  return env.DB.prepare(
+    `SELECT id, email, username, password_enc, otp_hash, link_token_hash, expires_at,
+            otp_attempts, otp_locked_until, last_sent_at
+     FROM pending_signup WHERE email = ?`,
+  )
     .bind(email)
     .first<PendingRow>();
 }
 
-async function getPendingByLinkToken(env: AuthEnv, token: string): Promise<PendingRow | null> {
-  const dot = token.indexOf(".");
-  if (dot <= 0) return null;
-  const id = token.slice(0, dot);
-  const secret = token.slice(dot + 1);
-  const row = await env.DB.prepare(
-    `SELECT * FROM pending_signup WHERE id = ? AND expires_at > ?`,
-  )
-    .bind(id, Date.now())
-    .first<PendingRow>();
-  if (!row) return null;
-  if (!(await verifyTokenHash(env.AUTH_SECRET, secret, row.link_token_hash))) return null;
-  return row;
+async function createVerificationSecrets(env: AuthEnv): Promise<VerificationSecrets> {
+  const otp = generateOtp();
+  const linkToken = generateLinkToken();
+  const otpHash = await hashToken(env.AUTH_SECRET, otp);
+  const linkHash = await hashToken(env.AUTH_SECRET, linkToken);
+  return { otp, linkToken, otpHash, linkHash };
 }
 
 async function insertPending(
@@ -117,50 +163,107 @@ async function insertPending(
     username: string;
     password: string;
   },
-): Promise<{ otp: string; linkToken: string }> {
+): Promise<VerificationSecrets> {
   const id = nanoid();
-  const otp = generateOtp();
-  const linkSecret = generateLinkToken();
-  const linkToken = `${id}.${linkSecret}`;
-  const otpHash = await hashToken(env.AUTH_SECRET, otp);
-  const linkHash = await hashToken(env.AUTH_SECRET, linkSecret);
+  const secrets = await createVerificationSecrets(env);
   const passwordEnc = await encryptPassword(env.AUTH_SECRET, row.password);
-  const now = Date.now();
+  const created = nowMs();
+  const expiresAt = created + OTP_EXPIRY_MS;
 
   await env.DB.prepare(`DELETE FROM pending_signup WHERE email = ?`).bind(row.email).run();
   await deleteUnverifiedUser(env, row.email);
 
   await env.DB.prepare(
-    `INSERT INTO pending_signup (id, email, username, password_enc, otp_hash, link_token_hash, expires_at, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO pending_signup (
+       id, email, username, password_enc, otp_hash, link_token_hash,
+       expires_at, created_at, otp_attempts, otp_locked_until, last_sent_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?)`,
   )
     .bind(
       id,
       row.email,
       row.username,
       passwordEnc,
-      otpHash,
-      linkHash,
-      now + OTP_EXPIRY_MS,
-      now,
+      secrets.otpHash,
+      secrets.linkHash,
+      expiresAt,
+      created,
+      created,
     )
     .run();
 
-  return { otp, linkToken };
+  return secrets;
+}
+
+async function applyCredentialRotation(
+  env: AuthEnv,
+  pendingId: string,
+  secrets: VerificationSecrets,
+): Promise<boolean> {
+  const expiresAt = nowMs() + OTP_EXPIRY_MS;
+  const sentAt = nowMs();
+  const result = await env.DB.prepare(
+    `UPDATE pending_signup SET
+       otp_hash = ?, link_token_hash = ?, expires_at = ?,
+       otp_attempts = 0, otp_locked_until = NULL, last_sent_at = ?
+     WHERE id = ? AND expires_at > ?`,
+  )
+    .bind(secrets.otpHash, secrets.linkHash, expiresAt, sentAt, pendingId, nowMs())
+    .run();
+  return (result.meta?.changes ?? 0) > 0;
+}
+
+async function recordFailedOtpAttempt(env: AuthEnv, pending: PendingRow): Promise<void> {
+  const attempts = (pending.otp_attempts ?? 0) + 1;
+  const lockedUntil = attempts >= OTP_MAX_ATTEMPTS ? nowMs() + OTP_LOCK_MS : null;
+  await env.DB.prepare(
+    `UPDATE pending_signup SET otp_attempts = ?, otp_locked_until = ? WHERE id = ?`,
+  )
+    .bind(attempts, lockedUntil, pending.id)
+    .run();
+}
+
+function isOtpLocked(pending: PendingRow): boolean {
+  return Boolean(pending.otp_locked_until && pending.otp_locked_until > nowMs());
+}
+
+async function claimPendingByOtpHash(env: AuthEnv, pending: PendingRow): Promise<boolean> {
+  const result = await env.DB.prepare(
+    `DELETE FROM pending_signup WHERE id = ? AND expires_at > ? AND otp_hash = ?`,
+  )
+    .bind(pending.id, nowMs(), pending.otp_hash)
+    .run();
+  return (result.meta?.changes ?? 0) > 0;
+}
+
+async function claimPendingByLinkHash(env: AuthEnv, pending: PendingRow): Promise<boolean> {
+  if (!pending.link_token_hash) return false;
+  const result = await env.DB.prepare(
+    `DELETE FROM pending_signup WHERE id = ? AND expires_at > ? AND link_token_hash = ?`,
+  )
+    .bind(pending.id, nowMs(), pending.link_token_hash)
+    .run();
+  return (result.meta?.changes ?? 0) > 0;
 }
 
 async function finalizeSignup(
   env: AuthEnv,
   pending: PendingRow,
 ): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
-  if (Date.now() > pending.expires_at) {
-    await env.DB.prepare(`DELETE FROM pending_signup WHERE id = ?`).bind(pending.id).run();
+  if (nowMs() > pending.expires_at) {
     return { ok: false, error: "Verification expired. Sign up again.", status: 400 };
   }
 
   if (await emailInUse(env, pending.email)) {
-    await env.DB.prepare(`DELETE FROM pending_signup WHERE id = ?`).bind(pending.id).run();
     return { ok: false, error: "An account with this email already exists.", status: 409 };
+  }
+
+  if (await usernameInUse(env, pending.username)) {
+    return {
+      ok: false,
+      error: "This username was just taken. Choose another and sign up again.",
+      status: 409,
+    };
   }
 
   const password = await decryptPassword(env.AUTH_SECRET, pending.password_enc);
@@ -177,13 +280,16 @@ async function finalizeSignup(
     });
   } catch (err) {
     console.error("[pending-signup] signUpEmail failed:", err);
+    const conflict = signUpConflictMessage(err);
+    if (conflict) {
+      return { ok: false, error: conflict, status: 409 };
+    }
     return { ok: false, error: "Could not create account. Try again.", status: 500 };
   }
 
   await env.DB.prepare(`UPDATE "user" SET emailVerified = 1 WHERE email = ?`)
     .bind(pending.email)
     .run();
-  await env.DB.prepare(`DELETE FROM pending_signup WHERE id = ?`).bind(pending.id).run();
 
   return { ok: true };
 }
@@ -192,6 +298,8 @@ export async function registerPendingSignup(
   env: AuthEnv,
   body: { email: string; username: string; password: string },
 ): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+  await purgeExpiredPending(env);
+
   const email = body.email.trim().toLowerCase();
   const username = body.username.trim();
   const password = body.password;
@@ -219,9 +327,18 @@ export async function registerPendingSignup(
     return { ok: false, error: "This username is already taken.", status: 409 };
   }
 
-  const { otp, linkToken } = await insertPending(env, { email, username, password });
+  let secrets: VerificationSecrets;
   try {
-    await sendPendingVerificationEmail(env, email, username, otp, linkToken);
+    secrets = await insertPending(env, { email, username, password });
+  } catch (err) {
+    if (isSqliteConstraintError(err)) {
+      return { ok: false, error: "This username or email is already taken.", status: 409 };
+    }
+    throw err;
+  }
+
+  try {
+    await sendPendingVerificationEmail(env, email, username, secrets);
   } catch (err) {
     console.error("[pending-signup] send email failed:", err);
     await env.DB.prepare(`DELETE FROM pending_signup WHERE email = ?`).bind(email).run();
@@ -235,32 +352,48 @@ export async function resendPendingVerification(
   env: AuthEnv,
   emailInput: string,
 ): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+  await purgeExpiredPending(env);
+
   const email = emailInput.trim().toLowerCase();
   const pending = await getPendingByEmail(env, email);
   if (!pending) {
     return { ok: true };
   }
-  if (Date.now() > pending.expires_at) {
+  if (nowMs() > pending.expires_at) {
     await env.DB.prepare(`DELETE FROM pending_signup WHERE id = ?`).bind(pending.id).run();
     return {
       ok: false,
-      error: "Verification expired. Please sign up again.",
+      error: "Verification expired. Sign up again to get a new code (same email is fine).",
       status: 400,
     };
   }
 
-  const password = await decryptPassword(env.AUTH_SECRET, pending.password_enc);
-  const { otp, linkToken } = await insertPending(env, {
-    email: pending.email,
-    username: pending.username,
-    password,
-  });
+  if (
+    pending.last_sent_at &&
+    nowMs() - pending.last_sent_at < RESEND_COOLDOWN_MS
+  ) {
+    return {
+      ok: false,
+      error: "Please wait a minute before requesting another code.",
+      status: 429,
+    };
+  }
 
+  const secrets = await createVerificationSecrets(env);
   try {
-    await sendPendingVerificationEmail(env, email, pending.username, otp, linkToken);
+    await sendPendingVerificationEmail(env, email, pending.username, secrets);
   } catch (err) {
     console.error("[pending-signup] resend email failed:", err);
     return { ok: false, error: "Could not send verification email.", status: 503 };
+  }
+
+  const updated = await applyCredentialRotation(env, pending.id, secrets);
+  if (!updated) {
+    return {
+      ok: false,
+      error: "Verification expired. Sign up again to get a new code (same email is fine).",
+      status: 400,
+    };
   }
 
   return { ok: true };
@@ -271,25 +404,84 @@ export async function completePendingWithOtp(
   emailInput: string,
   otp: string,
 ): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+  await purgeExpiredPending(env);
+
   const email = emailInput.trim().toLowerCase();
   const code = otp.trim();
   const pending = await getPendingByEmail(env, email);
   if (!pending) {
     return { ok: false, error: "No pending sign-up for this email.", status: 400 };
   }
+  if (nowMs() > pending.expires_at) {
+    await env.DB.prepare(`DELETE FROM pending_signup WHERE id = ?`).bind(pending.id).run();
+    return {
+      ok: false,
+      error: "Verification expired. Sign up again to get a new code (same email is fine).",
+      status: 400,
+    };
+  }
+  if (isOtpLocked(pending)) {
+    return {
+      ok: false,
+      error: "Too many attempts. Try again later or use the link in your email.",
+      status: 429,
+    };
+  }
   if (!(await verifyTokenHash(env.AUTH_SECRET, code, pending.otp_hash))) {
+    await recordFailedOtpAttempt(env, pending);
     return { ok: false, error: "Invalid verification code.", status: 400 };
   }
+
+  if (!(await claimPendingByOtpHash(env, pending))) {
+    return {
+      ok: false,
+      error: "Verification expired or already used. Sign up again.",
+      status: 400,
+    };
+  }
+
   return finalizeSignup(env, pending);
 }
 
-export async function completePendingWithLinkToken(
+export async function completePendingWithLink(
   env: AuthEnv,
-  token: string,
+  emailInput: string,
+  linkToken: string,
 ): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
-  const pending = await getPendingByLinkToken(env, token.trim());
-  if (!pending) {
-    return { ok: false, error: "Invalid or expired verification link.", status: 400 };
+  await purgeExpiredPending(env);
+
+  const email = emailInput.trim().toLowerCase();
+  const token = linkToken.trim();
+  if (!email || !token) {
+    return { ok: false, error: "Invalid verification link.", status: 400 };
   }
+
+  const pending = await getPendingByEmail(env, email);
+  if (!pending) {
+    return { ok: false, error: "No pending sign-up for this email.", status: 400 };
+  }
+  if (nowMs() > pending.expires_at) {
+    await env.DB.prepare(`DELETE FROM pending_signup WHERE id = ?`).bind(pending.id).run();
+    return {
+      ok: false,
+      error: "Verification expired. Sign up again to get a new code (same email is fine).",
+      status: 400,
+    };
+  }
+  if (!pending.link_token_hash) {
+    return { ok: false, error: "Invalid verification link.", status: 400 };
+  }
+  if (!(await verifyTokenHash(env.AUTH_SECRET, token, pending.link_token_hash))) {
+    return { ok: false, error: "Invalid verification link.", status: 400 };
+  }
+
+  if (!(await claimPendingByLinkHash(env, pending))) {
+    return {
+      ok: false,
+      error: "Verification expired or already used. Sign up again.",
+      status: 400,
+    };
+  }
+
   return finalizeSignup(env, pending);
 }

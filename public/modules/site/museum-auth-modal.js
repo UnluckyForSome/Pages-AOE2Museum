@@ -9,10 +9,17 @@
     "verify-pending": "Verify your email",
     "verified-success": "Account verified",
     forgot: "Reset password",
+    "reset-password": "Reset password",
+    "reset-success": "Password updated",
+    profile: "My account",
+    delete: "Delete account",
   };
 
   let turnstileWidget = null;
   let pendingVerificationEmail = "";
+  /** @type {"active" | "expired"} */
+  let verifyPanelMode = "active";
+  let pendingResetToken = "";
   let onSuccessCallback = null;
   let lastActiveElement = null;
   let wired = false;
@@ -22,19 +29,95 @@
     return document.getElementById(id);
   }
 
+  function shouldOverlayTurnstile(text, ok) {
+    if (ok) return true;
+    if (/security check|captcha/i.test(text)) return false;
+    return true;
+  }
+
   function showMsg(el, text, ok) {
     if (!el) return;
     el.textContent = text;
     el.className = ok
-      ? "form-msg form-msg--ok museum-auth-modal__msg"
-      : "form-msg form-msg--err museum-auth-modal__msg";
+      ? "form-msg form-msg--ok museum-auth-modal__msg museum-auth-modal__status-msg"
+      : "form-msg form-msg--err museum-auth-modal__msg museum-auth-modal__status-msg";
+    el.hidden = false;
+    const status = el.closest(".museum-auth-modal__status");
+    if (!status) return;
+    if (shouldOverlayTurnstile(text, ok)) {
+      status.classList.add("is-showing-msg");
+    } else {
+      status.classList.remove("is-showing-msg");
+    }
   }
 
   function clearMsg(id) {
     const el = $(id);
     if (!el) return;
     el.textContent = "";
-    el.className = "form-msg museum-auth-modal__msg";
+    el.className = "form-msg museum-auth-modal__msg museum-auth-modal__status-msg";
+    el.hidden = true;
+    el.closest(".museum-auth-modal__status")?.classList.remove("is-showing-msg");
+  }
+
+  function isVerifySessionDeadError(text) {
+    if (!text) return false;
+    return /no pending sign-up|verification expired|already used|invalid verification link/i.test(
+      text,
+    );
+  }
+
+  function setVerifyPanelMode(mode, opts) {
+    verifyPanelMode = mode;
+    const active = $("museum-auth-verify-active-block");
+    const expired = $("museum-auth-verify-expired-block");
+    const hint = $("museum-auth-verify-hint");
+    if (active) active.hidden = mode === "expired";
+    if (expired) expired.hidden = mode !== "expired";
+    if (hint) hint.hidden = mode === "expired";
+    if (mode === "expired") {
+      const textEl = $("museum-auth-verify-expired-text");
+      if (textEl) {
+        textEl.textContent =
+          opts?.message ||
+          "This verification link or code has expired. Sign up again to get a new code (you can use the same email).";
+      }
+      if (opts?.email) pendingVerificationEmail = String(opts.email);
+      setTimeout(function () {
+        $("museum-auth-verify-signup-again")?.focus();
+      }, 0);
+    }
+    clearMsg("museum-auth-verify-msg");
+  }
+
+  async function getTurnstileTokenForView(view) {
+    if (!viewUsesTurnstile(view)) return "";
+    try {
+      await ensureTurnstileScript();
+      mountTurnstileHost(view);
+      await ensureTurnstileWidget(view);
+    } catch {
+      return "";
+    }
+    let token = window.MuseumTurnstile?.getToken(turnstileWidget) || "";
+    if (!token) {
+      window.MuseumTurnstile?.reset(turnstileWidget);
+      await new Promise(function (resolve) {
+        setTimeout(resolve, 400);
+      });
+      token = window.MuseumTurnstile?.getToken(turnstileWidget) || "";
+    }
+    return token;
+  }
+
+  function focusTurnstileHost() {
+    const host = $(TURNSTILE_HOST_ID);
+    if (!host || host.hidden) return;
+    try {
+      host.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    } catch {
+      /* ignore */
+    }
   }
 
   async function api(path, opts) {
@@ -93,7 +176,6 @@
       '<span class="museum-auth-modal__label">Password</span>' +
       '<input class="museum-auth-modal__input" type="password" name="password" required autocomplete="current-password" />' +
       "</label>" +
-      '<div class="museum-auth-modal__turnstile-slot" data-turnstile-slot="sign-in"></div>' +
       '<div class="museum-auth-modal__extras">' +
       '<label class="museum-auth-modal__remember">' +
       '<input type="checkbox" name="remember" checked />' +
@@ -101,7 +183,9 @@
       "</label>" +
       '<button type="button" class="museum-auth-modal__forgot linklike" id="museum-auth-forgot-btn">Forgot your password?</button>' +
       "</div>" +
-      '<p id="museum-auth-msg" class="form-msg museum-auth-modal__msg" role="status"></p>' +
+      '<div class="museum-auth-modal__status" data-turnstile-slot="sign-in">' +
+      '<p id="museum-auth-msg" class="form-msg museum-auth-modal__msg museum-auth-modal__status-msg" role="status" hidden></p>' +
+      "</div>" +
       '<button type="submit" class="btn museum-auth-modal__submit" id="museum-auth-submit">Sign in</button>' +
       "</div>" +
       "</form>" +
@@ -124,8 +208,9 @@
       '<span class="museum-auth-modal__label">Password</span>' +
       '<input class="museum-auth-modal__input" type="password" name="password" required minlength="8" autocomplete="new-password" />' +
       "</label>" +
-      '<div class="museum-auth-modal__turnstile-slot" data-turnstile-slot="sign-up"></div>' +
-      '<p id="museum-auth-signup-msg" class="form-msg museum-auth-modal__msg" role="status"></p>' +
+      '<div class="museum-auth-modal__status" data-turnstile-slot="sign-up">' +
+      '<p id="museum-auth-signup-msg" class="form-msg museum-auth-modal__msg museum-auth-modal__status-msg" role="status" hidden></p>' +
+      "</div>" +
       '<button type="submit" class="btn museum-auth-modal__submit" id="museum-auth-signup-submit">Create account</button>' +
       "</div>" +
       "</form>" +
@@ -134,17 +219,26 @@
       "</p>" +
       "</div>" +
       '<div id="museum-auth-verify-pending-panel" class="museum-auth-modal__panel" data-auth-view="verify-pending">' +
-      '<p class="museum-auth-modal__hint museum-auth-modal__hint--verify">' +
-      "We sent a verification code to <strong id=\"museum-auth-verify-email\"></strong>. " +
-      "Enter the code below, or open the link in that email." +
-      "</p>" +
+      '<div id="museum-auth-verify-expired-block" class="museum-auth-modal__verify-expired" hidden>' +
+      '<p id="museum-auth-verify-expired-text" class="museum-auth-modal__hint museum-auth-modal__hint--verify"></p>' +
+      '<button type="button" class="btn museum-auth-modal__submit" id="museum-auth-verify-signup-again">Sign up again</button>' +
+      '<button type="button" class="linklike museum-auth-modal__back-link" id="museum-auth-verify-signin-expired">Sign in</button>' +
+      "</div>" +
       '<form id="museum-auth-verify-form" class="museum-auth-modal__form" novalidate>' +
+      '<div id="museum-auth-verify-active-block">' +
+      '<p class="museum-auth-modal__hint museum-auth-modal__hint--verify" id="museum-auth-verify-hint">' +
+      "We sent a verification code to <strong id=\"museum-auth-verify-email\"></strong>. " +
+      "Enter the code below, or use the link in your email. Codes expire in 10 minutes." +
+      "</p>" +
       '<div class="museum-auth-modal__fields">' +
       '<label class="museum-auth-modal__field">' +
       '<span class="museum-auth-modal__label">Verification code</span>' +
       '<input class="museum-auth-modal__input museum-auth-modal__otp" id="museum-auth-verify-otp" type="text" name="otp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required />' +
       "</label>" +
-      '<p id="museum-auth-verify-msg" class="form-msg museum-auth-modal__msg" role="status"></p>' +
+      '<div class="museum-auth-modal__msg-band">' +
+      '<p id="museum-auth-verify-msg" class="form-msg museum-auth-modal__msg" role="status" hidden></p>' +
+      "</div>" +
+      '<div class="museum-auth-modal__status" data-turnstile-slot="verify-pending" aria-label="Security check"></div>' +
       '<button type="submit" class="btn museum-auth-modal__submit" id="museum-auth-verify-submit">Verify email</button>' +
       '<button type="button" class="btn btn--ghost museum-auth-modal__submit" id="museum-auth-verify-resend">Resend code</button>' +
       '<button type="button" class="linklike museum-auth-modal__back-link" id="museum-auth-verify-back">Back to sign up</button>' +
@@ -163,13 +257,61 @@
       '<span class="museum-auth-modal__label">Email Address</span>' +
       '<input class="museum-auth-modal__input" type="email" name="email" required autocomplete="email" />' +
       "</label>" +
-      '<div class="museum-auth-modal__turnstile-slot" data-turnstile-slot="forgot"></div>' +
-      '<p id="museum-auth-forgot-msg" class="form-msg museum-auth-modal__msg" role="status"></p>' +
+      '<div class="museum-auth-modal__status" data-turnstile-slot="forgot">' +
+      '<p id="museum-auth-forgot-msg" class="form-msg museum-auth-modal__msg museum-auth-modal__status-msg" role="status" hidden></p>' +
+      "</div>" +
       '<button type="submit" class="btn museum-auth-modal__submit" id="museum-auth-forgot-submit">Send reset link</button>' +
       '<button type="button" class="btn btn--ghost museum-auth-modal__submit" id="museum-auth-back-btn">Back to sign in</button>' +
       "</div>" +
       "</form>" +
       "</div>" +
+      '<div id="museum-auth-reset-panel" class="museum-auth-modal__panel" data-auth-view="reset-password">' +
+      '<p class="museum-auth-modal__hint" id="museum-auth-reset-hint">Choose a new password for your account.</p>' +
+      '<form id="museum-auth-reset-form" class="museum-auth-modal__form" novalidate>' +
+      '<div class="museum-auth-modal__fields">' +
+      '<label class="museum-auth-modal__field">' +
+      '<span class="museum-auth-modal__label">New password</span>' +
+      '<input class="museum-auth-modal__input" type="password" name="password" required minlength="8" autocomplete="new-password" />' +
+      "</label>" +
+      '<label class="museum-auth-modal__field">' +
+      '<span class="museum-auth-modal__label">Confirm password</span>' +
+      '<input class="museum-auth-modal__input" type="password" name="password_confirm" required minlength="8" autocomplete="new-password" />' +
+      "</label>" +
+      '<div class="museum-auth-modal__msg-band">' +
+      '<p id="museum-auth-reset-msg" class="form-msg museum-auth-modal__msg" role="status" hidden></p>' +
+      "</div>" +
+      '<button type="submit" class="btn museum-auth-modal__submit" id="museum-auth-reset-submit">Update password</button>' +
+      "</div>" +
+      "</form>" +
+      '<p class="museum-auth-modal__footer museum-auth-modal__footer--reset">' +
+      '<button type="button" class="linklike" id="museum-auth-reset-forgot">Request a new reset link</button>' +
+      '<button type="button" class="linklike museum-auth-modal__back-link" id="museum-auth-reset-back">Back to sign in</button>' +
+      "</p>" +
+      "</div>" +
+      '<div id="museum-auth-reset-success-panel" class="museum-auth-modal__panel" data-auth-view="reset-success">' +
+      '<p class="museum-auth-modal__hint">Your password has been updated.</p>' +
+      '<button type="button" class="btn museum-auth-modal__submit" id="museum-auth-reset-success-signin">Sign in</button>' +
+      "</div>" +
+      '<div id="museum-auth-profile-panel" class="museum-auth-modal__panel" data-auth-view="profile">' +
+      '<dl class="profile-dl museum-auth-modal__profile-dl">' +
+      '<dt>Name</dt><dd id="museum-auth-profile-name">&hellip;</dd>' +
+      '<dt>Email</dt><dd id="museum-auth-profile-email">&hellip;</dd>' +
+      '<dt>Status</dt><dd id="museum-auth-profile-verified">&hellip;</dd>' +
+      '</dl>' +
+      '<p class="museum-auth-modal__footer">' +
+      '<button type="button" class="linklike text-danger" id="museum-auth-profile-delete-link">Delete account</button>' +
+      '</p>' +
+      '</div>' +
+      '<div id="museum-auth-delete-panel" class="museum-auth-modal__panel" data-auth-view="delete">' +
+      '<p class="museum-auth-modal__hint text-danger">This permanently removes all your uploads, campaigns, generated history, and hearts. It cannot be undone.</p>' +
+      '<form id="museum-auth-delete-form" class="museum-auth-modal__form">' +
+      '<button type="submit" class="btn btn--danger museum-auth-modal__submit">Delete my account</button>' +
+      '<button type="button" class="btn btn--ghost museum-auth-modal__submit" id="museum-auth-delete-cancel">Cancel</button>' +
+      '</form>' +
+      '<div class="museum-auth-modal__msg-band">' +
+      '<p id="museum-auth-delete-msg" class="form-msg museum-auth-modal__msg" role="status" hidden></p>' +
+      "</div>" +
+      '</div>' +
       "</div>" +
       '<div id="' +
       TURNSTILE_HOST_ID +
@@ -181,7 +323,13 @@
 
   function ensureModal() {
     let backdrop = $(MODAL_ID);
-    if (backdrop?.querySelector("#museum-auth-verify-pending-panel")) {
+    if (
+      backdrop?.querySelector("#museum-auth-verify-pending-panel") &&
+      backdrop?.querySelector("#museum-auth-verify-expired-block") &&
+      backdrop?.querySelector("#museum-auth-reset-panel") &&
+      backdrop?.querySelector("#museum-auth-profile-panel") &&
+      backdrop?.querySelector(".museum-auth-modal__status")
+    ) {
       return backdrop;
     }
     if (backdrop) backdrop.remove();
@@ -257,11 +405,17 @@
   }
 
   function viewUsesTurnstile(view) {
-    return view === "sign-in" || view === "sign-up" || view === "forgot";
+    return (
+      view === "sign-in" ||
+      view === "sign-up" ||
+      view === "forgot" ||
+      view === "verify-pending"
+    );
   }
 
   function showVerifyPending(email) {
     pendingVerificationEmail = email;
+    setVerifyPanelMode("active");
     const emailEl = $("museum-auth-verify-email");
     if (emailEl) emailEl.textContent = email;
     const otpInput = $("museum-auth-verify-otp");
@@ -274,6 +428,59 @@
 
   function showVerifiedSuccess() {
     void setView("verified-success");
+  }
+
+  function applyResetState(token, error) {
+    pendingResetToken = token || "";
+    const form = $("museum-auth-reset-form");
+    const hint = $("museum-auth-reset-hint");
+    const msg = $("museum-auth-reset-msg");
+    if (form) {
+      form.hidden = !token || !!error;
+      if (!error) form.reset();
+    }
+    if (hint) {
+      hint.textContent =
+        token && !error
+          ? "Choose a new password for your account."
+          : "This reset link is invalid or has expired. Request a new link below.";
+    }
+    if (error && msg) {
+      showMsg(msg, "Reset link expired or invalid.", false);
+    } else {
+      clearMsg("museum-auth-reset-msg");
+    }
+  }
+
+  function showResetSuccess() {
+    pendingResetToken = "";
+    void setView("reset-success");
+  }
+
+  function populateProfile(user) {
+    const nameEl = $("museum-auth-profile-name");
+    const emailEl = $("museum-auth-profile-email");
+    const verifiedEl = $("museum-auth-profile-verified");
+    if (nameEl) nameEl.textContent = user.username || "—";
+    if (emailEl) emailEl.textContent = user.email || "—";
+    if (!verifiedEl) return;
+    if (user.emailVerified) {
+      verifiedEl.textContent = "Verified";
+      return;
+    }
+    verifiedEl.innerHTML =
+      'Not verified — <button type="button" class="linklike" id="museum-auth-profile-verify">verify your email</button>';
+    $("museum-auth-profile-verify")?.addEventListener("click", function () {
+      pendingVerificationEmail = user.email || "";
+      showVerifyPending(user.email || "");
+    });
+  }
+
+  async function loadProfilePanel() {
+    const { res, data } = await api("/api/me", { method: "GET" });
+    if (!res.ok || !data.user) return false;
+    populateProfile(data.user);
+    return true;
   }
 
   async function setView(view) {
@@ -297,6 +504,7 @@
       "sign-up": '#museum-auth-signup-form input[name="museum_name"]',
       "verify-pending": "#museum-auth-verify-otp",
       forgot: '#museum-auth-forgot-form input[name="email"]',
+      "reset-password": '#museum-auth-reset-form input[name="password"]',
     };
     const sel = map[view];
     const input = sel ? document.querySelector(sel) : null;
@@ -315,6 +523,7 @@
     }
     lastActiveElement = null;
     onSuccessCallback = null;
+    pendingResetToken = "";
     activeView = "sign-in";
     setActivePanels("sign-in");
   }
@@ -386,18 +595,144 @@
       });
     });
 
+    $("museum-auth-reset-success-signin")?.addEventListener("click", function () {
+      void setView("sign-in").then(function () {
+        focusFirstField("sign-in");
+      });
+    });
+
+    $("museum-auth-reset-forgot")?.addEventListener("click", function () {
+      void setView("forgot").then(function () {
+        focusFirstField("forgot");
+      });
+    });
+
+    $("museum-auth-reset-back")?.addEventListener("click", function () {
+      void setView("sign-in").then(function () {
+        focusFirstField("sign-in");
+      });
+    });
+
+    $("museum-auth-profile-delete-link")?.addEventListener("click", function () {
+      void setView("delete");
+    });
+
+    $("museum-auth-delete-cancel")?.addEventListener("click", function () {
+      void setView("profile").then(function () {
+        void loadProfilePanel();
+      });
+    });
+
+    const deleteForm = $("museum-auth-delete-form");
+    deleteForm?.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const msg = $("museum-auth-delete-msg");
+      if (!confirm("Permanently delete your account and all uploads? This cannot be undone.")) {
+        return;
+      }
+      const submit = deleteForm.querySelector('button[type="submit"]');
+      if (submit) submit.disabled = true;
+      showMsg(msg, "Deleting…", true);
+
+      const { res, data } = await api("/api/auth/delete-user", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+
+      if (submit) submit.disabled = false;
+
+      if (res.ok) {
+        closeModal();
+        document.dispatchEvent(new CustomEvent("museum-auth-login"));
+        window.location.assign("/");
+        return;
+      }
+
+      showMsg(msg, data.message || data.error || "Delete failed", false);
+    });
+
+    const resetForm = $("museum-auth-reset-form");
+    resetForm?.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const msg = $("museum-auth-reset-msg");
+      const submit = $("museum-auth-reset-submit");
+      if (!pendingResetToken) {
+        showMsg(msg, "Reset link expired or invalid.", false);
+        return;
+      }
+      const fd = new FormData(resetForm);
+      const password = String(fd.get("password") || "");
+      const confirm = String(fd.get("password_confirm") || "");
+      if (password !== confirm) {
+        showMsg(msg, "Passwords do not match.", false);
+        return;
+      }
+      if (submit) submit.disabled = true;
+      showMsg(msg, "Updating…", true);
+
+      const { res, data } = await api("/api/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({
+          newPassword: password,
+          token: pendingResetToken,
+        }),
+      });
+
+      if (submit) submit.disabled = false;
+
+      if (res.ok) {
+        resetForm.reset();
+        showResetSuccess();
+        return;
+      }
+
+      showMsg(msg, data.message || data.error || "Could not reset password", false);
+    });
+
+    function openSignUpWithEmail(email) {
+      void setView("sign-up").then(function () {
+        const input = document.querySelector(
+          '#museum-auth-signup-form input[name="email"]',
+        );
+        if (input && email) input.value = email;
+        focusFirstField("sign-up");
+      });
+    }
+
+    $("museum-auth-verify-signup-again")?.addEventListener("click", function () {
+      openSignUpWithEmail(pendingVerificationEmail);
+    });
+
+    $("museum-auth-verify-signin-expired")?.addEventListener("click", function () {
+      void setView("sign-in").then(function () {
+        focusFirstField("sign-in");
+      });
+    });
+
     const verifyForm = $("museum-auth-verify-form");
     verifyForm?.addEventListener("submit", async function (e) {
       e.preventDefault();
       const msg = $("museum-auth-verify-msg");
       const submit = $("museum-auth-verify-submit");
+      if (verifyPanelMode === "expired") {
+        openSignUpWithEmail(pendingVerificationEmail);
+        return;
+      }
       const otp = String($("museum-auth-verify-otp")?.value || "").trim();
       if (!pendingVerificationEmail) {
-        showMsg(msg, "Start sign-up again to receive a new code.", false);
+        setVerifyPanelMode("expired", {
+          message: "No active verification for this email. Sign up again to get a new code.",
+        });
         return;
       }
       if (!/^[0-9]{6}$/.test(otp)) {
         showMsg(msg, "Enter the 6-digit code from your email.", false);
+        return;
+      }
+      const token = await getTurnstileTokenForView("verify-pending");
+      if (!token) {
+        showMsg(msg, "Complete the security check below.", false);
+        focusTurnstileHost();
         return;
       }
       if (submit) submit.disabled = true;
@@ -408,6 +743,7 @@
         body: JSON.stringify({
           email: pendingVerificationEmail,
           otp: otp,
+          "cf-turnstile-response": token,
         }),
       });
 
@@ -419,14 +755,36 @@
         return;
       }
 
-      showMsg(msg, data.error || data.message || "Verification failed", false);
+      const errText = data.error || data.message || "Verification failed";
+      if (isVerifySessionDeadError(errText)) {
+        setVerifyPanelMode("expired", {
+          message: errText,
+          email: pendingVerificationEmail,
+        });
+        return;
+      }
+
+      showMsg(msg, errText, false);
+      window.MuseumTurnstile?.reset(turnstileWidget);
     });
 
     $("museum-auth-verify-resend")?.addEventListener("click", async function () {
       const msg = $("museum-auth-verify-msg");
       const btn = $("museum-auth-verify-resend");
+      if (verifyPanelMode === "expired") {
+        openSignUpWithEmail(pendingVerificationEmail);
+        return;
+      }
       if (!pendingVerificationEmail) {
-        showMsg(msg, "Start sign-up again to receive a code.", false);
+        setVerifyPanelMode("expired", {
+          message: "No active verification for this email. Sign up again to get a new code.",
+        });
+        return;
+      }
+      const token = await getTurnstileTokenForView("verify-pending");
+      if (!token) {
+        showMsg(msg, "Complete the security check below.", false);
+        focusTurnstileHost();
         return;
       }
       if (btn) btn.disabled = true;
@@ -434,7 +792,10 @@
 
       const { res, data } = await api("/api/auth/museum/resend-verification", {
         method: "POST",
-        body: JSON.stringify({ email: pendingVerificationEmail }),
+        body: JSON.stringify({
+          email: pendingVerificationEmail,
+          "cf-turnstile-response": token,
+        }),
       });
 
       if (btn) btn.disabled = false;
@@ -444,7 +805,17 @@
         return;
       }
 
-      showMsg(msg, data.error || data.message || "Could not resend code", false);
+      const errText = data.error || data.message || "Could not resend code";
+      if (isVerifySessionDeadError(errText)) {
+        setVerifyPanelMode("expired", {
+          message: errText,
+          email: pendingVerificationEmail,
+        });
+        return;
+      }
+
+      showMsg(msg, errText, false);
+      window.MuseumTurnstile?.reset(turnstileWidget);
     });
 
     const loginForm = $("museum-auth-login-form");
@@ -563,7 +934,7 @@
       showMsg(msg, "Sending…", true);
 
       const redirectTo =
-        window.location.origin.replace(/\/$/, "") + "/account/reset-password.html";
+        window.location.origin.replace(/\/$/, "") + "/?museum-auth=reset-password";
       const { res, data } = await api("/api/auth/request-password-reset", {
         method: "POST",
         body: JSON.stringify({
@@ -592,23 +963,57 @@
   }
 
   async function open(opts) {
-    const allowed = ["sign-in", "sign-up", "forgot", "verify-pending", "verified-success"];
-    const view =
+    const allowed = [
+      "sign-in",
+      "sign-up",
+      "forgot",
+      "verify-pending",
+      "verified-success",
+      "reset-password",
+      "reset-success",
+      "profile",
+      "delete",
+    ];
+    let view =
       opts && allowed.includes(opts.view) ? opts.view : "sign-in";
+    let resumeView = null;
+    if (view === "profile" || view === "delete") {
+      const { res, data } = await api("/api/me", { method: "GET" });
+      if (!res.ok || !data.user) {
+        resumeView = view;
+        view = "sign-in";
+      }
+    }
     if (opts?.email && view === "verify-pending") {
       pendingVerificationEmail = String(opts.email);
     }
-    onSuccessCallback = opts && typeof opts.onSuccess === "function" ? opts.onSuccess : null;
+    if (view === "reset-password") {
+      applyResetState(
+        opts?.token != null ? String(opts.token) : pendingResetToken,
+        opts?.error ? String(opts.error) : "",
+      );
+    }
+    onSuccessCallback =
+      opts && typeof opts.onSuccess === "function"
+        ? opts.onSuccess
+        : resumeView
+          ? function () {
+              void open({ view: resumeView });
+            }
+          : null;
     lastActiveElement = document.activeElement;
 
     const backdrop = ensureModal();
     $("museum-auth-login-form")?.reset();
     $("museum-auth-signup-form")?.reset();
     $("museum-auth-forgot-form")?.reset();
+    $("museum-auth-reset-form")?.reset();
     clearMsg("museum-auth-msg");
     clearMsg("museum-auth-signup-msg");
     clearMsg("museum-auth-forgot-msg");
     clearMsg("museum-auth-verify-msg");
+    clearMsg("museum-auth-reset-msg");
+    clearMsg("museum-auth-delete-msg");
     if (view === "verify-pending" && pendingVerificationEmail) {
       const emailEl = $("museum-auth-verify-email");
       if (emailEl) emailEl.textContent = pendingVerificationEmail;
@@ -621,12 +1026,34 @@
 
     try {
       await setView(view);
+      if (view === "verify-pending") {
+        if (opts?.verifyExpired) {
+          setVerifyPanelMode("expired", {
+            message: opts.verifyError ? String(opts.verifyError) : undefined,
+            email: opts.email ? String(opts.email) : pendingVerificationEmail,
+          });
+        } else {
+          setVerifyPanelMode("active");
+        }
+      }
+      if (view === "profile") {
+        const ok = await loadProfilePanel();
+        if (!ok) {
+          await setView("sign-in");
+          focusFirstField("sign-in");
+          return;
+        }
+      }
     } catch {
       const msg = view === "sign-up" ? $("museum-auth-signup-msg") : $("museum-auth-msg");
       showMsg(msg, "Could not load security check. Refresh and try again.", false);
     }
 
-    focusFirstField(view);
+    if (view !== "profile" && view !== "delete") {
+      if (!(view === "verify-pending" && verifyPanelMode === "expired")) {
+        focusFirstField(view);
+      }
+    }
   }
 
   window.MuseumAuthModal = {

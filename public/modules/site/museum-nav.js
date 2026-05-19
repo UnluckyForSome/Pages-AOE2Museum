@@ -6,30 +6,26 @@
       type: "mega",
       id: "archives",
       label: "Archives",
-      blurb: "Classic art, wallpapers, and audio preserved for the museum.",
       items: [
         {
           label: "Concept Art",
           desc: "Development sketches and concept pieces.",
-          href: "#",
+          href: "",
           routeKey: "archives-concept",
-          placeholder: true,
           icon: "palette",
         },
         {
           label: "Wallpapers",
           desc: "Official and fan desktop backgrounds.",
-          href: "#",
+          href: "",
           routeKey: "archives-wallpapers",
-          placeholder: true,
           icon: "image",
         },
         {
           label: "Music & SFX",
           desc: "Soundtracks and classic game audio.",
-          href: "#",
+          href: "",
           routeKey: "archives-audio",
-          placeholder: true,
           icon: "audio",
         },
       ],
@@ -38,7 +34,6 @@
       type: "mega",
       id: "exhibits",
       label: "Exhibits",
-      blurb: "Interactive museum tools you can try in your browser.",
       items: [
         {
           label: "Minimap",
@@ -74,7 +69,6 @@
       type: "mega",
       id: "other",
       label: "Other",
-      blurb: "More from the museum collection.",
       items: [
         {
           label: "Mods",
@@ -158,28 +152,11 @@
 
   function renderMegaCard(item, activeKey) {
     const isActive = item.routeKey && item.routeKey === activeKey;
-    const soon = item.placeholder ? '<span class="site-nav__soon">Coming soon</span>' : "";
     const activeAttr = isActive ? ' aria-current="page"' : "";
-    if (item.placeholder) {
-      return (
-        '<span class="site-nav__mega-card site-nav__mega-card--placeholder" role="listitem"' +
-        (item.routeKey ? ' data-route-key="' + item.routeKey + '"' : "") +
-        ">" +
-        iconHtml(item.icon) +
-        '<span class="site-nav__mega-card-body">' +
-        '<span class="site-nav__mega-card-title">' +
-        item.label +
-        "</span>" +
-        '<span class="site-nav__mega-card-desc">' +
-        item.desc +
-        "</span>" +
-        soon +
-        "</span></span>"
-      );
-    }
+    const href = item.href != null ? item.href : "";
     return (
       '<a class="site-nav__mega-card" role="listitem" href="' +
-      item.href +
+      href +
       '"' +
       (item.routeKey ? ' data-route-key="' + item.routeKey + '"' : "") +
       activeAttr +
@@ -237,7 +214,6 @@
           '<span class="site-nav__trigger-label">' +
           entry.label +
           "</span>" +
-          '<span class="site-nav__chevron" aria-hidden="true"></span>' +
           "</button>" +
           '<div class="site-nav__mega-panel" id="' +
           panelId +
@@ -245,9 +221,6 @@
           entry.id +
           '" hidden>' +
           '<div class="site-nav__mega-panel-inner">' +
-          '<p class="site-nav__mega-blurb">' +
-          entry.blurb +
-          "</p>" +
           '<div class="site-nav__mega-grid" role="list">' +
           cards.join("") +
           "</div>" +
@@ -280,20 +253,10 @@
       const links = entry.items
         .map(function (it) {
           const isActive = it.routeKey === activeKey;
-          const soon = it.placeholder ? ' <span class="site-nav__soon">Coming soon</span>' : "";
-          if (it.placeholder) {
-            return (
-              '<span class="site-nav__mobile-placeholder"' +
-              (it.routeKey ? ' data-route-key="' + it.routeKey + '"' : "") +
-              ">" +
-              it.label +
-              soon +
-              "</span>"
-            );
-          }
+          const href = it.href != null ? it.href : "";
           return (
             '<a href="' +
-            it.href +
+            href +
             '"' +
             (it.routeKey ? ' data-route-key="' + it.routeKey + '"' : "") +
             (isActive ? ' aria-current="page"' : "") +
@@ -310,7 +273,6 @@
           sectionId +
           '">' +
           entry.label +
-          '<span class="site-nav__chevron" aria-hidden="true"></span>' +
           "</button>" +
           '<div class="site-nav__mobile-section-panel" id="' +
           sectionId +
@@ -432,8 +394,7 @@
 
     trigger.addEventListener("click", function (e) {
       e.preventDefault();
-      if (itemEl.classList.contains("is-open")) close();
-      else open();
+      if (!itemEl.classList.contains("is-open")) open();
     });
 
     trigger.addEventListener("keydown", function (e) {
@@ -457,10 +418,10 @@
     });
   }
 
-  function initPlaceholderClicks(nav) {
+  function initEmptyNavLinks(nav) {
     nav.addEventListener("click", function (e) {
-      const card = e.target.closest(".site-nav__mega-card--placeholder, .site-nav__mobile-placeholder");
-      if (card) e.preventDefault();
+      const link = e.target.closest('a[href=""]');
+      if (link) e.preventDefault();
     });
   }
 
@@ -500,9 +461,9 @@
     }
 
     renderNav(nav);
-    if (!nav.dataset.placeholderClick) {
-      nav.dataset.placeholderClick = "1";
-      initPlaceholderClicks(nav);
+    if (!nav.dataset.emptyNavLinkClick) {
+      nav.dataset.emptyNavLinkClick = "1";
+      initEmptyNavLinks(nav);
     }
   }
 

@@ -5,9 +5,10 @@ import { getTurnstileSecretForRequest, verifyTurnstile } from "../../scenarios/s
 export const TURNSTILE_AUTH_PATHS = new Set([
   "/api/auth/sign-in/email",
   "/api/auth/sign-in/username",
-  "/api/auth/sign-up/email",
   "/api/auth/request-password-reset",
   "/api/auth/museum/register",
+  "/api/auth/museum/complete-verification",
+  "/api/auth/museum/resend-verification",
 ]);
 
 export function isTurnstileProtectedAuthPath(pathname: string, method: string): boolean {

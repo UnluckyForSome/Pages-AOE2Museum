@@ -1,7 +1,7 @@
 import type { AuthEnv } from "../env";
 import { json } from "../../http/json";
 import {
-  completePendingWithLinkToken,
+  completePendingWithLink,
   completePendingWithOtp,
   registerPendingSignup,
   resendPendingVerification,
@@ -72,17 +72,13 @@ export async function routePendingSignup(
     return json({ ok: true });
   }
 
-  if (pathname === "/api/auth/museum/verify" && request.method === "GET") {
-    const token = new URL(request.url).searchParams.get("token") ?? "";
-    const result = await completePendingWithLinkToken(env, token);
-    const origin = env.PUBLIC_BASE_URL.replace(/\/$/, "");
-    if (!result.ok) {
-      return Response.redirect(
-        `${origin}/?museum-auth=verify-error&message=${encodeURIComponent(result.error)}`,
-        302,
-      );
-    }
-    return Response.redirect(`${origin}/?museum-auth=verified`, 302);
+  if (pathname === "/api/auth/museum/verify-link" && request.method === "GET") {
+    const url = new URL(request.url);
+    const email = url.searchParams.get("email") ?? "";
+    const token = url.searchParams.get("token") ?? "";
+    const result = await completePendingWithLink(env, email, token);
+    if (!result.ok) return json({ error: result.error }, { status: result.status });
+    return json({ ok: true });
   }
 
   return null;
