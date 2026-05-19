@@ -80,7 +80,7 @@
       if (textEl) {
         textEl.textContent =
           opts?.message ||
-          "This verification link or code has expired. Sign up again to get a new code (you can use the same email).";
+          "No pending sign-up for this email - it's likely your link expired!";
       }
       if (opts?.email) pendingVerificationEmail = String(opts.email);
       setTimeout(function () {
@@ -108,16 +108,6 @@
       token = window.MuseumTurnstile?.getToken(turnstileWidget) || "";
     }
     return token;
-  }
-
-  function focusTurnstileHost() {
-    const host = $(TURNSTILE_HOST_ID);
-    if (!host || host.hidden) return;
-    try {
-      host.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    } catch {
-      /* ignore */
-    }
   }
 
   async function api(path, opts) {
@@ -221,7 +211,7 @@
       '<div id="museum-auth-verify-pending-panel" class="museum-auth-modal__panel" data-auth-view="verify-pending">' +
       '<div id="museum-auth-verify-expired-block" class="museum-auth-modal__verify-expired" hidden>' +
       '<p id="museum-auth-verify-expired-text" class="museum-auth-modal__hint museum-auth-modal__hint--verify"></p>' +
-      '<button type="button" class="btn museum-auth-modal__submit" id="museum-auth-verify-signup-again">Sign up again</button>' +
+      '<button type="button" class="btn museum-auth-modal__submit" id="museum-auth-verify-signup-again">Retry Sign Up</button>' +
       '<button type="button" class="linklike museum-auth-modal__back-link" id="museum-auth-verify-signin-expired">Sign in</button>' +
       "</div>" +
       '<form id="museum-auth-verify-form" class="museum-auth-modal__form" novalidate>' +
@@ -235,10 +225,9 @@
       '<span class="museum-auth-modal__label">Verification code</span>' +
       '<input class="museum-auth-modal__input museum-auth-modal__otp" id="museum-auth-verify-otp" type="text" name="otp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required />' +
       "</label>" +
-      '<div class="museum-auth-modal__msg-band">' +
-      '<p id="museum-auth-verify-msg" class="form-msg museum-auth-modal__msg" role="status" hidden></p>' +
+      '<div class="museum-auth-modal__status" data-turnstile-slot="verify-pending">' +
+      '<p id="museum-auth-verify-msg" class="form-msg museum-auth-modal__msg museum-auth-modal__status-msg" role="status" hidden></p>' +
       "</div>" +
-      '<div class="museum-auth-modal__status" data-turnstile-slot="verify-pending" aria-label="Security check"></div>' +
       '<button type="submit" class="btn museum-auth-modal__submit" id="museum-auth-verify-submit">Verify email</button>' +
       '<button type="button" class="btn btn--ghost museum-auth-modal__submit" id="museum-auth-verify-resend">Resend code</button>' +
       '<button type="button" class="linklike museum-auth-modal__back-link" id="museum-auth-verify-back">Back to sign up</button>' +
@@ -246,8 +235,8 @@
       "</form>" +
       "</div>" +
       '<div id="museum-auth-verified-success-panel" class="museum-auth-modal__panel" data-auth-view="verified-success">' +
-      '<p class="museum-auth-modal__hint">Your email is verified and your account is ready.</p>' +
-      '<button type="button" class="btn museum-auth-modal__submit" id="museum-auth-verified-signin">Sign in</button>' +
+      '<p class="museum-auth-modal__hint">Your email is verified. You can now upload, like, and save content! Please log in.</p>' +
+      '<button type="button" class="btn museum-auth-modal__submit" id="museum-auth-verified-signin">Log in</button>' +
       "</div>" +
       '<div id="museum-auth-forgot-panel" class="museum-auth-modal__panel" data-auth-view="forgot">' +
       '<form id="museum-auth-forgot-form" class="museum-auth-modal__form" novalidate>' +
@@ -432,23 +421,31 @@
 
   function applyResetState(token, error) {
     pendingResetToken = token || "";
+    const hasToken = Boolean(pendingResetToken);
     const form = $("museum-auth-reset-form");
     const hint = $("museum-auth-reset-hint");
     const msg = $("museum-auth-reset-msg");
+    const footer = document.querySelector(".museum-auth-modal__footer--reset");
+
     if (form) {
-      form.hidden = !token || !!error;
-      if (!error) form.reset();
+      form.hidden = !hasToken;
+      if (hasToken && !error) form.reset();
     }
+    if (footer) footer.hidden = false;
     if (hint) {
-      hint.textContent =
-        token && !error
-          ? "Choose a new password for your account."
-          : "This reset link is invalid or has expired. Request a new link below.";
+      hint.hidden = false;
+      hint.textContent = hasToken
+        ? "Choose a new password for your account."
+        : "This reset link is invalid or has expired. Request a new link below.";
     }
-    if (error && msg) {
-      showMsg(msg, "Reset link expired or invalid.", false);
-    } else {
-      clearMsg("museum-auth-reset-msg");
+    if (msg) {
+      if (error) {
+        showMsg(msg, String(error), false);
+      } else if (!hasToken) {
+        showMsg(msg, "Request a new reset link below.", false);
+      } else {
+        clearMsg("museum-auth-reset-msg");
+      }
     }
   }
 
@@ -721,7 +718,7 @@
       const otp = String($("museum-auth-verify-otp")?.value || "").trim();
       if (!pendingVerificationEmail) {
         setVerifyPanelMode("expired", {
-          message: "No active verification for this email. Sign up again to get a new code.",
+          message: "No pending sign-up for this email - it's likely your link expired!",
         });
         return;
       }
@@ -731,8 +728,7 @@
       }
       const token = await getTurnstileTokenForView("verify-pending");
       if (!token) {
-        showMsg(msg, "Complete the security check below.", false);
-        focusTurnstileHost();
+        showMsg(msg, "Complete the security check.", false);
         return;
       }
       if (submit) submit.disabled = true;
@@ -777,14 +773,13 @@
       }
       if (!pendingVerificationEmail) {
         setVerifyPanelMode("expired", {
-          message: "No active verification for this email. Sign up again to get a new code.",
+          message: "No pending sign-up for this email - it's likely your link expired!",
         });
         return;
       }
       const token = await getTurnstileTokenForView("verify-pending");
       if (!token) {
-        showMsg(msg, "Complete the security check below.", false);
-        focusTurnstileHost();
+        showMsg(msg, "Complete the security check.", false);
         return;
       }
       if (btn) btn.disabled = true;
@@ -987,12 +982,6 @@
     if (opts?.email && view === "verify-pending") {
       pendingVerificationEmail = String(opts.email);
     }
-    if (view === "reset-password") {
-      applyResetState(
-        opts?.token != null ? String(opts.token) : pendingResetToken,
-        opts?.error ? String(opts.error) : "",
-      );
-    }
     onSuccessCallback =
       opts && typeof opts.onSuccess === "function"
         ? opts.onSuccess
@@ -1026,6 +1015,12 @@
 
     try {
       await setView(view);
+      if (view === "reset-password") {
+        applyResetState(
+          opts?.token != null ? String(opts.token) : pendingResetToken,
+          opts?.error ? String(opts.error) : "",
+        );
+      }
       if (view === "verify-pending") {
         if (opts?.verifyExpired) {
           setVerifyPanelMode("expired", {

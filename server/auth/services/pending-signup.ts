@@ -410,7 +410,11 @@ export async function completePendingWithOtp(
   const code = otp.trim();
   const pending = await getPendingByEmail(env, email);
   if (!pending) {
-    return { ok: false, error: "No pending sign-up for this email.", status: 400 };
+    return {
+      ok: false,
+      error: "No pending sign-up for this email - it's likely your link expired!",
+      status: 400,
+    };
   }
   if (nowMs() > pending.expires_at) {
     await env.DB.prepare(`DELETE FROM pending_signup WHERE id = ?`).bind(pending.id).run();
@@ -458,7 +462,11 @@ export async function completePendingWithLink(
 
   const pending = await getPendingByEmail(env, email);
   if (!pending) {
-    return { ok: false, error: "No pending sign-up for this email.", status: 400 };
+    return {
+      ok: false,
+      error: "No pending sign-up for this email - it's likely your link expired!",
+      status: 400,
+    };
   }
   if (nowMs() > pending.expires_at) {
     await env.DB.prepare(`DELETE FROM pending_signup WHERE id = ?`).bind(pending.id).run();
