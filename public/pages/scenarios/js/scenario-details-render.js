@@ -57,7 +57,7 @@
     return null;
   }
 
-  function formatEdition(analysis) {
+  function formatEra(analysis) {
     var era = deriveGameEra(analysis);
     return era ? ERA_LABELS[era] : "—";
   }
@@ -74,24 +74,44 @@
     return day + " " + mon + " " + yr;
   }
 
+  var MAP_SIZE_BY_DIMENSION = {
+    80: "Miniature",
+    120: "Tiny",
+    144: "Small",
+    168: "Medium",
+    200: "Normal",
+    220: "Large",
+    240: "Huge",
+    252: "Giant",
+    276: "Massive",
+    300: "Enormous",
+    320: "Colossal",
+    360: "Incredible",
+    400: "Monstrous",
+    480: "Ludicrous",
+  };
+
+  function formatMapSize(dimension) {
+    if (dimension == null || !Number.isFinite(Number(dimension))) return "—";
+    var dim = Math.round(Number(dimension));
+    var label = MAP_SIZE_BY_DIMENSION[dim];
+    return (label || "Custom") + " (" + dim + ")";
+  }
+
   function buildSummaryRows(opts) {
     var analysis = opts.analysis || {};
     var objects =
       (Number(analysis.playerObjectCount) || 0) + (Number(analysis.gaiaObjectCount) || 0);
-    var mapDim = analysis.mapDimension;
-    var mapText =
-      mapDim != null && Number.isFinite(Number(mapDim))
-        ? formatNumber(mapDim) + " \u00D7 " + formatNumber(mapDim)
-        : "—";
+    var mapText = formatMapSize(analysis.mapDimension);
     var triggers =
       analysis.triggerCount == null ? "—" : formatNumber(analysis.triggerCount);
 
     return [
       ["Uploaded", formatUploaded(opts.uploadedAt)],
       ["File size", formatBytes(opts.size != null ? opts.size : 0)],
-      ["Edition", formatEdition(analysis)],
+      ["Era", formatEra(analysis)],
       ["Container", analysis.containerFormat || "—"],
-      ["Version", formatDataVersion(analysis.dataVersion)],
+      ["Data", formatDataVersion(analysis.dataVersion)],
       ["Map size", mapText],
       ["Objects", formatNumber(objects)],
       ["Triggers", triggers],
@@ -104,15 +124,12 @@
     return [
       ["File", file.name || opts.filename || "—"],
       ["File size", formatBytes(file.size != null ? file.size : opts.size || 0)],
-      ["Detected edition", formatEdition(analysis)],
-      ["Container format", analysis.containerFormat || "Unavailable"],
-      ["Data version", formatDataVersion(analysis.dataVersion)],
-      ["Detection reason", analysis.detectionReason || "Unavailable"],
-      ["Parse backend", analysis.parseBackend || "Unavailable"],
-      [
-        "Map size",
-        formatNumber(analysis.mapDimension) + " x " + formatNumber(analysis.mapDimension),
-      ],
+      ["Era", formatEra(analysis)],
+      ["Container", analysis.containerFormat || "—"],
+      ["Data", formatDataVersion(analysis.dataVersion)],
+      ["Detection reason", analysis.detectionReason || "—"],
+      ["Parse backend", analysis.parseBackend || "—"],
+      ["Map size", formatMapSize(analysis.mapDimension)],
       ["Terrain tiles", formatNumber(analysis.tileCount)],
       ["Player objects", formatNumber(analysis.playerObjectCount)],
       ["Gaia objects", formatNumber(analysis.gaiaObjectCount)],
@@ -125,14 +142,14 @@
       .map(function (player) {
         var startText = player.startPosition
           ? player.startPosition.x + ", " + player.startPosition.y
-          : "Unavailable";
+          : "—";
         return (
           '<div class="analysis-player">' +
           "<div><strong>Slot</strong><span>" +
           escapeHtml(player.slot) +
           "</span></div>" +
           "<div><strong>Name</strong><span>" +
-          escapeHtml(player.name || "Unknown") +
+          escapeHtml(player.name || "—") +
           "</span></div>" +
           "<div><strong>Objects</strong><span>" +
           escapeHtml(formatNumber(player.objectCount)) +
@@ -146,20 +163,8 @@
       .join("");
   }
 
-  function updateActionCounts(rootEl, opts) {
-    if (!rootEl) return;
-    var dlCount = rootEl.querySelector('[data-count="downloads"]');
-    var heartCount = rootEl.querySelector('[data-count="hearts"]');
-    var heartBtn = rootEl.querySelector(".btn--heart.heart-btn");
-    if (dlCount != null && opts.downloads != null) {
-      dlCount.textContent = formatNumber(opts.downloads);
-    }
-    if (heartCount != null && opts.hearts != null) {
-      heartCount.textContent = formatNumber(opts.hearts);
-    }
-    if (heartBtn && opts.viewerHearted != null) {
-      heartBtn.setAttribute("aria-pressed", opts.viewerHearted ? "true" : "false");
-    }
+  function updateActionCounts(_rootEl, _opts) {
+    /* Detail panel no longer shows download/heart counts on action buttons. */
   }
 
   function resolveBrowseTitle(opts) {
@@ -171,14 +176,31 @@
     return title || "—";
   }
 
+  var HOST_UPLOADER = "AOE2M";
+
+  function formatUploaderHtml(uploader, extraClass) {
+    var name = (uploader && String(uploader).trim()) || HOST_UPLOADER;
+    var isHost = name === HOST_UPLOADER;
+    var classes = [extraClass, isHost ? "uploader-host" : ""].filter(Boolean).join(" ");
+    if (classes) {
+      return (
+        '<span class="' +
+        classes +
+        '"' +
+        (isHost ? ' title="Uploaded by the museum"' : "") +
+        ">" +
+        escapeHtml(name) +
+        "</span>"
+      );
+    }
+    return escapeHtml(name);
+  }
+
   function renderBrowseByline(bylineEl, uploader) {
     if (!bylineEl) return;
-    var name = (uploader && String(uploader).trim()) || "Anonymous";
     bylineEl.innerHTML =
       '<span class="scenario-detail-byline-prefix">by</span> ' +
-      '<span class="scenario-detail-byline-name">' +
-      escapeHtml(name) +
-      "</span>";
+      formatUploaderHtml(uploader, "scenario-detail-byline-name");
   }
 
   var BROWSE_TEXT_VIEWS = ["instructions", "hints", "scout"];
@@ -438,7 +460,11 @@
     configureBrowseViews: configureBrowseViews,
     escapeHtml: escapeHtml,
     formatBytes: formatBytes,
-    formatEdition: formatEdition,
+    formatEra: formatEra,
+    formatEdition: formatEra,
+    formatMapSize: formatMapSize,
+    formatUploaderHtml: formatUploaderHtml,
+    HOST_UPLOADER: HOST_UPLOADER,
     renderScenarioDetails: renderScenarioDetails,
     preloadMinimapUrl: preloadMinimapUrl,
     setMinimapFromBuffer: setMinimapFromBuffer,

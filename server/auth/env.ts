@@ -9,4 +9,5 @@ export interface AuthEnv {
   RESEND_FROM: string;
   PUBLIC_BASE_URL: string;
   ADMIN_EMAILS: string;
+  TURNSTILE_SECRET: string;
 }

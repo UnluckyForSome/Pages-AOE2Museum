@@ -5,6 +5,7 @@ import { createKysely } from "./db";
 import { sendEmail } from "./services/email";
 import { cascadeDeleteUser } from "./services/cascade-delete";
 import { getMuseumUsername, MUSEUM_NAME_MAX, MUSEUM_NAME_MIN } from "./services/museum-name";
+import { PRODUCTION_SITE_ORIGINS } from "../site";
 
 export function createAuth(env: AuthEnv) {
   const baseUrl = env.PUBLIC_BASE_URL.replace(/\/$/, "");
@@ -20,16 +21,31 @@ export function createAuth(env: AuthEnv) {
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
+      sendResetPassword: async ({ user, url }) => {
+        const handle = getMuseumUsername(user) ?? "there";
+        await sendEmail(env, {
+          to: user.email,
+          subject: "Reset your AoE2 Museum password",
+          html:
+            `<p>Hi ${handle},</p>` +
+            `<p><a href="${url}">Reset your password</a></p>` +
+            `<p>If you did not request this, you can ignore this email.</p>`,
+        });
+      },
     },
     emailVerification: {
-      sendOnSignUp: true,
-      autoSignInAfterVerification: true,
+      sendOnSignUp: false,
+      autoSignInAfterVerification: false,
       sendVerificationEmail: async ({ user, url }) => {
         const handle = getMuseumUsername(user) ?? "there";
         await sendEmail(env, {
           to: user.email,
           subject: "Verify your AoE2 Museum account",
-          html: `<p>Hi ${handle},</p><p>Click to verify your email:</p><p><a href="${url}">${url}</a></p>`,
+          html:
+            `<p>Hi ${handle},</p>` +
+            `<p>Thanks for joining AoE2 Museum. Click the button below to verify your email address:</p>` +
+            `<p><a href="${url}">Verify email</a></p>` +
+            `<p>If you did not create an account, you can ignore this message.</p>`,
         });
       },
     },
@@ -86,6 +102,8 @@ export function createAuth(env: AuthEnv) {
         displayUsernameNormalization: false,
       }),
     ],
-    trustedOrigins: [baseUrl, "http://localhost:8787", "http://127.0.0.1:8787"],
+    trustedOrigins: [
+      ...new Set([baseUrl, ...PRODUCTION_SITE_ORIGINS, "http://localhost:8787", "http://127.0.0.1:8787"]),
+    ],
   });
 }

@@ -33,43 +33,16 @@ export default {
       "scenarios",
       "campaigns",
       "campaignmanager",
+      "archives",
       "account",
       "originalmods",
       "contact",
       "home",
     ];
 
-    const accept = request.headers.get("accept") || "";
-    const isHtmlRequest =
-      (request.method === "GET" || request.method === "HEAD") &&
-      (accept.includes("text/html") || accept.includes("application/xhtml+xml"));
-    const shellPaths = new Set([
-      "/",
-      "/home",
-      "/home/",
-      "/minimap",
-      "/minimap/",
-      "/gif",
-      "/gif/",
-      "/scenarios",
-      "/scenarios/",
-      "/campaigns",
-      "/campaigns/",
-      "/campaignmanager",
-      "/campaignmanager/",
-      "/account",
-      "/account/",
-      "/originalmods",
-      "/originalmods/",
-      "/contact",
-      "/contact/",
-      "/contact.html",
-    ]);
-
-    if (isHtmlRequest && shellPaths.has(pathname)) {
-      const nextUrl = new URL("/index.html", url);
-      return env.ASSETS.fetch(new Request(nextUrl, request));
-    }
+    // SPA shell routes (/scenarios/, /minimap/, etc.) are served by assets
+    // (not_found_handling: single-page-application). Do not fetch /index.html
+    // via ASSETS here — that triggers a 307 to / and an infinite redirect loop.
 
     for (const p of pagePrefixes) {
       const prefix = "/" + p;

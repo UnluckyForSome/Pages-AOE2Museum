@@ -19,6 +19,8 @@ import { zipSync } from "/modules/fflate/fflate.browser.js";
 // --------------------------------------------------------------------------
 
 (() => {
+  if (document.getElementById("panel-browse")) return;
+
   const locationState = window.Aoe2MuseumLocation || {
     getQueryParam() {
       const hash = (location.hash || "").replace("#", "");
@@ -162,7 +164,7 @@ function setStatus(el, textEl, kind, text) {
   const resultEl   = document.getElementById("extract-result");
   const nameEl     = document.getElementById("extract-campaign-name");
   const metaEl     = document.getElementById("extract-campaign-meta");
-  const tbody      = document.getElementById("campaign-tbody");
+  const tbody      = document.getElementById("extract-scenario-tbody");
   const zipBtn     = document.getElementById("extract-zip-btn");
 
   if (!dropZone || !fileInput) return;

@@ -18,7 +18,7 @@ REM    3. Backfill   - parse unparsed scenarios into D1 + minimaps
 REM
 REM  OPTIONAL ENV VARS:
 REM    SYNC_SECRET       (required) bearer token for POST /api/scenarios/sync
-REM    SITE_URL          default https://aoe2museum.joemcclemont.workers.dev
+REM    SITE_URL          default https://aoe2museum.com
 REM    SKIP_RECONCILE=1  only run steps 2+3 (after a successful reconcile)
 REM
 REM  Run from cmd so you can scroll:  scripts\sync-livescenarios.bat
@@ -51,7 +51,7 @@ if "%SYNC_SECRET%"=="" (
 )
 
 set RCLONE_REMOTE=livescenarios:scenarios
-if not defined SITE_URL set SITE_URL=https://aoe2museum.joemcclemont.workers.dev
+if not defined SITE_URL set SITE_URL=https://aoe2museum.com
 
 echo   R2 via rclone : %RCLONE_REMOTE%
 echo   Worker        : %SITE_URL%

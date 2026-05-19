@@ -7,10 +7,10 @@
     <link rel="apple-touch-icon" href="/assets/img/university.png" />
     <meta name="apple-mobile-web-app-title" content="AOE2M" />
     <link rel="manifest" href="/assets/favicon/site.webmanifest" />
-    <title>Animated GIFs - AoE2 Museum</title>
+    <title>GIF Generator - AoE2 Museum</title>
     <meta
       name="description"
-      content="Render animated GIFs of Age of Empires II unit sprites straight from the original SLP graphics, entirely in your browser."
+      content="Generate custom animated GIFs with Classic and Definitive Edition Age of Empires II units, entirely in your browser."
     />
     <link rel="stylesheet" href="/assets/css/museum.css" />
     <link rel="stylesheet" href="/gif/style.css" />
@@ -55,21 +55,21 @@
       <header class="page-header">
         <div class="page-header__backdrop" aria-hidden="true"></div>
         <div class="page-header__inner">
-          <h1 class="page-title">AoE2 Unit GIFs</h1>
+          <h1 class="page-title">GIF Generator</h1>
 
           <div class="page-intro">
             <p>
-              Pick a unit and an action, choose a facing and player color, then render an
-              animated GIF right in your browser. Both the original game's <code>.slp</code>
-              graphics and the Definitive Edition <code>.sld</code> format are decoded
-              client-side &mdash; nothing is uploaded.
+              Generate your very own custom GIF with both Classic and Definitive Edition units!
             </p>
           </div>
         </div>
       </header>
 
+
       <div class="tabs-bar">
-        <nav class="tabs" role="tablist" aria-label="GIF sources">
+        <div class="tabs-cluster" aria-label="More information about unit GIFs">
+          <div class="tabs-frame">
+            <nav class="tabs" role="tablist" aria-label="GIF sources">
           <button
             class="tab"
             role="tab"
@@ -87,7 +87,21 @@
             data-tab="sld"
           >Definitive Edition</button>
         </nav>
+                      <button type="button" class="tabs-more-info" aria-expanded="false">
+              <span class="tabs-more-info__label">More info</span>
+              <span class="tabs-more-info__chevron" aria-hidden="true"></span>
+            </button></div>
+          <div class="tabs-more-info__shell">
+            <div class="tabs-more-info__inner">
+              <div class="tabs-more-info__body">
+<p>The <strong>Original Game</strong> tab decodes classic <code>.slp</code> sprite files; the <strong>Definitive Edition</strong> tab handles <code>.sld</code> graphics. Pick a unit, action, facing, and player colour, then export an animated GIF.</p>
+            <p>Decoding runs in a Web Worker so the page stays responsive. Frames are assembled in your browser; no unit art is uploaded to the museum servers.</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
 
       <div
         id="statusbar"
@@ -328,13 +342,15 @@
         <p class="muted">Last 20 GIFs contributed site-wide.</p>
         <div id="gif-public-grid" class="gallery-grid"></div>
         <h2 style="margin-top:1.5rem">My Gallery</h2>
-        <p class="muted">Up to 20 saved GIFs per account. <a href="/account/login.html">Sign in</a> required.</p>
+        <p class="muted">Up to 20 saved GIFs per account. <a href="#" data-museum-auth-open>Sign in</a> required.</p>
         <div id="gif-my-grid" class="gallery-grid"></div>
       </section>
     </main>
 
     <footer>AoE2 Museum</footer>
     <script src="/modules/site/museum-nav.js" defer></script>
+    <script src="/modules/site/museum-more-info.js" defer></script>
+    <script src="/modules/site/museum-tabs-pill.js" defer></script>
     <script src="/assets/js/museum-auth.js" defer></script>
     <script src="/gif/gif-galleries.js" defer></script>
     <script type="module" src="/gif/app.js"></script>

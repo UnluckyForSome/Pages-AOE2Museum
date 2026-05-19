@@ -7,10 +7,10 @@
     <link rel="apple-touch-icon" href="/assets/img/university.png" />
     <meta name="apple-mobile-web-app-title" content="AOE2M" />
     <link rel="manifest" href="/assets/favicon/site.webmanifest" />
-    <title>McMinimap - AoE2 Museum</title>
+    <title>Minimap Generator - AoE2 Museum</title>
     <meta
       name="description"
-      content="Render Age of Empires II minimap PNGs entirely in your browser. No uploads for rendering: the AOE2-McMinimap Python renderer runs locally via Pyodide."
+      content="Upload a scenario or recording and generate a minimap instantly. Pull from the scenario archive, Microsoft Mod Workshop, or AoCRec."
     />
     <link rel="stylesheet" href="/assets/css/museum.css" />
     <link rel="stylesheet" href="/minimap/style.css" />
@@ -55,44 +55,74 @@
       <header class="page-header">
         <div class="page-header__backdrop" aria-hidden="true"></div>
         <div class="page-header__inner">
-          <h1 class="page-title">AoE2 McMinimap</h1>
+          <h1 class="page-title">Minimap Generator</h1>
 
           <div class="page-intro">
             <p>
-              Upload a scenario or recording, pick a preset, and render a minimap PNG. Rendering
-              runs entirely in your browser via Pyodide &mdash; nothing is uploaded for rendering.
+              Upload a scenario or recording and generate a minimap instantly! We&rsquo;ve also added
+              the ability to pull a file from our scenario archive, as well as external sources like
+              the Microsoft Mod Workshop or AOCRec!
             </p>
           </div>
         </div>
       </header>
 
       <div class="tabs-bar">
-        <nav class="tabs" role="tablist" aria-label="McMinimap views">
-          <button
-            class="tab"
-            role="tab"
-            id="tab-generate"
-            aria-selected="true"
-            aria-controls="panel-generate"
-            data-tab="generate"
-          >Generate</button>
-          <button
-            class="tab"
-            role="tab"
-            id="tab-gallery"
-            aria-selected="false"
-            aria-controls="panel-gallery"
-            data-tab="gallery"
-          >Public Gallery</button>
-          <button
-            class="tab"
-            role="tab"
-            id="tab-my-gallery"
-            aria-selected="false"
-            aria-controls="panel-my-gallery"
-            data-tab="my-gallery"
-          >My Gallery</button>
-        </nav>
+        <div class="tabs-cluster" aria-label="More information about the minimap generator">
+          <div class="tabs-frame">
+            <nav class="tabs" role="tablist" aria-label="Minimap generator views">
+              <button
+                class="tab"
+                role="tab"
+                id="tab-generate"
+                aria-selected="true"
+                aria-controls="panel-generate"
+                data-tab="generate"
+              >Generate</button>
+              <button
+                class="tab"
+                role="tab"
+                id="tab-gallery"
+                aria-selected="false"
+                aria-controls="panel-gallery"
+                data-tab="gallery"
+              >Public Gallery</button>
+              <button
+                class="tab"
+                role="tab"
+                id="tab-my-gallery"
+                aria-selected="false"
+                aria-controls="panel-my-gallery"
+                data-tab="my-gallery"
+              >My Gallery</button>
+            </nav>
+            <button type="button" class="tabs-more-info" aria-expanded="false">
+              <span class="tabs-more-info__label">More info</span>
+              <span class="tabs-more-info__chevron" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="tabs-more-info__shell">
+            <div class="tabs-more-info__inner">
+              <div class="tabs-more-info__body">
+                <p>
+                  McMinimap wraps the museum&rsquo;s Python renderer (AOE2-McMinimap) in Pyodide so you can
+              turn scenarios and recorded games into PNG minimaps without uploading them for rendering.
+              Choose a preset for terrain emphasis, player colours, and labels, then download or share the result.
+            </p>
+            <p>
+              The <strong>Public Gallery</strong> showcases community renders; <strong>My Gallery</strong>
+              (signed-in) stores your own uploads. You can also open scenarios from the archive, Workshop mods,
+              AoCRec recordings, or Microsoft match replays via the wizards in the Generate tab.
+            </p>
+            <p>
+              First visit loads the Python runtime and packages (progress bar at the top). After that, renders
+              are much faster. Nothing in the render pipeline leaves your browser except gallery posts you choose
+              to publish.
+            </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div
@@ -460,7 +490,7 @@
               </section>
               <section id="mods-wizard-screen-campaign" class="modal__screen mods-wizard-panel" data-mods-step="campaign" hidden>
                 <div class="picker" id="campaign-file-picker">
-                  <p class="hint">This campaign contains multiple scenario files. Select one to load into McMinimap.</p>
+                  <p class="hint">This campaign contains multiple scenario files. Select one to load into the minimap generator.</p>
                   <div class="picker__list-shell">
                     <ul id="campaign-file-list" class="picker__list" role="listbox"></ul>
                   </div>
@@ -597,7 +627,7 @@
               </div>
             </div>
             <div class="picker" id="campaign-standalone-picker">
-              <p class="hint">This campaign contains multiple scenario files. Select one to load into McMinimap.</p>
+              <p class="hint">This campaign contains multiple scenario files. Select one to load into the minimap generator.</p>
               <div class="picker__list-shell">
                 <ul id="campaign-standalone-list" class="picker__list" role="listbox"></ul>
               </div>
@@ -632,7 +662,7 @@
         <div class="gallery-head">
           <div>
             <h2>My Gallery</h2>
-            <p>Your saved minimaps (up to 20). <a href="/account/login.html">Sign in</a> required.</p>
+            <p>Your saved minimaps (up to 20). <a href="#" data-museum-auth-open>Sign in</a> required.</p>
           </div>
           <button type="button" id="my-gallery-refresh" class="linklike">Refresh</button>
         </div>
@@ -643,8 +673,12 @@
     <footer>AoE2 Museum</footer>
 
     <script src="/modules/site/museum-nav.js" defer></script>
+    <script src="/modules/site/museum-more-info.js" defer></script>
+    <script src="/modules/site/museum-tabs-pill.js" defer></script>
     <script src="/assets/js/museum-auth.js" defer></script>
     <script src="/minimap/my-gallery.js" defer></script>
     <script type="module" src="/minimap/app.js"></script>
   </body>
 </html>
+
+

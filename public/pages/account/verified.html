@@ -3,13 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Verify email - AoE2 Museum</title>
+    <title>Email verified - AoE2 Museum</title>
     <link rel="stylesheet" href="/assets/css/museum.css" />
     <script>
-      (function () {
-        var q = window.location.search || "";
-        window.location.replace("/account/check-email.html" + q);
-      })();
+      window.location.replace("/?museum-auth=verified");
     </script>
   </head>
   <body>

@@ -49,17 +49,20 @@
 
 
   function villagerIcon(src) {
-
     return (
-
-      '<img class="site-nav__villager-icon" src="' +
-
+      '<img class="site-nav__logo-mark site-nav__auth-mark" src="' +
       src +
-
-      '" alt="" width="32" height="32" decoding="async" />'
-
+      '" alt="" width="36" height="36" decoding="async" />'
     );
+  }
 
+  function authBrandMarkup(label, extraClass) {
+    return (
+      '<span class="site-nav__auth-text">' +
+      escapeHtml(label) +
+      "</span>" +
+      villagerIcon(extraClass === "signed-in" ? VILLAGER_NORMAL : VILLAGER_DISABLED)
+    );
   }
 
 
@@ -72,19 +75,51 @@
 
 
 
+  function ensureAuthModalScript() {
+    if (window.MuseumAuthModal) return Promise.resolve();
+    return new Promise(function (resolve, reject) {
+      if (document.querySelector('script[src="/modules/site/museum-auth-modal.js"]')) {
+        const wait = function () {
+          if (window.MuseumAuthModal) resolve();
+          else setTimeout(wait, 40);
+        };
+        wait();
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = "/modules/site/museum-auth-modal.js";
+      script.defer = true;
+      script.onload = function () {
+        resolve();
+      };
+      script.onerror = function () {
+        reject(new Error("Auth modal failed to load"));
+      };
+      document.body.appendChild(script);
+    });
+  }
+
+  async function openLoginModal(opts) {
+    try {
+      await ensureAuthModalScript();
+      await window.MuseumAuthModal.open(opts || {});
+    } catch (err) {
+      console.error("[museum-auth] login modal:", err);
+      window.location.href = "/account/login.html";
+    }
+  }
+
   function placeAuth() {
 
     const wrap = document.querySelector(".site-nav__auth");
 
-    const bar = document.querySelector(".site-nav__bar");
+    const actions = document.querySelector(".site-nav__actions");
 
     const drawer = document.getElementById("site-nav-menu");
 
-    const links = drawer?.querySelector(".site-nav__links");
+    const links = drawer?.querySelector(".site-nav__links--mobile");
 
-    const toggle = bar?.querySelector(".site-nav__toggle");
-
-    if (!wrap || !bar || !drawer || !links) return;
+    if (!wrap || !drawer || !links) return;
 
 
 
@@ -92,13 +127,9 @@
 
       drawer.insertBefore(wrap, links);
 
-    } else if (toggle) {
+    } else if (actions) {
 
-      bar.insertBefore(wrap, toggle);
-
-    } else {
-
-      bar.appendChild(wrap);
+      actions.appendChild(wrap);
 
     }
 
@@ -128,13 +159,11 @@
 
       wrap.innerHTML =
 
-        '<a href="/account/login.html" class="site-nav__sign-in-btn">' +
+        '<button type="button" class="site-nav__auth-brand site-nav__auth-entry" data-museum-auth-open aria-label="Sign in">' +
 
-        '<span class="site-nav__sign-in-label">Sign In</span>' +
+        authBrandMarkup("Sign In", "signed-out") +
 
-        villagerIcon(VILLAGER_DISABLED) +
-
-        "</a>";
+        "</button>";
 
     } else {
 
@@ -142,33 +171,27 @@
 
       wrap.innerHTML =
 
-        '<details class="site-nav__account-menu">' +
+        '<div class="site-nav__item site-nav__item--has-menu site-nav__item--account">' +
 
-        '<summary class="site-nav__account-trigger" aria-label="Account menu for ' +
+        '<button type="button" class="site-nav__auth-brand site-nav__trigger" id="site-nav-trigger-account" aria-haspopup="true" aria-expanded="false" aria-controls="site-nav-menu-account" aria-label="Account menu for ' +
 
         escapeHtml(name) +
 
         '">' +
 
-        '<span class="site-nav__account-name">' +
+        authBrandMarkup(name, "signed-in") +
 
-        escapeHtml(name) +
+        "</button>" +
 
-        "</span>" +
+        '<ul class="site-nav__menu" id="site-nav-menu-account" role="menu" aria-labelledby="site-nav-trigger-account" hidden>' +
 
-        villagerIcon(VILLAGER_NORMAL) +
+        '<li role="none"><a role="menuitem" href="/account/profile.html">My Account</a></li>' +
 
-        "</summary>" +
+        '<li role="none"><a role="menuitem" href="/minimap/#my-gallery">My Gallery</a></li>' +
 
-        '<div class="site-nav__account-dropdown">' +
+        '<li role="none"><button type="button" role="menuitem" class="site-nav__sign-out-btn" id="museum-sign-out">Sign out</button></li>' +
 
-        '<a href="/account/profile.html">My Account</a>' +
-
-        '<a href="/minimap/#my-gallery">My Gallery</a>' +
-
-        '<button type="button" class="site-nav__sign-out-btn" id="museum-sign-out">Sign out</button>' +
-
-        "</div></details>";
+        "</ul></div>";
 
 
 
@@ -180,11 +203,20 @@
 
       }
 
+      const flyout = wrap.querySelector(".site-nav__item--has-menu");
+
+      if (flyout && window.MuseumNav && typeof window.MuseumNav.bindFlyoutMenu === "function") {
+
+        window.MuseumNav.bindFlyoutMenu(flyout);
+
+      }
+
     }
 
 
 
-    bar.appendChild(wrap);
+    const actions = document.querySelector(".site-nav__actions");
+    (actions || bar).appendChild(wrap);
 
     placeAuth();
 
@@ -280,6 +312,44 @@
 
 
 
+  function handleAuthQueryParams() {
+    const params = new URLSearchParams(window.location.search);
+    const auth = params.get("museum-auth");
+    if (!auth) return;
+
+    const message = params.get("message");
+    const email = params.get("email") || "";
+    params.delete("museum-auth");
+    params.delete("message");
+    params.delete("email");
+    const qs = params.toString();
+    const nextUrl = window.location.pathname + (qs ? "?" + qs : "") + window.location.hash;
+    window.history.replaceState({}, "", nextUrl);
+
+    if (auth === "verified") {
+      void ensureAuthModalScript().then(function () {
+        window.MuseumAuthModal?.open({ view: "verified-success" });
+      });
+      return;
+    }
+
+    if (auth === "verify-pending" || auth === "verify-error") {
+      void ensureAuthModalScript().then(function () {
+        window.MuseumAuthModal?.open({
+          view: "verify-pending",
+          email: email || undefined,
+        });
+        if (auth === "verify-error") {
+          const msg = document.getElementById("museum-auth-verify-msg");
+          if (msg && message) {
+            msg.textContent = message;
+            msg.className = "form-msg form-msg--err museum-auth-modal__msg";
+          }
+        }
+      });
+    }
+  }
+
   function boot() {
 
     fetchMe().then(function () {
@@ -290,9 +360,41 @@
 
     });
 
+    handleAuthQueryParams();
+
   }
 
 
+
+  function preloadTurnstile() {
+    if (document.querySelector('script[src="/modules/site/museum-turnstile.js"]')) {
+      window.MuseumTurnstile?.load();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "/modules/site/museum-turnstile.js";
+    script.defer = true;
+    script.onload = function () {
+      window.MuseumTurnstile?.load();
+    };
+    document.body.appendChild(script);
+  }
+
+  document.addEventListener("click", function (e) {
+    const opener = e.target.closest("[data-museum-auth-open]");
+    if (!opener) return;
+    e.preventDefault();
+    const view = opener.getAttribute("data-museum-auth-view");
+    const opts = view === "sign-up" || view === "forgot" ? { view: view } : {};
+    void openLoginModal(opts);
+  });
+
+  document.addEventListener("museum-auth-login", function () {
+    void fetchMe().then(function () {
+      clearAuthUi();
+      injectAuth();
+    });
+  });
 
   window.MuseumAuth = {
 
@@ -306,17 +408,23 @@
 
     signOut: onSignOut,
 
+    openLoginModal: openLoginModal,
+
   };
 
 
 
   if (document.readyState === "loading") {
 
-    document.addEventListener("DOMContentLoaded", boot);
+    document.addEventListener("DOMContentLoaded", function () {
+      boot();
+      preloadTurnstile();
+    });
 
   } else {
 
     boot();
+    preloadTurnstile();
 
   }
 

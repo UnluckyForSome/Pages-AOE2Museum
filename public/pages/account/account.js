@@ -19,43 +19,62 @@ document.addEventListener("DOMContentLoaded", async function () {
   const msg = document.getElementById("account-msg");
 
   if (page === "signup") {
-    document.getElementById("signup-form")?.addEventListener("submit", async function (e) {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      const museumName = String(fd.get("museum_name") || "").trim();
-      const { res, data } = await api("/api/auth/sign-up/email", {
-        method: "POST",
-        body: JSON.stringify({
-          email: fd.get("email"),
-          password: fd.get("password"),
-          name: museumName,
-          username: museumName,
-        }),
-      });
-      if (res.ok) {
-        showMsg(msg, "Account created. Check your email to verify before uploading.", true);
-        e.target.reset();
-      } else {
-        showMsg(msg, data.message || data.error || "Sign up failed", false);
-      }
-    });
+    window.MuseumAuth?.openLoginModal?.({ view: "sign-up" });
   }
 
   if (page === "login") {
-    document.getElementById("login-form")?.addEventListener("submit", async function (e) {
+    window.MuseumAuth?.openLoginModal?.({
+      onSuccess: function () {
+        window.location.href = "/account/profile.html";
+      },
+    });
+  }
+
+  if (page === "reset-password") {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    const error = params.get("error");
+    const intro = document.getElementById("reset-password-intro");
+    const form = document.getElementById("reset-password-form");
+
+    if (error || !token) {
+      if (intro) {
+        intro.textContent =
+          "This reset link is invalid or has expired. Request a new link from the sign-in dialog.";
+      }
+      showMsg(msg, error ? "Reset link expired or invalid." : "Missing reset token.", false);
+      return;
+    }
+
+    if (form) form.hidden = false;
+
+    form?.addEventListener("submit", async function (e) {
       e.preventDefault();
-      const fd = new FormData(e.target);
-      const { res, data } = await api("/api/auth/sign-in/email", {
+      const fd = new FormData(form);
+      const password = String(fd.get("password") || "");
+      const confirm = String(fd.get("password_confirm") || "");
+      if (password !== confirm) {
+        showMsg(msg, "Passwords do not match.", false);
+        return;
+      }
+
+      const { res, data } = await api("/api/auth/reset-password", {
         method: "POST",
         body: JSON.stringify({
-          email: fd.get("email"),
-          password: fd.get("password"),
+          newPassword: password,
+          token: token,
         }),
       });
+
       if (res.ok) {
-        window.location.href = "/account/profile.html";
+        showMsg(msg, "Password updated. You can sign in now.", true);
+        form.hidden = true;
+        if (intro) intro.textContent = "Your password has been updated.";
+        setTimeout(function () {
+          window.MuseumAuth?.openLoginModal?.();
+        }, 800);
       } else {
-        showMsg(msg, data.message || data.error || "Login failed", false);
+        showMsg(msg, data.message || data.error || "Could not reset password", false);
       }
     });
   }
@@ -69,9 +88,15 @@ document.addEventListener("DOMContentLoaded", async function () {
     const u = data.user;
     document.getElementById("profile-name").textContent = u.username || "—";
     document.getElementById("profile-email").textContent = u.email;
-    document.getElementById("profile-verified").textContent = u.emailVerified
-      ? "Verified"
-      : "Not verified — check your inbox";
+    const verifiedEl = document.getElementById("profile-verified");
+    if (u.emailVerified) {
+      verifiedEl.textContent = "Verified";
+    } else {
+      const checkUrl =
+        "/?museum-auth=verify-pending&email=" + encodeURIComponent(u.email || "");
+      verifiedEl.innerHTML =
+        'Not verified — <a href="' + checkUrl + '">verify your email</a>';
+    }
   }
 
   if (page === "delete") {

@@ -8,7 +8,7 @@ Mirror [`livescenarios/`](../livescenarios/) (gitignored) into the **same** R2 b
 2. **Deploy** the Worker (delete handler + sync tombstone purge).
 3. rclone remote → bucket **`scenarios`** (see [`wrangler.jsonc`](../wrangler.jsonc)).
 4. `SYNC_SECRET` for `POST /api/scenarios/sync` — production: `wrangler secret put SYNC_SECRET` (same value in your shell as `set SYNC_SECRET=...`).
-5. Default **`SITE_URL`** is production (`https://aoe2museum.joemcclemont.workers.dev`, see `PUBLIC_BASE_URL` in `wrangler.jsonc`). **No `npm run dev` required.** Use `SITE_URL=http://localhost:8787` only when testing sync against local wrangler dev.
+5. Default **`SITE_URL`** is production (`https://aoe2museum.com`, see `PUBLIC_BASE_URL` in `wrangler.jsonc`). **No `npm run dev` required.** Use `SITE_URL=http://localhost:8787` only when testing sync against local wrangler dev.
 
 ## Pipeline ([`sync-livescenarios.ps1`](sync-livescenarios.ps1) / [`.bat`](sync-livescenarios.bat))
 
@@ -42,7 +42,7 @@ After a successful run: **R2 and D1 match your local folder**, plus any **D1 cat
 ```bash
 npm run db:migrate:scenarios:v5   # once
 python scripts/reconcile-livescenarios.py --root ./livescenarios --rclone-remote livescenarios:scenarios
-curl -X POST -H "Authorization: Bearer $SYNC_SECRET" https://your-site/api/scenarios/sync
+curl -X POST -H "Authorization: Bearer $SYNC_SECRET" https://aoe2museum.com/api/scenarios/sync
 python scripts/backfill-scenario-metadata.py --only-unparsed --local-root ./livescenarios
 ```
 

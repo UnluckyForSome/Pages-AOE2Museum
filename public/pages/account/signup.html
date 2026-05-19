@@ -9,25 +9,10 @@
   <body data-account-page="signup">
     <nav class="site-nav" aria-label="Site"></nav>
     <main class="account-main">
-      <div class="card card--narrow">
-        <h1>Create account</h1>
-        <p class="muted">
-          Your name is permanent (3–20 characters: letters, numbers, underscore). It appears on uploads
-          like <code>Mission1 by YourName.scx</code>. Email verification is required before uploading or hearting.
-        </p>
-        <form id="signup-form" class="stack">
-          <label>Name
-            <input type="text" name="museum_name" required pattern="[A-Za-z0-9_]{3,20}" autocomplete="username" maxlength="20" />
-          </label>
-          <label>Email <input type="email" name="email" required autocomplete="email" /></label>
-          <label>Password <input type="password" name="password" required minlength="8" autocomplete="new-password" /></label>
-          <button type="submit" class="btn">Sign up</button>
-        </form>
-        <p id="account-msg" class="form-msg" role="status"></p>
-        <p><a href="/account/login.html">Already have an account?</a></p>
-      </div>
+      <p class="muted">Opening sign-up…</p>
     </main>
     <script src="/modules/site/museum-nav.js" defer></script>
+    <script src="/modules/site/museum-auth-modal.js" defer></script>
     <script src="/assets/js/museum-auth.js" defer></script>
     <script src="/account/account.js" defer></script>
   </body>

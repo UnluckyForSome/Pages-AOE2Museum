@@ -7,7 +7,7 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "not_found_handling": "404-page"
+    "not_found_handling": "single-page-application"
   },
   "r2_buckets": [
     {
@@ -53,8 +53,8 @@
     "GARAGE_BUCKET_SLP": "slp",
     "GARAGE_BUCKET_SLD": "sld",
     "PARSER_VERIFY_BASE_URL": "https://python.mcclemont.com/api/verify-scenario",
-    "PUBLIC_BASE_URL": "https://aoe2museum.joemcclemont.workers.dev",
-    "RESEND_FROM": "AoE2 Museum <noreply@mcclemont.com>",
+    "PUBLIC_BASE_URL": "https://aoe2museum.com",
+    "RESEND_FROM": "AoE2 Museum <noreply@aoe2museum.com>",
     "ADMIN_EMAILS": "",
     "MY_GALLERY_MAX_PER_KIND": "20"
   },

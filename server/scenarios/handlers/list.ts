@@ -101,7 +101,42 @@ function canViewRow(
   return row.visibility !== "hidden";
 }
 
-function mapFullRow(row: FullRow, viewerId: string | null) {
+type HeartSets = {
+  scenarios: Set<number>;
+  campaigns: Set<number>;
+};
+
+async function loadViewerHeartSets(
+  viewerId: string,
+  env: ScenariosEnv,
+): Promise<HeartSets> {
+  const [scenarioOut, campaignOut] = await Promise.all([
+    env.DB.prepare(
+      "SELECT target_id FROM hearts WHERE user_id = ? AND target_kind = 'scenario'",
+    )
+      .bind(viewerId)
+      .all<{ target_id: number }>(),
+    env.DB.prepare(
+      "SELECT target_id FROM hearts WHERE user_id = ? AND target_kind = 'campaign'",
+    )
+      .bind(viewerId)
+      .all<{ target_id: number }>(),
+  ]);
+  return {
+    scenarios: new Set((scenarioOut.results ?? []).map((r) => r.target_id)),
+    campaigns: new Set((campaignOut.results ?? []).map((r) => r.target_id)),
+  };
+}
+
+function viewerHearted(row: FullRow, hearts: HeartSets | null): boolean {
+  if (!hearts) return false;
+  if (row.kind === "campaign_mirror" && row.campaign_id != null) {
+    return hearts.campaigns.has(row.campaign_id);
+  }
+  return hearts.scenarios.has(row.id);
+}
+
+function mapFullRow(row: FullRow, viewerId: string | null, hearts: HeartSets | null) {
   return {
     id: row.id,
     filename: row.filename,
@@ -123,6 +158,7 @@ function mapFullRow(row: FullRow, viewerId: string | null) {
     is_owner: Boolean(viewerId && row.uploader_id === viewerId),
     has_details: Boolean(row.parsed_at),
     game_era: row.game_era,
+    viewer_hearted: viewerHearted(row, hearts),
   };
 }
 
@@ -197,6 +233,7 @@ export async function handleList(
       is_owner: false,
       has_details: false,
       game_era: null,
+      viewer_hearted: false,
     }));
     if (limit != null) mapped = mapped.slice(0, limit);
     return Response.json(mapped);
@@ -205,7 +242,8 @@ export async function handleList(
   const fullRows = results as FullRow[];
   const filtered = fullRows.filter((row) => canViewRow(row, viewerId, viewerIsAdmin));
 
-  let mapped = filtered.map((row) => mapFullRow(row, viewerId));
+  const heartSets = viewerId ? await loadViewerHeartSets(viewerId, env) : null;
+  let mapped = filtered.map((row) => mapFullRow(row, viewerId, heartSets));
   if (limit != null) mapped = mapped.slice(0, limit);
 
   return Response.json(mapped);

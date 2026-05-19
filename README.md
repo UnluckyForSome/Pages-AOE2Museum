@@ -89,7 +89,7 @@ Secrets (set with `wrangler secret put <NAME>` against this Worker):
 | `RESEND_API_KEY`    | Resend API key for verification emails (free tier: 100/day). |
 | `PARSER_VERIFY_TOKEN` | Bearer token for the remote scenario verifier. |
 
-Vars in `wrangler.jsonc`: `PUBLIC_BASE_URL`, `RESEND_FROM`, `ADMIN_EMAILS` (comma-separated admin emails), `MY_GALLERY_MAX_PER_KIND` (default `20`).
+Vars in `wrangler.jsonc`: `PUBLIC_BASE_URL` (production: `https://aoe2museum.com`), `RESEND_FROM` (e.g. `noreply@aoe2museum.com`), `ADMIN_EMAILS` (comma-separated admin emails), `MY_GALLERY_MAX_PER_KIND` (default `20`).
 
 One-time setup (already done for the production account; repeat per account):
 

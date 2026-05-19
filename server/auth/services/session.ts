@@ -28,7 +28,9 @@ export async function getSession(
   const u = session.user as typeof session.user & {
     username?: string | null;
     name?: string | null;
+    emailVerified?: boolean;
   };
+  if (!u.emailVerified) return null;
   const handle = getMuseumUsername(u);
   if (!handle) return null;
   return {

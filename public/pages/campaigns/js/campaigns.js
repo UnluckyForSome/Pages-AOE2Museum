@@ -5,17 +5,44 @@ function turnstileSitekey() {
   return h === "localhost" || h === "127.0.0.1" ? TURNSTILE_SITEKEY_DEV : TURNSTILE_SITEKEY_PROD;
 }
 
+const PANEL_IDS = ["browse", "upload", "extract", "pack"];
+
+function selectTab(name) {
+  if (!PANEL_IDS.includes(name)) name = "browse";
+  document.querySelectorAll(".tabs .tab").forEach((t) => {
+    t.setAttribute("aria-selected", t.dataset.tab === name ? "true" : "false");
+  });
+  PANEL_IDS.forEach((id) => {
+    const el = document.getElementById("panel-" + id);
+    if (el) el.hidden = id !== name;
+  });
+}
+
+function tabFromHash() {
+  const hash = (location.hash || "").replace(/^#/, "");
+  if (PANEL_IDS.includes(hash)) return hash;
+  return "browse";
+}
+
+function setHashForTab(name) {
+  const path = location.pathname.replace(/\/campaignmanager\/?$/, "/campaigns/");
+  if (name === "extract" || name === "pack") {
+    history.replaceState(null, "", path + "#" + name);
+  } else {
+    history.replaceState(null, "", path);
+  }
+}
+
 document.querySelectorAll(".tabs .tab").forEach((tab) => {
   tab.addEventListener("click", () => {
-    document.querySelectorAll(".tabs .tab").forEach((t) => {
-      t.setAttribute("aria-selected", "false");
-    });
-    tab.setAttribute("aria-selected", "true");
     const name = tab.dataset.tab;
-    document.getElementById("panel-browse").hidden = name !== "browse";
-    document.getElementById("panel-upload").hidden = name !== "upload";
+    selectTab(name);
+    setHashForTab(name);
   });
 });
+
+selectTab(tabFromHash());
+window.addEventListener("hashchange", () => selectTab(tabFromHash()));
 
 function esc(s) {
   const el = document.createElement("span");
@@ -25,6 +52,7 @@ function esc(s) {
 
 async function loadCampaigns() {
   const tbody = document.getElementById("campaign-body");
+  if (!tbody) return;
   try {
     const res = await fetch("/api/campaigns", { credentials: "include" });
     const rows = await res.json();
@@ -41,8 +69,7 @@ async function loadCampaigns() {
           `<td>${esc((c.uploaded_at || "").slice(0, 10))}</td></tr>`,
       )
       .join("");
-    document.getElementById("campaign-stats").textContent =
-      rows.length + " campaign(s)";
+    document.getElementById("campaign-stats").textContent = rows.length + " campaign(s)";
   } catch {
     tbody.innerHTML = '<tr><td colspan="5">Failed to load.</td></tr>';
   }
@@ -86,7 +113,9 @@ document.getElementById("campaign-upload-form")?.addEventListener("submit", asyn
     window.turnstile?.reset(turnstileWidget);
     loadCampaigns();
   } else {
-    status.textContent = data.error || (data.conflicts ? "Filename conflicts: " + data.conflicts.join(", ") : "Upload failed");
+    status.textContent =
+      data.error ||
+      (data.conflicts ? "Filename conflicts: " + data.conflicts.join(", ") : "Upload failed");
     status.className = "form-msg form-msg--err";
   }
 });

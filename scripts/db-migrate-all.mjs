@@ -15,6 +15,7 @@ const flag = local ? "--local" : "--remote";
 
 const MIGRATIONS = [
   "server/auth/db/schema.sql",
+  "server/auth/db/pending-signup.sql",
   "server/scenarios/db/alter-v2.sql",
   "server/scenarios/db/alter-v3.sql",
   "server/scenarios/db/alter-v4.sql",

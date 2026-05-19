@@ -14,7 +14,21 @@ function normaliseStyleUrl(url) {
 }
 
 function shouldSkipScript(src) {
-  return src === "/modules/site/museum-nav.js" || src === "/modules/site/location-state.js";
+  return (
+    src === "/modules/site/museum-nav.js" ||
+    src === "/modules/site/location-state.js" ||
+    src === "/modules/site/museum-tabs-pill.js" ||
+    src === "/modules/site/museum-more-info.js" ||
+    src === "/modules/site/museum-auth-modal.js"
+  );
+}
+
+function runExhibitChrome(root) {
+  requestAnimationFrame(function () {
+    window.MuseumMoreInfo?.collapseAll(root);
+    window.MuseumTabsPill?.boot();
+    window.MuseumMoreInfo?.boot();
+  });
 }
 
 async function ensureStyle(href) {
@@ -118,6 +132,7 @@ export function createLegacyPageRoute(config) {
       await ensureScript(script);
     }
 
+    runExhibitChrome(rootEl);
     initialized = true;
   }
 
@@ -130,6 +145,7 @@ export function createLegacyPageRoute(config) {
       }
       slots.view.replaceChildren(rootEl);
       slots.footer.replaceChildren(footerEl);
+      runExhibitChrome(rootEl);
       return meta;
     },
   };

@@ -59,7 +59,7 @@ param(
 )
 
 # Keep in sync with PUBLIC_BASE_URL in wrangler.jsonc
-$DefaultSiteUrl = "https://aoe2museum.joemcclemont.workers.dev"
+$DefaultSiteUrl = "https://aoe2museum.com"
 
 function Write-StageBanner {
   param(

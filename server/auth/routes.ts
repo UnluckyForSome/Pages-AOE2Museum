@@ -1,6 +1,11 @@
 import type { AuthEnv } from "./env";
 import { createAuth } from "./auth";
+import { routePendingSignup } from "./handlers/pending-signup";
 import { getSession } from "./services/session";
+import {
+  isTurnstileProtectedAuthPath,
+  verifyAuthTurnstileOrError,
+} from "./services/turnstile-guard";
 import { json } from "../http/json";
 
 export async function routeAuth(
@@ -8,10 +13,20 @@ export async function routeAuth(
   env: AuthEnv,
   pathname: string,
 ): Promise<Response | null> {
+  let authRequest = request;
+  if (isTurnstileProtectedAuthPath(pathname, request.method)) {
+    const turnstile = await verifyAuthTurnstileOrError(request, env);
+    if (!turnstile.ok) return turnstile.response;
+    authRequest = turnstile.request;
+  }
+
+  const pending = await routePendingSignup(authRequest, env, pathname);
+  if (pending) return pending;
+
   if (pathname.startsWith("/api/auth")) {
     try {
       const auth = createAuth(env);
-      return auth.handler(request);
+      return auth.handler(authRequest);
     } catch (err) {
       console.error("[auth] handler failed:", err);
       return json(

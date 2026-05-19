@@ -7,7 +7,7 @@
     <link rel="apple-touch-icon" href="/assets/img/university.png" />
     <meta name="apple-mobile-web-app-title" content="AOE2M" />
     <link rel="manifest" href="/assets/favicon/site.webmanifest" />
-    <title>Scenarios - AoE2 Museum</title>
+    <title>Custom Scenario Archive - AoE2 Museum</title>
     <meta
       name="description"
       content="A community archive of Age of Empires II custom scenarios. Browse, filter and download thousands of maps, and contribute your own saves."
@@ -56,38 +56,59 @@
       <header class="page-header">
         <div class="page-header__backdrop" aria-hidden="true"></div>
         <div class="page-header__inner">
-          <h1 class="page-title">AoE2 Scenarios</h1>
+          <h1 class="page-title">Custom Scenario Archive</h1>
+          <div class="page-intro">
+            <p>Browse, download, and contribute to a community archive of custom Age of Empires II scenarios.</p>
+          </div>
         </div>
       </header>
 
       <div class="tabs-bar">
-        <nav class="tabs" role="tablist" aria-label="Scenarios views">
-          <button
-            class="tab"
-            role="tab"
-            id="tab-archive"
-            aria-selected="true"
-            aria-controls="panel-archive"
-            data-tab="archive"
-          >Archive</button>
-          <button
-            class="tab"
-            role="tab"
-            id="tab-contribute"
-            aria-selected="false"
-            aria-controls="panel-contribute"
-            data-tab="contribute"
-          >Contribute</button>
-          <button
-            class="tab"
-            role="tab"
-            id="tab-analyse"
-            aria-selected="false"
-            aria-controls="panel-analyse"
-            data-tab="analyse"
-          >Analyse</button>
-        </nav>
+        <div class="tabs-cluster" aria-label="More information about the scenario archive">
+          <div class="tabs-frame">
+            <nav class="tabs" role="tablist" aria-label="Scenarios views">
+              <button
+                class="tab"
+                role="tab"
+                id="tab-archive"
+                aria-selected="true"
+                aria-controls="panel-archive"
+                data-tab="archive"
+              >Archive</button>
+              <button
+                class="tab"
+                role="tab"
+                id="tab-contribute"
+                aria-selected="false"
+                aria-controls="panel-contribute"
+                data-tab="contribute"
+              >Contribute</button>
+              <button
+                class="tab"
+                role="tab"
+                id="tab-analyse"
+                aria-selected="false"
+                aria-controls="panel-analyse"
+                data-tab="analyse"
+              >Analyse</button>
+            </nav>
+            <button type="button" class="tabs-more-info" aria-expanded="false">
+              <span class="tabs-more-info__label">More info</span>
+              <span class="tabs-more-info__chevron" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="tabs-more-info__shell">
+            <div class="tabs-more-info__inner">
+              <div class="tabs-more-info__body">
+<p>For decades, the Age of Empires II community has crafted thousands of unique custom scenarios. Sadly, many have vanished&mdash;lost across old forums, broken links, and forgotten websites.</p>
+            <p>AOE2Museum aims to preserve as many creations as we can, ensuring they remain accessible and playable for years to come. As far as we know, this is the largest collection of AoE2 scenarios on the web.</p>
+            <p>Got scenarios saved somewhere? Open <strong>Contribute</strong> to upload <code>.scn</code>, <code>.scx</code>, or <code>.aoe2scenario</code> files (verified account required). The <strong>Analyse</strong> tab runs the museum parser and minimap renderer entirely in your browser.</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
+
 
       <!-- Archive tab ----------------------------------------------------- -->
       <section
@@ -96,24 +117,6 @@
         role="tabpanel"
         aria-labelledby="tab-archive"
       >
-        <div class="page-intro">
-          <p>
-            For decades, the Age of Empires II community has crafted thousands of unique custom
-            scenarios. Sadly, many of these have vanished&mdash;lost across old forums, broken
-            links, and forgotten websites.
-          </p>
-          <p>
-            The AOE2Museum aims to preserve as many creations as we can, ensuring they remain
-            accessible and playable for years to come. As far as we know, this is the largest
-            collection of AoE2 scenarios on the web. Have fun!
-          </p>
-          <p>
-            Got some scenarios saved somewhere? Please 
-            <a href="#contribute" data-tab-link="contribute">Contribute</a> them. Every upload
-            helps safeguard a piece of the game's creative legacy!
-          </p>
-        </div>
-
         <div class="archive-stats" id="archive-stats">
           <span id="stats-text"></span>
         </div>
@@ -122,15 +125,15 @@
           type="search"
           id="filter"
           class="filter-box"
-          placeholder="Filter by name..."
+          placeholder="Filter by Title..."
         />
 
         <table class="scenario-table scenario-table--compact">
           <thead>
             <tr>
-              <th data-sort="display_name" class="sortable col-name asc active">Scenario Name</th>
+              <th data-sort="display_name" class="sortable col-name asc active">Title</th>
               <th data-sort="uploader" class="sortable col-uploader">Uploader</th>
-              <th data-sort="game_era" class="sortable col-version">Version</th>
+              <th data-sort="game_era" class="sortable col-era">Era</th>
               <th data-sort="downloads" class="sortable col-dls">Downloads</th>
               <th data-sort="hearts_count" class="sortable col-hearts">Hearts</th>
             </tr>
@@ -157,7 +160,7 @@
         hidden
       >
         <div class="card card--narrow upload-intro" id="upload-intro">
-          <p>Contributions require a <a href="/account/signup.html">free account</a> with verified email. Campaign uploads use the <a href="/campaigns/">Campaigns</a> page.</p>
+          <p>Contributions require a <a href="#" data-museum-auth-open data-museum-auth-view="sign-up">free account</a> with verified email. Campaign uploads use the <a href="/campaigns/">Campaigns</a> page.</p>
           <p>Contributions to this archive are most welcome &mdash; so many user creations have been lost to time!</p>
           <p>
             <code>.scn</code>, <code>.scx</code> and <code>.aoe2scenario</code> files are
@@ -284,6 +287,8 @@
     </footer>
 
     <script src="/modules/site/museum-nav.js" defer></script>
+    <script src="/modules/site/museum-more-info.js" defer></script>
+    <script src="/modules/site/museum-tabs-pill.js" defer></script>
     <script src="/assets/js/museum-auth.js" defer></script>
     <script type="module" src="/modules/app-shell/shared-pyodide-service.js"></script>
     <script src="/scenarios/js/scenario-details-render.js" defer></script>
@@ -292,3 +297,4 @@
     <script src="/scenarios/js/upload.js" defer></script>
   </body>
 </html>
+

@@ -9,18 +9,10 @@
   <body data-account-page="login">
     <nav class="site-nav" aria-label="Site"></nav>
     <main class="account-main">
-      <div class="card card--narrow">
-        <h1>Sign in</h1>
-        <form id="login-form" class="stack">
-          <label>Email <input type="email" name="email" required autocomplete="email" /></label>
-          <label>Password <input type="password" name="password" required autocomplete="current-password" /></label>
-          <button type="submit" class="btn">Sign in</button>
-        </form>
-        <p id="account-msg" class="form-msg" role="status"></p>
-        <p><a href="/account/signup.html">Create an account</a></p>
-      </div>
+      <p class="muted">Opening sign-in…</p>
     </main>
     <script src="/modules/site/museum-nav.js" defer></script>
+    <script src="/modules/site/museum-auth-modal.js" defer></script>
     <script src="/assets/js/museum-auth.js" defer></script>
     <script src="/account/account.js" defer></script>
   </body>

@@ -26,6 +26,8 @@
     "db:migrate:scenarios:v6:local": "wrangler d1 execute scenarios --file=server/scenarios/db/alter-v6-game-era.sql --local",
     "db:migrate:auth": "wrangler d1 execute scenarios --file=server/auth/db/schema.sql --remote",
     "db:migrate:auth:local": "wrangler d1 execute scenarios --file=server/auth/db/schema.sql --local",
+    "db:migrate:auth:pending": "wrangler d1 execute scenarios --file=server/auth/db/pending-signup.sql --remote",
+    "db:migrate:auth:pending:local": "wrangler d1 execute scenarios --file=server/auth/db/pending-signup.sql --local",
     "db:migrate:auth:unify-name": "wrangler d1 execute scenarios --file=server/auth/db/migrate-unify-name.sql --remote",
     "db:migrate:auth:unify-name:local": "wrangler d1 execute scenarios --file=server/auth/db/migrate-unify-name.sql --local",
     "db:migrate:campaigns": "wrangler d1 execute scenarios --file=server/campaigns/db/schema.sql --remote",

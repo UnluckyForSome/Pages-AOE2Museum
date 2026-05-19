@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../Forks/AoE2ScenarioParser"
+		},
+		{
+			"path": "../../Public/AOE2-McGenieSCX"
+		},
+		{
+			"path": "../../Public/AOE2-McMinimap"
+		}
+	],
+	"settings": {}
+}

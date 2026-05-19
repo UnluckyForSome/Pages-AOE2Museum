@@ -34,9 +34,9 @@ const routeTable = [
     load: () => import("/modules/app-shell/routes/gif.js"),
   },
   {
-    key: "campaignmanager",
-    paths: ["/campaignmanager", "/campaignmanager/"],
-    load: () => import("/modules/app-shell/routes/campaignmanager.js"),
+    key: "campaigns",
+    paths: ["/campaigns", "/campaigns/", "/campaignmanager", "/campaignmanager/"],
+    load: () => import("/modules/app-shell/routes/campaigns.js"),
   },
   {
     key: "originalmods",
@@ -74,7 +74,7 @@ function setActiveNav(routeKey) {
     window.MuseumNav.setActiveRouteKey(routeKey);
     return;
   }
-  document.querySelectorAll(".site-nav__links a[data-route-key]").forEach((link) => {
+  document.querySelectorAll("[data-route-key]").forEach((link) => {
     if (link.getAttribute("data-route-key") === routeKey) {
       link.setAttribute("aria-current", "page");
     } else {
@@ -121,6 +121,7 @@ function showLoading(routeKey) {
 
 async function renderCurrentRoute() {
   const token = ++navigationToken;
+  window.MuseumMoreInfo?.collapseAll();
   const route = resolveRoute(window.location.pathname);
   showLoading(route.key);
   const routeModule = await getRouteModule(route);

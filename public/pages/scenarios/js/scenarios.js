@@ -17,6 +17,7 @@
   const expandedIds = new Set();
   let userCollapsed = false;
   const detailsCache = new Map();
+  const pendingHearts = new Set();
 
   function formatSize(bytes) {
     if (bytes < 1024) return bytes + ' B';
@@ -36,23 +37,67 @@
     return i > 0 ? name.slice(i) : '.scx';
   }
 
+  const ERA_META = {
+    aoe: { icon: 'aoe.png', label: 'AOE' },
+    aok: { icon: 'aok.png', label: 'AOK' },
+    aoc: { icon: 'aoc.png', label: 'AOC' },
+    hd: { icon: 'hd.png', label: 'HD' },
+    de: { icon: 'de.png', label: 'DE' },
+  };
+
+  function resolveGameEra(scenario, analysis) {
+    if (analysis && analysis.gameEra) return analysis.gameEra;
+    if (scenario && scenario.game_era) return scenario.game_era;
+    if (analysis && analysis.isDefinitiveEdition) return 'de';
+    return null;
+  }
+
   function isDeScenario(scenario, analysis) {
-    const era =
-      (analysis && analysis.gameEra) ||
-      scenario.game_era ||
-      (analysis && analysis.isDefinitiveEdition ? 'de' : null);
-    return era === 'de';
+    return resolveGameEra(scenario, analysis) === 'de';
+  }
+
+  function btnEraIconHtml(gameEra) {
+    if (!gameEra || !ERA_META[gameEra]) return '';
+    const m = ERA_META[gameEra];
+    return (
+      '<img class="btn-era-icon" src="/scenarios/img/' +
+      m.icon +
+      '" alt="' +
+      escapeHtml(m.label) +
+      '" title="' +
+      escapeHtml(m.label) +
+      '" width="20" height="20">'
+    );
   }
 
   const CONVERT_DE_BTN_INNER =
     '<span class="btn-convert-progress" aria-hidden="true"></span>' +
+    '<img class="btn-era-icon" src="/scenarios/img/de.png" alt="DE" title="DE" width="20" height="20">' +
     '<span class="btn-label">Convert to DE</span>';
+
+  function downloadButtonHtml(scenario, analysis) {
+    return (
+      '<a class="btn btn--pill btn--download" href="/api/scenarios/download/' +
+      scenario.id +
+      '">' +
+      btnEraIconHtml(resolveGameEra(scenario, analysis)) +
+      '<span class="btn-label">Download</span></a>'
+    );
+  }
+
+  function lerpConvertPct(lo, hi, value, valueLo, valueHi) {
+    const span = valueHi - valueLo;
+    const t = span > 0 ? (value - valueLo) / span : 1;
+    return Math.round(lo + Math.max(0, Math.min(1, t)) * (hi - lo));
+  }
 
   function setConvertDeProgress(btn, pct, label) {
     if (!btn) return;
     const fill = btn.querySelector('.btn-convert-progress');
     if (typeof pct === 'number' && Number.isFinite(pct)) {
-      const clamped = Math.max(0, Math.min(100, pct));
+      const prev = Number(btn.dataset.convertPct || '0');
+      const clamped = Math.max(prev, Math.max(0, Math.min(100, pct)));
+      btn.dataset.convertPct = String(clamped);
       btn.style.setProperty('--convert-progress', clamped + '%');
       if (fill) fill.style.width = clamped + '%';
       btn.setAttribute('aria-valuenow', String(Math.round(clamped)));
@@ -68,6 +113,7 @@
     btn.disabled = false;
     btn.classList.remove('is-converting');
     btn.removeAttribute('aria-valuenow');
+    delete btn.dataset.convertPct;
     btn.style.removeProperty('--convert-progress');
     const fill = btn.querySelector('.btn-convert-progress');
     if (fill) fill.style.width = '';
@@ -75,23 +121,33 @@
     if (labelEl) labelEl.textContent = 'Convert to DE';
   }
 
-  function mapConvertDeProgress(msg, afterDownload) {
+  function mapConvertDeProgress(msg) {
     if (!msg) return null;
-    const base = afterDownload ? 14 : 0;
-    if (msg.phase === 'boot' && msg.step && msg.total) {
-      return {
-        pct: Math.round((msg.step / msg.total) * 12),
-        label: msg.message || 'Loading converter\u2026',
-      };
+    if (msg.phase === 'boot') {
+      if (typeof msg.pct === 'number') {
+        return {
+          pct: lerpConvertPct(16, 50, msg.pct, 6, 94),
+          label: msg.message || 'Loading converter\u2026',
+        };
+      }
+      if (msg.step && msg.total) {
+        return {
+          pct: lerpConvertPct(16, 50, msg.step, 1, msg.total),
+          label: msg.message || 'Loading converter\u2026',
+        };
+      }
     }
     if (msg.phase === 'convertDe' && typeof msg.pct === 'number') {
       return {
-        pct: base + Math.round(msg.pct * 0.82),
+        pct: lerpConvertPct(54, 97, msg.pct, 10, 84),
         label: msg.message || 'Converting\u2026',
       };
     }
     if (typeof msg.pct === 'number') {
-      return { pct: Math.min(95, msg.pct), label: msg.message || 'Converting\u2026' };
+      return {
+        pct: lerpConvertPct(54, 97, msg.pct, 0, 100),
+        label: msg.message || 'Converting\u2026',
+      };
     }
     if (msg.message) {
       return { pct: null, label: msg.message };
@@ -119,17 +175,9 @@
     return stripExtension(s.original_filename || s.filename);
   }
 
-  const ERA_META = {
-    aoe: { icon: 'aoe.png', label: 'AOE' },
-    aok: { icon: 'aok.png', label: 'AOK' },
-    aoc: { icon: 'aoc.png', label: 'AOC' },
-    hd: { icon: 'hd.png', label: 'HD' },
-    de: { icon: 'de.png', label: 'DE' },
-  };
-
   function eraIcon(gameEra) {
     if (!gameEra || !ERA_META[gameEra]) {
-      return '<span class="era-unknown" title="Version unknown">—</span>';
+      return '<span class="era-unknown" title="Era unknown">—</span>';
     }
     const m = ERA_META[gameEra];
     return (
@@ -257,7 +305,6 @@
   function buildDetailPanelHtml(scenario) {
     const detailId = 'scenario-detail-' + scenario.id;
     const objectivesPanelId = 'scenario-objectives-' + scenario.id;
-    const dl = scenario.downloads || 0;
     const isOpen = expandedIds.has(scenario.id);
     const cached = detailsCache.has(scenario.id);
     return (
@@ -320,13 +367,7 @@
       '</div></div></div>' +
       '<div class="scenario-detail-actions hidden">' +
       '<div class="scenario-detail-actions-row">' +
-      '<a class="btn btn--pill btn--download" href="/api/scenarios/download/' +
-      scenario.id +
-      '">' +
-      '<span class="btn-label">\u2B07\uFE0F Download</span>' +
-      '<span class="btn-count" data-count="downloads">' +
-      dl.toLocaleString() +
-      '</span></a>' +
+      downloadButtonHtml(scenario, null) +
       (scenario.game_era !== 'de'
         ? '<button type="button" class="btn btn--pill btn--convert-de" data-convert-id="' +
           scenario.id +
@@ -344,13 +385,26 @@
     );
   }
 
-  function renderTable(scenarios) {
+  function restorePageScroll(scrollY) {
+    if (!Number.isFinite(scrollY)) return;
+    window.scrollTo(0, scrollY);
+    requestAnimationFrame(function () {
+      window.scrollTo(0, scrollY);
+    });
+  }
+
+  function renderTable(scenarios, options) {
+    const opts = options || {};
+    const preserveScroll = Boolean(opts.preserveScroll);
+    const scrollY = preserveScroll ? window.scrollY : null;
+
     const sorted = sortScenarios(scenarios);
     if (sorted.length === 0) {
       tbody.innerHTML =
         '<tr><td colspan="' + COL_COUNT + '" class="empty-state">No scenarios found.</td></tr>';
       tablePagination.classList.add('hidden');
       expandedIds.clear();
+      if (preserveScroll) restorePageScroll(scrollY);
       return;
     }
 
@@ -372,7 +426,7 @@
         s.id +
         '" data-kind="' +
         escapeHtml(s.kind || 'standalone') +
-        '" role="button" tabindex="0" aria-expanded="' +
+        '" tabindex="0" aria-expanded="' +
         (isOpen ? 'true' : 'false') +
         '" aria-controls="scenario-detail-' +
         s.id +
@@ -383,7 +437,9 @@
         escapeHtml(scenarioDisplayName(s)) +
         '</td>' +
         '<td class="td-uploader">' +
-        escapeHtml(s.uploader || 'Anonymous') +
+        (window.ScenarioDetailsRender?.formatUploaderHtml
+          ? window.ScenarioDetailsRender.formatUploaderHtml(s.uploader)
+          : escapeHtml(s.uploader || 'AOE2M')) +
         '</td>' +
         '<td class="td-version">' +
         eraIcon(s.game_era) +
@@ -393,15 +449,23 @@
         '</td>' +
         '<td class="td-hearts"><button type="button" class="heart-btn" data-heart-id="' +
         s.id +
-        '" data-heart-kind="scenario" title="Heart">♥ ' +
-        (s.hearts_count || 0) +
-        '</button></td></tr>';
+        '" data-heart-kind="scenario" aria-pressed="' +
+        (s.viewer_hearted ? 'true' : 'false') +
+        '" title="' +
+        (s.viewer_hearted ? 'Unlike' : 'Heart') +
+        '">' +
+        '<span class="heart-btn__icon" aria-hidden="true">\u2665</span>' +
+        '<span class="heart-btn__count">' +
+        (s.hearts_count || 0).toLocaleString() +
+        '</span></button></td></tr>';
       html += buildDetailPanelHtml(s);
     }
 
     tbody.innerHTML = html;
 
     updatePaginationUI(sorted.length, slice.length);
+
+    if (preserveScroll) restorePageScroll(scrollY);
 
     if (!userCollapsed && expandedIds.size === 0 && slice.length > 0) {
       void expandRow(slice[0].id);
@@ -474,8 +538,34 @@
     }
 
     if (scenario) {
-      syncConvertDeButton(panel, scenario, data.parsed ? data.analysis : null);
+      const analysis = data.parsed ? data.analysis : null;
+      syncDownloadButton(panel, scenario, analysis);
+      syncConvertDeButton(panel, scenario, analysis);
     }
+  }
+
+  function syncDownloadButton(panel, scenario, analysis) {
+    const dl = panel.querySelector('.btn--download');
+    if (!dl) return;
+    const era = resolveGameEra(scenario, analysis);
+    let icon = dl.querySelector('.btn-era-icon');
+    if (!era || !ERA_META[era]) {
+      if (icon) icon.remove();
+      return;
+    }
+    const m = ERA_META[era];
+    if (!icon) {
+      icon = document.createElement('img');
+      icon.className = 'btn-era-icon';
+      icon.width = 20;
+      icon.height = 20;
+      const label = dl.querySelector('.btn-label');
+      if (label) dl.insertBefore(icon, label);
+      else dl.appendChild(icon);
+    }
+    icon.src = '/scenarios/img/' + m.icon;
+    icon.alt = m.label;
+    icon.title = m.label;
   }
 
   function syncConvertDeButton(panel, scenario, analysis) {
@@ -534,20 +624,18 @@
       setConvertDeProgress(btn, 0, 'Convert to DE');
     }
 
-    let afterDownload = false;
     try {
-      setConvertDeProgress(btn, 6, 'Downloading\u2026');
+      setConvertDeProgress(btn, 4, 'Downloading\u2026');
       const dlRes = await fetch('/api/scenarios/download/' + scenarioId, { cache: 'no-store' });
       if (!dlRes.ok) throw new Error('Download failed (HTTP ' + dlRes.status + ')');
       const fileBytes = await dlRes.arrayBuffer();
-      afterDownload = true;
-      setConvertDeProgress(btn, 14, 'Preparing\u2026');
+      setConvertDeProgress(btn, 12, 'Preparing\u2026');
       const ext = scenarioFileExt(scenario);
       const fileName = scenario.original_filename || scenario.filename || 'scenario' + ext;
 
       const outBytes = await pyodide.convertToDe(fileBytes, ext, fileName, {
         onProgress: function (msg) {
-          const mapped = mapConvertDeProgress(msg, afterDownload);
+          const mapped = mapConvertDeProgress(msg);
           if (!mapped) return;
           setConvertDeProgress(btn, mapped.pct != null ? mapped.pct : undefined, mapped.label);
         },
@@ -563,14 +651,64 @@
     }
   }
 
+  async function toggleHeart(scenarioId, heartBtn) {
+    if (pendingHearts.has(scenarioId)) return;
+    pendingHearts.add(scenarioId);
+
+    const s = allScenarios.find((x) => x.id === scenarioId);
+    const wasHearted = Boolean(s?.viewer_hearted);
+    const prevCount = s?.hearts_count ?? 0;
+    const nextHearted = !wasHearted;
+    const nextCount = nextHearted ? prevCount + 1 : Math.max(0, prevCount - 1);
+
+    updateHeartUi(scenarioId, nextHearted, nextCount);
+
+    try {
+      const res = await fetch('/api/hearts', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: heartBtn?.dataset.heartKind || 'scenario',
+          id: scenarioId,
+        }),
+      });
+      if (!res.ok) {
+        updateHeartUi(scenarioId, wasHearted, prevCount);
+        return;
+      }
+      const payload = await res.json();
+      const hearted = Boolean(payload.hearted);
+      const reconciled =
+        hearted === nextHearted
+          ? nextCount
+          : hearted
+            ? prevCount + 1
+            : Math.max(0, prevCount - 1);
+      updateHeartUi(scenarioId, hearted, reconciled);
+    } catch {
+      updateHeartUi(scenarioId, wasHearted, prevCount);
+    } finally {
+      pendingHearts.delete(scenarioId);
+    }
+  }
+
   function updateHeartUi(scenarioId, hearted, heartsCount) {
     const s = allScenarios.find((x) => x.id === scenarioId);
-    if (s) s.hearts_count = heartsCount;
+    if (s) {
+      s.hearts_count = heartsCount;
+      s.viewer_hearted = hearted;
+    }
 
     const row = tbody.querySelector('tr.scenario-row[data-id="' + scenarioId + '"]');
     if (row) {
       const rowBtn = row.querySelector('.heart-btn');
-      if (rowBtn) rowBtn.textContent = '\u2665 ' + heartsCount.toLocaleString();
+      if (rowBtn) {
+        rowBtn.setAttribute('aria-pressed', hearted ? 'true' : 'false');
+        rowBtn.title = hearted ? 'Unlike' : 'Heart';
+        const countEl = rowBtn.querySelector('.heart-btn__count');
+        if (countEl) countEl.textContent = heartsCount.toLocaleString();
+      }
     }
 
     const cached = detailsCache.get(scenarioId);
@@ -707,7 +845,8 @@
     removeScenarioFromList(scenarioId);
   }
 
-  function refresh() {
+  function refresh(options) {
+    const opts = options || {};
     const q = filterInput.value.toLowerCase();
     const filtered = allScenarios.filter((s) => {
       const name = scenarioDisplayName(s).toLowerCase();
@@ -717,7 +856,7 @@
         String(s.uploader || '').toLowerCase().includes(q)
       );
     });
-    renderTable(filtered);
+    renderTable(filtered, { preserveScroll: opts.preserveScroll !== false });
     updateStats(filtered, q.length > 0);
   }
 
@@ -774,36 +913,20 @@
     if (heartBtn) {
       e.stopPropagation();
       if (!window.MuseumAuth?.isVerified?.()) {
-        alert('Sign in with a verified email to heart content.');
+        window.MuseumAuth?.openLoginModal?.();
         return;
       }
       const scenarioId = Number(heartBtn.dataset.heartId);
-      const res = await fetch('/api/hearts', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          kind: heartBtn.dataset.heartKind,
-          id: scenarioId,
-        }),
-      });
-      if (res.ok) {
-        const payload = await res.json();
-        const s = allScenarios.find((x) => x.id === scenarioId);
-        const prev = s?.hearts_count ?? 0;
-        const next = payload.hearted ? prev + 1 : Math.max(0, prev - 1);
-        updateHeartUi(scenarioId, Boolean(payload.hearted), next);
-      }
+      if (!Number.isFinite(scenarioId)) return;
+      void toggleHeart(scenarioId, heartBtn);
       return;
     }
 
     if (e.target.closest('.scenario-detail-cell')) return;
+    if (e.target.closest('button, a, input, select, textarea')) return;
 
     const row = e.target.closest('tr.scenario-row');
-    if (row) {
-      e.preventDefault();
-      await expandRow(Number(row.dataset.id));
-    }
+    if (row) await expandRow(Number(row.dataset.id));
   });
 
   tbody.addEventListener('keydown', (e) => {
@@ -815,7 +938,6 @@
   });
 
   filterInput.addEventListener('input', () => {
-    tableExpanded = false;
     refresh();
   });
 
@@ -837,7 +959,7 @@
       tableExpanded = false;
       userCollapsed = false;
       expandedIds.clear();
-      refresh();
+      refresh({ preserveScroll: false });
     } catch {
       tbody.innerHTML =
         '<tr><td colspan="' + COL_COUNT + '" class="empty-state">Failed to load scenarios.</td></tr>';

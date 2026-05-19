@@ -3,12 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Verify email - AoE2 Museum</title>
+    <title>Check your email - AoE2 Museum</title>
     <link rel="stylesheet" href="/assets/css/museum.css" />
     <script>
       (function () {
-        var q = window.location.search || "";
-        window.location.replace("/account/check-email.html" + q);
+        var params = new URLSearchParams(window.location.search);
+        var email = params.get("email");
+        var target = "/?museum-auth=verify-pending";
+        if (email) target += "&email=" + encodeURIComponent(email);
+        window.location.replace(target);
       })();
     </script>
   </head>

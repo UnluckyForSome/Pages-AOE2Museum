@@ -1,6 +1,3 @@
-import { createLegacyPageRoute } from "/modules/app-shell/legacy-page-route.js";
+import campaignsRoute from "/modules/app-shell/routes/campaigns.js";
 
-export default createLegacyPageRoute({
-  key: "campaignmanager",
-  htmlPath: "/pages/campaignmanager/index.html",
-});
+export default campaignsRoute;

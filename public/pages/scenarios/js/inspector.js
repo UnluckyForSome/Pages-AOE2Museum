@@ -70,12 +70,13 @@
   }
 
   function formatDataVersion(value) {
-    if (typeof value !== "number" || !Number.isFinite(value)) return "Unavailable";
+    if (typeof value !== "number" || !Number.isFinite(value)) return "—";
     return Number(value).toFixed(2);
   }
 
-  function formatEdition(analysis) {
+  function formatEra(analysis) {
     var render = window.ScenarioDetailsRender;
+    if (render && render.formatEra) return render.formatEra(analysis);
     if (render && render.formatEdition) return render.formatEdition(analysis);
     return "—";
   }
@@ -150,11 +151,11 @@
       .map(function (player) {
         var startText = player.startPosition
           ? player.startPosition.x + ", " + player.startPosition.y
-          : "Unavailable";
+          : "—";
         return (
           '<div class="analysis-player">' +
             "<div><strong>Slot</strong><span>" + escapeHtml(player.slot) + "</span></div>" +
-            "<div><strong>Name</strong><span>" + escapeHtml(player.name || "Unknown") + "</span></div>" +
+            "<div><strong>Name</strong><span>" + escapeHtml(player.name || "—") + "</span></div>" +
             "<div><strong>Objects</strong><span>" + escapeHtml(formatNumber(player.objectCount)) + "</span></div>" +
             "<div><strong>Start</strong><span>" + escapeHtml(startText) + "</span></div>" +
           "</div>"
